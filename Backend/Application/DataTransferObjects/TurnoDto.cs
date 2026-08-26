@@ -21,5 +21,6 @@ namespace Application.DataTransferObjects
         public int? SucursalId { get; set; }
         public string? SucursalNombre { get; set; }
         public DateTime FechaCreacion { get; set; }
+        public string? ArchivosAdjuntos { get; set; } = "[]";
     }
 }

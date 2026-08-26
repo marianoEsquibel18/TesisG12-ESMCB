@@ -7,6 +7,7 @@
 @inject PacienteService PacienteService
 @inject PersonalService PersonalService
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>@(isEdit ? "Editar Tratamiento" : "Iniciar Tratamiento") - Historial Clínico</PageTitle>
 
@@ -59,6 +60,35 @@
             <label class="form-check-label text-light" for="chkFinalizado">Marcar como Finalizado / Alta médica</label>
         </div>
 
+        <!-- Archivos Adjuntos (Clip Icon + File Selection + List) -->
+        <div class="mb-3">
+            <label class="d-flex align-items-center gap-2" style="color: var(--text-secondary); font-size: 0.875rem;">
+                <span>Archivos Adjuntos (Imágenes, Videos, PDFs)</span>
+                <label for="tratamiento-attachments" class="btn btn-sm btn-outline-info d-inline-flex align-items-center gap-1 py-1 px-2 m-0" style="cursor: pointer; font-size: 0.78rem; border-color: var(--border-glass); background: rgba(0, 163, 108, 0.05); color: var(--accent-primary);">
+                    <i class="bi bi-paperclip"></i> Adjuntar
+                </label>
+                <InputFile id="tratamiento-attachments" OnChange="UploadTratamientoFiles" multiple style="display: none;" />
+            </label>
+            
+            @if (tratamientoFilesList != null && tratamientoFilesList.Any())
+            {
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    @foreach (var file in tratamientoFilesList)
+                    {
+                        <div class="d-flex align-items-center gap-2 p-1 px-2 rounded" style="background: rgba(0, 163, 108, 0.1); border: 1px solid var(--accent-primary); font-size: 0.8rem;">
+                            <span class="text-truncate" style="max-width: 150px; color: var(--text-primary);" title="@file.Nombre">@file.Nombre</span>
+                            <button type="button" class="btn p-0 text-primary border-0" style="box-shadow: none;" @onclick="() => PreviewFile(file)" title="Ver/Descargar">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button type="button" class="btn p-0 text-danger border-0" style="box-shadow: none;" @onclick="() => RemoveTratamientoFile(file)" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
         @if (!string.IsNullOrEmpty(errorMessage))
         {
             <div class="alert alert-danger p-2 mt-2">@errorMessage</div>
@@ -84,8 +114,8 @@
     private string pacienteNombre = "Cargando...";
     private bool isSaving;
     private string errorMessage = string.Empty;
-
     private List<VeterinarioDto> vets = new();
+    private List<Adjunto> tratamientoFilesList = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -105,6 +135,16 @@
             if (existing != null)
             {
                 model = existing;
+                try
+                {
+                    tratamientoFilesList = string.IsNullOrEmpty(model.ArchivosAdjuntos)
+                        ? new List<Adjunto>()
+                        : System.Text.Json.JsonSerializer.Deserialize<List<Adjunto>>(model.ArchivosAdjuntos) ?? new List<Adjunto>();
+                }
+                catch
+                {
+                    tratamientoFilesList = new List<Adjunto>();
+                }
             }
             else
             {
@@ -127,6 +167,7 @@
 
         try
         {
+            model.ArchivosAdjuntos = System.Text.Json.JsonSerializer.Serialize(tratamientoFilesList);
             bool success;
             if (isEdit)
             {
@@ -155,4 +196,47 @@
     }
 
     private void GoBack() => Navigation.NavigateTo($"/historial-clinico/paciente/{PacienteId}");
+
+    private async Task UploadTratamientoFiles(InputFileChangeEventArgs e)
+    {
+        foreach (var file in e.GetMultipleFiles(10))
+        {
+            try
+            {
+                var maxAllowedSize = 5 * 1024 * 1024;
+                using var stream = file.OpenReadStream(maxAllowedSize);
+                using var ms = new System.IO.MemoryStream();
+                await stream.CopyToAsync(ms);
+                var base64 = Convert.ToBase64String(ms.ToArray());
+                
+                tratamientoFilesList.Add(new Adjunto
+                {
+                    Nombre = file.Name,
+                    Base64 = base64,
+                    ContentType = file.ContentType
+                });
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error al cargar archivo {file.Name}: {ex.Message}";
+            }
+        }
+    }
+
+    private void RemoveTratamientoFile(Adjunto file)
+    {
+        tratamientoFilesList.Remove(file);
+    }
+
+    private async Task PreviewFile(Adjunto file)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("openBase64File", file.Base64, file.Nombre, file.ContentType);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al abrir archivo: {ex.Message}");
+        }
+    }
 }

@@ -48,6 +48,7 @@ namespace BlazorFrontEnd.Models
         public int ProductosSinStock { get; set; }
         public decimal ValorTotalStock { get; set; }
         public List<ProductoStockBajoDto> ListaStockBajo { get; set; } = new();
+        public List<ProductoStockItemDto> ListaTodosProductos { get; set; } = new();
     }
 
     public class ProductoStockBajoDto
@@ -57,6 +58,19 @@ namespace BlazorFrontEnd.Models
         public int StockActual { get; set; }
         public int StockMinimo { get; set; }
         public string CategoriaNombre { get; set; } = string.Empty;
+    }
+
+    public class ProductoStockItemDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+        public string CodigoBarras { get; set; } = string.Empty;
+        public string CategoriaNombre { get; set; } = string.Empty;
+        public int StockActual { get; set; }
+        public int StockMinimo { get; set; }
+        public decimal PrecioUnitario { get; set; }
+        public decimal PrecioVenta { get; set; }
+        public decimal ValorTotal { get; set; }
     }
 
     // ════════════════════════════════════
@@ -73,6 +87,17 @@ namespace BlazorFrontEnd.Models
         public decimal TasaCumplimiento { get; set; }
         public List<TurnosPorVeterinarioDto> TurnosPorVeterinario { get; set; } = new();
         public List<TurnosPorServicioDto> TurnosPorServicio { get; set; } = new();
+        public List<TurnoPorDiaDto> TurnosPorDia { get; set; } = new();
+    }
+
+    public class TurnoPorDiaDto
+    {
+        public DateTime Fecha { get; set; }
+        public int Total { get; set; }
+        public int Programados { get; set; }
+        public int Completados { get; set; }
+        public int Ausentes { get; set; }
+        public int Cancelados { get; set; }
     }
 
     public class TurnosPorVeterinarioDto
@@ -81,6 +106,8 @@ namespace BlazorFrontEnd.Models
         public string VeterinarioNombre { get; set; } = string.Empty;
         public int TotalTurnos { get; set; }
         public int Completados { get; set; }
+        public int Ausentes { get; set; }
+        public int Cancelados { get; set; }
     }
 
     public class TurnosPorServicioDto

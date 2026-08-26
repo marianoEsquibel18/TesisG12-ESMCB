@@ -150,7 +150,33 @@
     }
 </div>
 
+@if (showSimilarProductsConfirm)
+{
+    <div class="modal-overlay modal-overlay-z3" style="background: rgba(0,0,0,0.85);">
+        <div class="modal-panel modal-panel-sm" style="border: 1px solid var(--accent-primary);">
+            <div class="modal-header-row">
+                <h3>¿Quisiste decir?</h3>
+            </div>
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p class="text-light">Se encontraron los siguientes productos similares cargados en el sistema:</p>
+                <ul style="color: var(--accent-primary); font-size: 1.1rem; font-weight: bold; margin-bottom: 20px;">
+                    @foreach (var p in similarProductsList)
+                    {
+                        <li>@p</li>
+                    }
+                </ul>
+                <p class="text-secondary" style="font-size: 0.9rem;">¿Deseas continuar y guardar de todos modos?</p>
+            </div>
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CancelProductSimilarity">Cancelar</button>
+                <button type="button" class="btn btn-primary" style="background: var(--accent-primary); border: none;" @onclick="BypassProductSimilarity">Continuar y guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
 @* Nota: En una app real, aquí abriríamos modales para Entrada/Salida rápida llamando a ProductoService.EntradaStockAsync y SalidaStockAsync *@
+
 
 @code {
     [Parameter]
@@ -165,6 +191,12 @@
     private List<CategoriaDto> categorias = new();
     private List<MarcaDto> marcas = new();
     private List<ProveedorDto> proveedores = new();
+    private List<ProductoDto> todosLosProductos = new();
+
+    // ── Similarity Checks ──
+    private bool showSimilarProductsConfirm;
+    private List<string> similarProductsList = new();
+    private bool bypassProductSimilarity;
 
     protected override async Task OnInitializedAsync()
     {
@@ -179,6 +211,12 @@
 
             var resP = await CatalogoService.GetProveedoresAsync();
             if(resP != null) proveedores = resP;
+
+            var prodRes = await ProductoService.GetAllAsync(1, 1000);
+            if (prodRes?.Items != null)
+            {
+                todosLosProductos = prodRes.Items;
+            }
 
             if (isEdit)
             {
@@ -210,6 +248,24 @@
 
         try
         {
+            if (!bypassProductSimilarity && todosLosProductos != null)
+            {
+                similarProductsList = todosLosProductos
+                    .Where(p => p.Id != model.Id && BlazorFrontEnd.Helpers.SimilarityHelper.AreSimilar(model.Nombre, p.Nombre))
+                    .Select(p => p.Nombre)
+                    .ToList();
+
+                if (similarProductsList.Any())
+                {
+                    showSimilarProductsConfirm = true;
+                    isSaving = false;
+                    return;
+                }
+            }
+
+            bypassProductSimilarity = false;
+            showSimilarProductsConfirm = false;
+
             bool result;
             if (isEdit) 
                 result = await ProductoService.UpdateAsync(Id!, model);
@@ -233,6 +289,19 @@
         {
             isSaving = false;
         }
+    }
+
+    private void CancelProductSimilarity()
+    {
+        showSimilarProductsConfirm = false;
+        bypassProductSimilarity = false;
+    }
+
+    private async Task BypassProductSimilarity()
+    {
+        showSimilarProductsConfirm = false;
+        bypassProductSimilarity = true;
+        await HandleSave();
     }
 
     private void AbrirModalEntrada() { /* Mock JS Interop Model */ }

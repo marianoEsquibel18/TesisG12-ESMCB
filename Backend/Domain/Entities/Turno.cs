@@ -18,6 +18,7 @@ namespace Domain.Entities
         public string Observaciones { get; private set; }
         public int SucursalId { get; private set; }
         public DateTime FechaCreacion { get; private set; }
+        public string? ArchivosAdjuntos { get; private set; } = "[]";
 
         // Navegación
         public virtual Paciente Paciente { get; private set; }
@@ -40,7 +41,8 @@ namespace Domain.Entities
             int duracionMinutos,
             string motivo = "",
             string observaciones = "",
-            int sucursalId = 0) : this()
+            int sucursalId = 0,
+            string? archivosAdjuntos = "[]") : this()
         {
             Id = Guid.NewGuid().ToString();
             PacienteId = pacienteId;
@@ -53,11 +55,12 @@ namespace Domain.Entities
             Estado = EstadoTurno.Programado;
             SucursalId = sucursalId;
             FechaCreacion = DateTime.Now;
+            ArchivosAdjuntos = archivosAdjuntos ?? "[]";
         }
 
         public void AsignarSucursal(int sucursalId) => SucursalId = sucursalId;
 
-        public void Actualizar(string pacienteId, string veterinarioId, int servicioId, DateTime fechaHora, int duracionMinutos, string motivo = "", string observaciones = "")
+        public void Actualizar(string pacienteId, string veterinarioId, int servicioId, DateTime fechaHora, int duracionMinutos, string motivo = "", string observaciones = "", string? archivosAdjuntos = null)
         {
             PacienteId = pacienteId;
             VeterinarioId = veterinarioId;
@@ -66,6 +69,10 @@ namespace Domain.Entities
             DuracionMinutos = duracionMinutos;
             Motivo = motivo;
             Observaciones = observaciones;
+            if (archivosAdjuntos != null)
+            {
+                ArchivosAdjuntos = archivosAdjuntos;
+            }
         }
 
         public void Reprogramar(DateTime nuevaFechaHora, int duracionMinutos)
@@ -85,11 +92,13 @@ namespace Domain.Entities
             Estado = EstadoTurno.EnCurso;
         }
 
-        public void Completar(string observaciones = "")
+        public void Completar(string observaciones = "", string? archivosAdjuntos = null)
         {
             Estado = EstadoTurno.Completado;
             if (!string.IsNullOrWhiteSpace(observaciones))
                 Observaciones = observaciones;
+            if (archivosAdjuntos != null)
+                ArchivosAdjuntos = archivosAdjuntos;
         }
 
         public void Cancelar(string motivo = "")

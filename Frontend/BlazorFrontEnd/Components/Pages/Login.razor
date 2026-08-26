@@ -45,7 +45,12 @@
 
             <div style="margin-bottom: var(--sp-lg);">
                 <label style="color: var(--text-secondary); margin-bottom: 5px; display: block; font-size: 0.875rem; font-weight: 500;">Contraseña</label>
-                <InputText @bind-Value="loginRequest.Password" type="password" class="form-control" style="background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 12px; border-radius: var(--radius-sm);" placeholder="••••••••" />
+                <div class="input-group">
+                    <InputText @bind-Value="loginRequest.Password" type="@passwordType" class="form-control" style="background: var(--bg-input); border: 1px solid var(--border-color); border-right: none; color: var(--text-primary); padding: 12px; border-radius: var(--radius-sm) 0 0 var(--radius-sm);" placeholder="••••••••" />
+                    <button type="button" class="btn btn-outline-secondary" @onclick="TogglePasswordVisibility" style="background: var(--bg-input); border: 1px solid var(--border-color); border-left: none; color: var(--text-secondary); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                        <i class="@passwordIconClass" style="font-size: 1.1rem;"></i>
+                    </button>
+                </div>
             </div>
 
             <button type="submit" class="btn-primary-glass" style="width: 100%; padding: 12px; font-size: 1rem;" disabled="@isLoading">
@@ -66,6 +71,22 @@
     private LoginRequest loginRequest = new();
     private bool isLoading;
     private string errorMessage = string.Empty;
+    private string passwordType = "password";
+    private string passwordIconClass = "bi bi-eye-slash";
+
+    private void TogglePasswordVisibility()
+    {
+        if (passwordType == "password")
+        {
+            passwordType = "text";
+            passwordIconClass = "bi bi-eye";
+        }
+        else
+        {
+            passwordType = "password";
+            passwordIconClass = "bi bi-eye-slash";
+        }
+    }
 
     private async Task HandleLogin()
     {

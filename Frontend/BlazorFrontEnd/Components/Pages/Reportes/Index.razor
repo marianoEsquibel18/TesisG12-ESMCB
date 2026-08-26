@@ -9,7 +9,7 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h2 style="font-weight: 700; margin: 0; color: var(--text-primary);">📊 Centro de Reportes</h2>
+        <h2 style="font-weight: 700; margin: 0; color: var(--text-primary);">Centro de Reportes</h2>
         <p class="text-secondary" style="margin: 0;">Análisis y Extracción de Datos (Formatos CSV)</p>
     </div>
 </div>
@@ -51,336 +51,1629 @@
 }
 else
 {
-    <!-- CONTENIDO: FINANZAS -->
+    <!-- CONTENIDO: FINANZAS (3 SUBREPORTES COLAPSABLES) -->
     @if (activeTab == "FINANZAS" && reporteVentas != null)
     {
-        <div class="row">
-            <div class="col-md-8">
-                <div class="glass-card mb-4">
-                    <h5 class="text-light mb-3">Resumen Comercial (Últimos 30 días)</h5>
-                    <div class="row text-center mb-4">
-                        <div class="col-4 border-end border-secondary">
-                            <small class="text-uppercase text-secondary d-block">Facturado</small>
-                            <h3 class="text-success m-0 fw-bold">$@reporteVentas.TotalVentas.ToString("N0")</h3>
-                        </div>
-                        <div class="col-4 border-end border-secondary">
-                            <small class="text-uppercase text-secondary d-block">Operaciones</small>
-                            <h3 class="text-light m-0 fw-bold">@reporteVentas.CantidadVentas</h3>
-                        </div>
-                        <div class="col-4">
-                            <small class="text-uppercase text-secondary d-block">Promedio/Venta</small>
-                            <h3 class="text-info m-0 fw-bold">$@reporteVentas.PromedioVenta.ToString("N0")</h3>
-                        </div>
-                    </div>
-                    
-                    <h6 class="text-light mt-4 mb-2 border-bottom border-dark pb-1">Distribución por Método de Pago</h6>
-                    @if(!reporteVentas.VentasPorMetodoPago.Any()) { <p class="text-secondary small">Sin datos registrados.</p> }
-                    @foreach(var pago in reporteVentas.VentasPorMetodoPago)
-                    {
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="text-light">@pago.MetodoPago (@pago.Cantidad trx)</span>
-                            <span class="text-success fw-bold">$@pago.Total.ToString("N0")</span>
-                        </div>
-                    }
+        <!-- Barra de Herramientas y Exportación -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+            <div>
+                <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Subreportes Financieros y Comerciales</h5>
+                <small class="text-secondary">Período: @reporteVentas.Desde.ToString("dd/MM/yyyy") — @reporteVentas.Hasta.ToString("dd/MM/yyyy") (Últimos 30 días)</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ToggleAllSubreportes" style="border-radius: 8px; font-weight: 500;">
+                    @(isResumenOpen && isMetodosOpen && isTopProductosOpen ? "Contraer todos" : "Expandir todos")
+                </button>
+                <button class="btn btn-success btn-sm" @onclick='() => Download("api/v1/Export/ventas")' style="border-radius: 8px; font-weight: 600; background-color: var(--accent-primary); border-color: var(--accent-primary); color: white;">
+                    Descargar Ventas (CSV)
+                </button>
+            </div>
+        </div>
 
-                    <h6 class="text-light mt-4 mb-2 border-bottom border-dark pb-1">Top Productos Vendidos (Top 10)</h6>
-                    @if(!reporteVentas.ProductosMasVendidos.Any()) { <p class="text-secondary small">Sin datos registrados.</p> }
-                    @foreach (var prod in reporteVentas.ProductosMasVendidos)
-                    {
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-secondary">@prod.ProductoNombre</span>
-                            <span class="text-light">@prod.CantidadVendida uds <span class="text-success ms-2">($@prod.TotalVendido.ToString("N0"))</span></span>
-                        </div>
-                    }
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUBREPORTE 1: Resumen Comercial (Últimos 30 días)             -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
+            <!-- Encabezado colapsable -->
+            <div class="d-flex justify-content-between align-items-center pb-2 @(isResumenOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isResumenOpen = !isResumenOpen">
+                <div>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">1. Resumen Comercial (Últimos 30 días)</h5>
+                    <small class="text-secondary">Evolución diaria de facturación y transacciones</small>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-none d-md-flex align-items-center gap-2">
+                        <span class="badge bg-light text-dark border px-2 py-1">Facturado: <strong class="text-success">$@reporteVentas.TotalVentas.ToString("N0")</strong></span>
+                        <span class="badge bg-light text-dark border px-2 py-1">Operaciones: <strong>@reporteVentas.CantidadVentas</strong></span>
+                        <span class="badge bg-light text-dark border px-2 py-1">Promedio: <strong class="text-info">$@reporteVentas.PromedioVenta.ToString("N0")</strong></span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Resumen">
+                        @(isResumenOpen ? "▲" : "▼")
+                    </button>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card bg-dark border-secondary">
-                    <div class="card-body">
-                        <h6 class="mb-3" style="color: var(--accent-primary);">Extracción de Base de Datos</h6>
-                        <p class="small mb-4" style="color: white; opacity: 0.9;">Exporte todos los comprobantes emitidos hacia Excel o sistemas contables.</p>
-                        <button class="btn btn-outline-success w-100" @onclick='() => Download("api/v1/Export/ventas")'>
-                            📥 Descargar Ventas (CSV)
+
+            @if (isResumenOpen)
+            {
+                var dias30 = ObtenerDias30();
+                decimal maxDailyFact = dias30.Any() ? dias30.Max(d => d.Facturado) : 0;
+                decimal scaleMaxFact = maxDailyFact > 100000m ? Math.Ceiling(maxDailyFact / 20000m) * 20000m : 100000m;
+                int maxDailyOps = dias30.Any() ? dias30.Max(d => d.Operaciones) : 0;
+                int scaleMaxOps = maxDailyOps < 5 ? 5 : (maxDailyOps % 2 == 0 ? maxDailyOps : maxDailyOps + 1);
+
+                string linePath = GetSvgPath(dias30, lineChartMetric, scaleMaxFact, scaleMaxOps);
+                string areaPath = GetSvgAreaPath(dias30, lineChartMetric, scaleMaxFact, scaleMaxOps);
+                string strokeColor = lineChartMetric == "FACTURADO" ? "#00A36C" : "#0d6efd";
+                string gradColorStart = lineChartMetric == "FACTURADO" ? "rgba(0, 163, 108, 0.28)" : "rgba(13, 110, 253, 0.28)";
+                string gradColorEnd = lineChartMetric == "FACTURADO" ? "rgba(0, 163, 108, 0.0)" : "rgba(13, 110, 253, 0.0)";
+
+                <!-- KPIs Destacados -->
+                <div class="row text-center mb-4 g-3">
+                    <div class="col-md-4">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-secondary fw-bold d-block mb-1" style="font-size: 0.75rem;">Facturado Total (30 días)</small>
+                            <h3 class="text-success m-0 fw-bold" style="font-size: 1.75rem;">$@reporteVentas.TotalVentas.ToString("N0")</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-secondary fw-bold d-block mb-1" style="font-size: 0.75rem;">Operaciones Totales</small>
+                            <h3 class="m-0 fw-bold" style="color: var(--text-primary); font-size: 1.75rem;">@reporteVentas.CantidadVentas <span class="fs-6 text-secondary fw-normal">trx</span></h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-secondary fw-bold d-block mb-1" style="font-size: 0.75rem;">Promedio por Venta</small>
+                            <h3 class="text-info m-0 fw-bold" style="font-size: 1.75rem;">$@reporteVentas.PromedioVenta.ToString("N0")</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barra de selección de métrica del gráfico -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <div>
+                        <span class="fw-bold" style="color: var(--text-primary);">Gráfico de Líneas Diario:</span>
+                        <span class="text-secondary small ms-1">
+                            @(lineChartMetric == "FACTURADO" 
+                                ? "Muestra el total facturado diario (ordenada en pasos de $10.000 hasta $100.000+)" 
+                                : "Muestra la cantidad de operaciones por día (del día 1 al 30)")
+                        </span>
+                    </div>
+                    <div class="btn-group" role="group" aria-label="Métrica de Gráfico">
+                        <button type="button" 
+                                class="btn btn-sm @(lineChartMetric == "FACTURADO" ? "btn-success" : "btn-outline-secondary")"
+                                style="font-weight: 600; padding: 5px 16px; @(lineChartMetric == "FACTURADO" ? "background-color: var(--accent-primary); border-color: var(--accent-primary); color: white;" : "")"
+                                @onclick='() => lineChartMetric = "FACTURADO"'>
+                            Facturado ($)
+                        </button>
+                        <button type="button" 
+                                class="btn btn-sm @(lineChartMetric == "OPERACIONES" ? "btn-primary" : "btn-outline-secondary")"
+                                style="font-weight: 600; padding: 5px 16px; @(lineChartMetric == "OPERACIONES" ? "background-color: #0d6efd; border-color: #0d6efd; color: white;" : "")"
+                                @onclick='() => lineChartMetric = "OPERACIONES"'>
+                            Operaciones (trx)
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
-    }
 
-    <!-- CONTENIDO: STOCK -->
-    @if (activeTab == "STOCK" && reporteStock != null)
-    {
-        <div class="row">
-            <div class="col-md-8">
-                <div class="glass-card mb-4">
-                    <h5 class="text-light mb-3">Valorización y Alertas de Inventario</h5>
-                    <div class="row text-center mb-4">
-                        <div class="col-3 border-end border-secondary">
-                            <small class="text-uppercase text-secondary d-block">Total Arts.</small>
-                            <h3 class="text-light m-0 fw-bold">@reporteStock.ProductosActivos</h3>
+                <!-- Gráfico de Líneas Vectorial SVG (Abscisas: Días 1 al 30, Ordenadas: Total / Operaciones) -->
+                <div class="p-3 border rounded" style="background: #ffffff;">
+                    <div style="width: 100%; overflow-x: auto;">
+                        <svg viewBox="0 0 1000 360" style="width: 100%; min-width: 720px; height: auto; display: block;" font-family="Segoe UI, sans-serif">
+                            <defs>
+                                <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="@gradColorStart" />
+                                    <stop offset="100%" stop-color="@gradColorEnd" />
+                                </linearGradient>
+                            </defs>
+
+                            <!-- Líneas de Grilla Horizontal y Etiquetas Eje Y (Ordenadas) -->
+                            @if (lineChartMetric == "FACTURADO")
+                            {
+                                int steps = (int)(scaleMaxFact / 10000m);
+                                if (steps > 12) steps = 10;
+                                decimal stepVal = scaleMaxFact / steps;
+
+                                for (int s = 0; s <= steps; s++)
+                                {
+                                    decimal val = s * stepVal;
+                                    double yPos = 315.0 - (double)(val / scaleMaxFact) * 285.0;
+                                    <line x1="85" y1="@yPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                          x2="970" y2="@yPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                          stroke="#e5e7eb" stroke-width="1" stroke-dasharray="@(s == 0 ? "none" : "3,3")" />
+                                    @RenderSvgText(75, yPos + 4, $"${val:N0}", "end", 11, "#6b7280", "600")
+                                }
+                            }
+                            else
+                            {
+                                int steps = scaleMaxOps <= 6 ? scaleMaxOps : 5;
+                                int stepVal = Math.Max(1, scaleMaxOps / steps);
+                                for (int s = 0; s <= steps; s++)
+                                {
+                                    int val = s * stepVal;
+                                    if (val > scaleMaxOps) break;
+                                    double yPos = 315.0 - (double)(val / (double)scaleMaxOps) * 285.0;
+                                    <line x1="85" y1="@yPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                          x2="970" y2="@yPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                          stroke="#e5e7eb" stroke-width="1" stroke-dasharray="@(s == 0 ? "none" : "3,3")" />
+                                    @RenderSvgText(75, yPos + 4, $"{val} trx", "end", 11, "#6b7280", "600")
+                                }
+                            }
+
+                            <!-- Eje X (Línea base) -->
+                            <line x1="85" y1="315" x2="970" y2="315" stroke="#9ca3af" stroke-width="1.5" />
+
+                            <!-- Área sombreada con gradiente -->
+                            @if (!string.IsNullOrEmpty(areaPath))
+                            {
+                                <path d="@areaPath" fill="url(#chartGradient)" />
+                            }
+
+                            <!-- Línea principal del gráfico -->
+                            @if (!string.IsNullOrEmpty(linePath))
+                            {
+                                <path d="@linePath" fill="none" stroke="@strokeColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                            }
+
+                            <!-- Puntos y Etiquetas Eje X (Días 1 al 30) -->
+                            @for (int i = 0; i < dias30.Count; i++)
+                            {
+                                var day = dias30[i];
+                                double xPos = 85.0 + i * (885.0 / 29.0);
+                                double yPos;
+                                if (lineChartMetric == "FACTURADO")
+                                {
+                                    yPos = 315.0 - (double)(day.Facturado / scaleMaxFact) * 285.0;
+                                }
+                                else
+                                {
+                                    yPos = 315.0 - (double)(day.Operaciones / (double)scaleMaxOps) * 285.0;
+                                }
+
+                                bool isSelected = diaSeleccionado?.DiaNumero == day.DiaNumero;
+
+                                <!-- Marca vertical sutil en el eje X -->
+                                <line x1="@xPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" y1="315" 
+                                      x2="@xPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" y2="320" 
+                                      stroke="#9ca3af" stroke-width="1" />
+
+                                <!-- Etiqueta del Día (1 al 30) -->
+                                @RenderSvgText(xPos, 335, day.DiaNumero.ToString(), "middle", 10, isSelected ? strokeColor : "#4b5563", isSelected ? "700" : "500")
+
+                                <!-- Punto interactivo clickeable -->
+                                <circle cx="@xPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                        cy="@yPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                        r="@(isSelected ? "7" : (day.Facturado > 0 || day.Operaciones > 0 ? "4.5" : "3"))" 
+                                        fill="@(isSelected ? "#ffffff" : strokeColor)" 
+                                        stroke="@(isSelected ? strokeColor : "#ffffff")" 
+                                        stroke-width="@(isSelected ? "3.5" : "1.5")" 
+                                        style="cursor: pointer; transition: r 0.2s, stroke-width 0.2s;"
+                                        @onclick="() => diaSeleccionado = (diaSeleccionado?.DiaNumero == day.DiaNumero ? null : day)" />
+                            }
+
+                            <!-- Título del Eje X -->
+                            @RenderSvgText(527, 354, "Días del período (1 al 30)", "middle", 11, "#6b7280", "600")
+                        </svg>
+                    </div>
+
+                    <!-- Panel de Detalle del Día Seleccionado -->
+                    @if (diaSeleccionado != null)
+                    {
+                        <div class="d-flex flex-wrap align-items-center justify-content-between p-2 px-3 mt-3 rounded border" 
+                             style="background: @(lineChartMetric == "FACTURADO" ? "rgba(0, 163, 108, 0.08)" : "rgba(13, 110, 253, 0.08)"); border-color: @strokeColor !important;">
+                            <div>
+                                <strong style="color: var(--text-primary);">Día @diaSeleccionado.DiaNumero — @diaSeleccionado.Fecha.ToString("dd/MM/yyyy") (@diaSeleccionado.Fecha.ToString("dddd", new System.Globalization.CultureInfo("es-ES")))</strong>
+                            </div>
+                            <div class="d-flex flex-wrap gap-3 my-1">
+                                <span>Facturado: <strong class="text-success">$@diaSeleccionado.Facturado.ToString("N0")</strong></span>
+                                <span>Operaciones: <strong style="color: #0d6efd;">@diaSeleccionado.Operaciones trx</strong></span>
+                                <span>Ticket Promedio: <strong>$@(diaSeleccionado.Operaciones > 0 ? (diaSeleccionado.Facturado / diaSeleccionado.Operaciones).ToString("N0") : "0")</strong></span>
+                            </div>
+                            <button class="btn btn-sm btn-link text-secondary p-0 text-decoration-none" @onclick="() => diaSeleccionado = null">✕ Deseleccionar</button>
                         </div>
-                        <div class="col-5 border-end border-secondary">
-                            <small class="text-uppercase text-secondary d-block">Capital Inmovilizado</small>
-                            <h3 class="text-primary m-0 fw-bold">$@reporteStock.ValorTotalStock.ToString("N0")</h3>
+                    }
+                    else
+                    {
+                        <div class="text-center text-secondary small mt-2">
+                            <span class="text-muted">Haz clic en cualquier punto del gráfico (Día 1 al 30) para inspeccionar el desglose de ese día.</span>
                         </div>
-                        <div class="col-4">
-                            <small class="text-uppercase text-danger d-block">Sin Stock Absoluto</small>
-                            <h3 class="text-danger m-0 fw-bold">@reporteStock.ProductosSinStock</h3>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUBREPORTE 2: Distribución por Método de Pago                 -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
+            <!-- Encabezado colapsable -->
+            <div class="d-flex justify-content-between align-items-center pb-2 @(isMetodosOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isMetodosOpen = !isMetodosOpen">
+                <div>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">2. Distribución por Método de Pago</h5>
+                    <small class="text-secondary">Participación de medios de pago en ventas totales</small>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-light text-dark border px-2 py-1">@reporteVentas.VentasPorMetodoPago.Count métodos</span>
+                    <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Metodos">
+                        @(isMetodosOpen ? "▲" : "▼")
+                    </button>
+                </div>
+            </div>
+
+            @if (isMetodosOpen)
+            {
+                var listaMetodos = GetListaMetodosOrdenada();
+                decimal maxMonto = listaMetodos.Any() ? listaMetodos.Max(m => m.Total) : 1;
+                if (maxMonto <= 0) maxMonto = 1;
+                int maxTrx = listaMetodos.Any() ? listaMetodos.Max(m => m.Cantidad) : 1;
+                if (maxTrx <= 0) maxTrx = 1;
+                decimal granTotal = reporteVentas.TotalVentas > 0 ? reporteVentas.TotalVentas : 1;
+                int granTotalTrx = reporteVentas.CantidadVentas > 0 ? reporteVentas.CantidadVentas : 1;
+
+                <!-- Controles de Ordenamiento -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <div>
+                        <span class="fw-bold" style="color: var(--text-primary);">Ordenar por:</span>
+                        <span class="text-secondary small ms-1">
+                            @(metodoSortBy == "TOTAL" ? "Muestra primero los métodos con mayor facturación" : "Muestra primero los métodos con más operaciones")
+                        </span>
+                    </div>
+                    <div class="btn-group" role="group" aria-label="Orden Método de Pago">
+                        <button type="button" 
+                                class="btn btn-sm @(metodoSortBy == "TOTAL" ? "btn-success" : "btn-outline-secondary")"
+                                style="font-weight: 600; padding: 4px 14px; @(metodoSortBy == "TOTAL" ? "background-color: var(--accent-primary); border-color: var(--accent-primary); color: white;" : "")"
+                                @onclick='() => metodoSortBy = "TOTAL"'>
+                            Total Facturado ($)
+                        </button>
+                        <button type="button" 
+                                class="btn btn-sm @(metodoSortBy == "CANTIDAD" ? "btn-primary" : "btn-outline-secondary")"
+                                style="font-weight: 600; padding: 4px 14px; @(metodoSortBy == "CANTIDAD" ? "background-color: #0d6efd; border-color: #0d6efd; color: white;" : "")"
+                                @onclick='() => metodoSortBy = "CANTIDAD"'>
+                            Cantidad de Transacciones (trx)
+                        </button>
+                    </div>
+                </div>
+
+                @if (!listaMetodos.Any())
+                {
+                    <p class="text-secondary small my-3">Sin datos registrados de métodos de pago en el período.</p>
+                }
+                else
+                {
+                    <!-- Gráfico de Barras Proporcionales -->
+                    <div class="p-3 border rounded mb-4" style="background: #fafafa;">
+                        <h6 class="fw-bold mb-3" style="color: var(--text-primary);">Gráfico Comparativo de Métodos de Pago</h6>
+                        <div class="d-flex flex-column gap-3">
+                            @foreach (var pago in listaMetodos)
+                            {
+                                double barPercent = metodoSortBy == "TOTAL"
+                                    ? (double)(pago.Total / maxMonto) * 100.0
+                                    : (double)(pago.Cantidad / (double)maxTrx) * 100.0;
+                                if (barPercent < 3 && (pago.Total > 0 || pago.Cantidad > 0)) barPercent = 3;
+
+                                decimal shareMonto = (pago.Total / granTotal) * 100m;
+                                decimal shareTrx = ((decimal)pago.Cantidad / granTotalTrx) * 100m;
+
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="fw-bold" style="color: var(--text-primary);">
+                                            @pago.MetodoPago
+                                        </span>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <span class="text-secondary small">@pago.Cantidad trx (@shareTrx.ToString("0.0")%)</span>
+                                            <span class="text-success fw-bold">$@pago.Total.ToString("N0") <small class="text-muted">(@shareMonto.ToString("0.0")%)</small></span>
+                                        </div>
+                                    </div>
+                                    <div class="progress" style="height: 22px; background: #e9ecef; border-radius: 6px; overflow: hidden;">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: @barPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%; background: linear-gradient(90deg, var(--accent-primary) 0%, #20c997 100%); transition: width 0.5s ease; font-weight: 600; font-size: 0.75rem; text-align: right; padding-right: 8px;">
+                                            @(metodoSortBy == "TOTAL" ? $"${pago.Total:N0}" : $"{pago.Cantidad} trx")
+                                        </div>
+                                    </div>
+                                </div>
+                            }
                         </div>
                     </div>
 
-                    <h6 class="text-light mt-4 mb-3 border-bottom border-dark pb-1">Artículos con Stock Bajo o Nulo (@reporteStock.ListaStockBajo.Count)</h6>
-                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                        <table class="table table-dark table-sm table-hover" style="background: transparent;">
-                            <thead>
+                    <!-- Tabla de Detalle -->
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle" style="background: transparent;">
+                            <thead class="table-light">
                                 <tr>
-                                    <th>Cód/Nombre</th>
-                                    <th>Categoría</th>
-                                    <th class="text-center">Actual/Mínimo</th>
+                                    <th>Método de Pago</th>
+                                    <th class="text-center">Transacciones (trx)</th>
+                                    <th class="text-center">% Participación</th>
+                                    <th class="text-end">Total Facturado</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @if(!reporteStock.ListaStockBajo.Any()) { <tr><td colspan="3" class="text-center text-secondary">No hay faltantes.</td></tr> }
-                                @foreach (var item in reporteStock.ListaStockBajo)
+                                @foreach (var pago in listaMetodos)
                                 {
+                                    decimal share = (pago.Total / granTotal) * 100m;
                                     <tr>
-                                        <td>@item.Nombre</td>
-                                        <td class="text-secondary">@item.CategoriaNombre</td>
+                                        <td class="fw-bold" style="color: var(--text-primary);">
+                                            @pago.MetodoPago
+                                        </td>
                                         <td class="text-center">
-                                            <span class="badge @(item.StockActual == 0 ? "bg-danger" : "bg-warning text-dark")">@item.StockActual / @item.StockMinimo</span>
+                                            <span class="badge bg-secondary">@pago.Cantidad trx</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-light text-dark border">@share.ToString("0.0")%</span>
+                                        </td>
+                                        <td class="text-end fw-bold text-success">
+                                            $@pago.Total.ToString("N0")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-light fw-bold">
+                                <tr>
+                                    <td>TOTAL GENERAL</td>
+                                    <td class="text-center">@reporteVentas.CantidadVentas trx</td>
+                                    <td class="text-center">100%</td>
+                                    <td class="text-end text-success">$@reporteVentas.TotalVentas.ToString("N0")</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUBREPORTE 3: Top Productos Vendidos                          -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
+            <!-- Encabezado colapsable -->
+            <div class="d-flex justify-content-between align-items-center pb-2 @(isTopProductosOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isTopProductosOpen = !isTopProductosOpen">
+                <div>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">3. Top Productos Vendidos</h5>
+                    <small class="text-secondary">Ranking de artículos con mayor volumen y facturación</small>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-light text-dark border px-2 py-1">@reporteVentas.ProductosMasVendidos.Count productos</span>
+                    <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Productos">
+                        @(isTopProductosOpen ? "▲" : "▼")
+                    </button>
+                </div>
+            </div>
+
+            @if (isTopProductosOpen)
+            {
+                var listaProds = GetListaProductosOrdenada();
+                int maxCant = listaProds.Any() ? listaProds.Max(p => p.CantidadVendida) : 1;
+                if (maxCant <= 0) maxCant = 1;
+                decimal maxTotalProd = listaProds.Any() ? listaProds.Max(p => p.TotalVendido) : 1;
+                if (maxTotalProd <= 0) maxTotalProd = 1;
+
+                <!-- Controles de Ordenamiento -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <div>
+                        <span class="fw-bold" style="color: var(--text-primary);">Ordenar por:</span>
+                        <span class="text-secondary small ms-1">
+                            @(productoSortBy == "CANTIDAD" ? "Muestra primero los productos con más unidades vendidas" : "Muestra primero los productos con mayor importe facturado")
+                        </span>
+                    </div>
+                    <div class="btn-group" role="group" aria-label="Orden Top Productos">
+                        <button type="button" 
+                                class="btn btn-sm @(productoSortBy == "CANTIDAD" ? "btn-primary" : "btn-outline-secondary")"
+                                style="font-weight: 600; padding: 4px 14px; @(productoSortBy == "CANTIDAD" ? "background-color: #0d6efd; border-color: #0d6efd; color: white;" : "")"
+                                @onclick='() => productoSortBy = "CANTIDAD"'>
+                            Cantidades Vendidas (uds)
+                        </button>
+                        <button type="button" 
+                                class="btn btn-sm @(productoSortBy == "TOTAL" ? "btn-success" : "btn-outline-secondary")"
+                                style="font-weight: 600; padding: 4px 14px; @(productoSortBy == "TOTAL" ? "background-color: var(--accent-primary); border-color: var(--accent-primary); color: white;" : "")"
+                                @onclick='() => productoSortBy = "TOTAL"'>
+                            Total Facturado ($)
+                        </button>
+                    </div>
+                </div>
+
+                @if (!listaProds.Any())
+                {
+                    <p class="text-secondary small my-3">Sin ventas de productos registradas en el período.</p>
+                }
+                else
+                {
+                    <!-- Gráfico de Barras para Top Productos -->
+                    <div class="p-3 border rounded mb-4" style="background: #fafafa;">
+                        <h6 class="fw-bold mb-3" style="color: var(--text-primary);">Gráfico de Barras — Top Productos</h6>
+                        <div class="d-flex flex-column gap-3">
+                            @for (int i = 0; i < listaProds.Count; i++)
+                            {
+                                var prod = listaProds[i];
+                                double barPercent = productoSortBy == "CANTIDAD"
+                                    ? (double)(prod.CantidadVendida / (double)maxCant) * 100.0
+                                    : (double)(prod.TotalVendido / maxTotalProd) * 100.0;
+                                if (barPercent < 3) barPercent = 3;
+
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge @(i == 0 ? "bg-warning text-dark" : (i == 1 ? "bg-secondary text-white" : (i == 2 ? "bg-dark text-white" : "bg-light text-dark border")))" style="font-size: 0.75rem;">
+                                                #@(i + 1)
+                                            </span>
+                                            <span class="fw-bold" style="color: var(--text-primary);">@prod.ProductoNombre</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-primary text-white">@prod.CantidadVendida uds</span>
+                                            <span class="text-success fw-bold">$@prod.TotalVendido.ToString("N0")</span>
+                                        </div>
+                                    </div>
+                                    <div class="progress" style="height: 22px; background: #e9ecef; border-radius: 6px; overflow: hidden;">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: @barPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%; background: @(productoSortBy == "CANTIDAD" ? "linear-gradient(90deg, #0d6efd 0%, #0dcaf0 100%)" : "linear-gradient(90deg, var(--accent-primary) 0%, #ffc107 100%)"); transition: width 0.5s ease; font-weight: 600; font-size: 0.75rem; text-align: right; padding-right: 8px;">
+                                            @(productoSortBy == "CANTIDAD" ? $"{prod.CantidadVendida} uds (${prod.TotalVendido:N0})" : $"${prod.TotalVendido:N0} ({prod.CantidadVendida} uds)")
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Detalle -->
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle" style="background: transparent;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 60px;" class="text-center">#</th>
+                                    <th>Producto</th>
+                                    <th class="text-center">Unidades Vendidas</th>
+                                    <th class="text-end">Total Facturado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < listaProds.Count; i++)
+                                {
+                                    var prod = listaProds[i];
+                                    <tr>
+                                        <td class="text-center">
+                                            <span class="badge @(i == 0 ? "bg-warning text-dark" : (i == 1 ? "bg-secondary text-white" : (i == 2 ? "bg-dark text-white" : "bg-light text-dark border")))">
+                                                #@(i + 1)
+                                            </span>
+                                        </td>
+                                        <td class="fw-bold" style="color: var(--text-primary);">
+                                            @prod.ProductoNombre
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary">@prod.CantidadVendida uds</span>
+                                        </td>
+                                        <td class="text-end fw-bold text-success">
+                                            $@prod.TotalVendido.ToString("N0")
                                         </td>
                                     </tr>
                                 }
                             </tbody>
                         </table>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card bg-dark border-secondary mb-3">
-                    <div class="card-body">
-                        <h6 class="mb-3" style="color: var(--accent-primary);">Exportar Catálogo Diario</h6>
-                        <button class="btn btn-outline-info w-100 mb-2" @onclick='() => Download("api/v1/Export/productos")'>
-                            📦 Maestro de Productos
-                        </button>
-                        <button class="btn btn-outline-warning w-100" @onclick='() => Download("api/v1/Export/stockBajo")'>
-                            ⚠️ Solo Faltantes (Para Compras)
-                        </button>
-                    </div>
-                </div>
-            </div>
+                }
+            }
         </div>
     }
 
-    <!-- CONTENIDO: TURNOS -->
-    @if (activeTab == "TURNOS" && reporteTurnos != null)
+    <!-- CONTENIDO: STOCK (2 SUBREPORTES COLAPSABLES) -->
+    @if (activeTab == "STOCK" && reporteStock != null)
     {
-        <div class="row">
-            <div class="col-md-8">
-                <div class="glass-card mb-4">
-                    <h5 class="text-light mb-3">Rendimiento Operativo (Últimos 30 días)</h5>
-                    <div class="row text-center mb-4">
-                        <div class="col-3 border-end border-secondary">
-                            <small class="text-uppercase text-secondary d-block">Programados</small>
-                            <h3 class="text-light m-0 fw-bold">@reporteTurnos.TotalTurnos</h3>
-                        </div>
-                        <div class="col-3 border-end border-secondary">
-                            <small class="text-uppercase text-success d-block">Completados</small>
-                            <h3 class="text-success m-0 fw-bold">@reporteTurnos.Completados</h3>
-                        </div>
-                        <div class="col-3 border-end border-secondary">
-                            <small class="text-uppercase text-warning d-block">Ausentes</small>
-                            <h3 class="text-warning m-0 fw-bold">@reporteTurnos.Ausentes</h3>
-                        </div>
-                        <div class="col-3">
-                            <small class="text-uppercase text-danger d-block">Cancelados</small>
-                            <h3 class="text-danger m-0 fw-bold">@reporteTurnos.Cancelados</h3>
-                        </div>
-                    </div>
-                    <div class="progress mb-4" style="height: 6px; background: rgba(255,255,255,0.1);">
-                        <div class="progress-bar bg-success" role="progressbar" style="width: @(reporteTurnos.TasaCumplimiento.ToString("0.0"))%" aria-valuenow="@reporteTurnos.TasaCumplimiento" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-
-                    <div class="row mt-4">
-                        <div class="col-md-6 border-end border-secondary">
-                            <h6 class="text-light border-bottom border-dark pb-1">Distribución por Veterinarios</h6>
-                            @if(!reporteTurnos.TurnosPorVeterinario.Any()) { <p class="text-secondary small">Sin datos.</p> }
-                            @foreach(var vet in reporteTurnos.TurnosPorVeterinario)
-                            {
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-secondary small">Dr. @vet.VeterinarioNombre</span>
-                                    <span class="text-light small">@vet.Completados / @vet.TotalTurnos </span>
-                                </div>
-                            }
-                        </div>
-                        <div class="col-md-6">
-                            <h6 class="text-light border-bottom border-dark pb-1 text-md-end">Servicios Populares</h6>
-                            @if(!reporteTurnos.TurnosPorServicio.Any()) { <p class="text-secondary small text-md-end">Sin datos.</p> }
-                            @foreach(var serv in reporteTurnos.TurnosPorServicio.OrderByDescending(s => s.CantidadTurnos).Take(8))
-                            {
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-secondary small">@serv.ServicioNombre</span>
-                                    <span class="text-info small fw-bold">@serv.CantidadTurnos </span>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                </div>
+        <!-- Barra de Herramientas y Exportación -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+            <div>
+                <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Subreportes de Control de Stock</h5>
+                <small class="text-secondary">Valuación monetaria, auditoría de existencias y alertas de reposición</small>
             </div>
-            <div class="col-md-4">
-                <div class="card bg-dark border-secondary">
-                    <div class="card-body">
-                        <h6 class="mb-3" style="color: var(--accent-primary);">Agenda Completa</h6>
-                        <p class="small mb-4" style="color: white; opacity: 0.9;">Exporta el listado completo de reservas, histórico y motivos.</p>
-                        <button class="btn btn-outline-primary w-100" @onclick='() => Download("api/v1/Export/turnos")'>
-                            📅 Descargar Agenda CSV
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
-
-    <!-- CONTENIDO: CLINICA -->
-    @if (activeTab == "CLINICA" && reporteClinico != null)
-    {
-        <div class="row">
-            <div class="col-md-8">
-                <div class="glass-card mb-4">
-                    <h5 class="text-light mb-3">Censo Poblacional y Resumen Médico</h5>
-                    <div class="row text-center mb-4">
-                        <div class="col-4 border-end border-secondary">
-                            <small class="text-uppercase text-secondary d-block">Población Activa</small>
-                            <h3 class="text-light m-0 fw-bold">@reporteClinico.TotalPacientes</h3>
-                        </div>
-                        <div class="col-4 border-end border-secondary">
-                            <small class="text-uppercase text-info d-block">Vacunados del Mes</small>
-                            <h3 class="text-info m-0 fw-bold">@reporteClinico.VacunasAplicadasMes</h3>
-                        </div>
-                        <div class="col-4">
-                            <small class="text-uppercase text-warning d-block">Tratamientos Abiertos</small>
-                            <h3 class="text-warning m-0 fw-bold">@reporteClinico.TratamientosActivosCount</h3>
-                        </div>
-                    </div>
-
-                    <h6 class="text-light mt-4 mb-3 border-bottom border-dark pb-1">Desglose Demográfico por Especie</h6>
-                    <div class="d-flex flex-wrap gap-2">
-                        @if(!reporteClinico.PacientesPorEspecie.Any()) { <p class="text-secondary small">No hay pacientes censados.</p> }
-                        @foreach(var especie in reporteClinico.PacientesPorEspecie)
-                        {
-                            <div class="p-2 border border-secondary rounded text-center flex-fill" style="background: rgba(0,0,0,0.2);">
-                                <h4 class="text-light m-0 fw-bold">@especie.Cantidad</h4>
-                                <small class="text-secondary text-uppercase" style="font-size: 0.65rem;">@especie.EspecieNombre</small>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card bg-dark border-secondary mb-3">
-                    <div class="card-body">
-                        <h6 class="mb-3" style="color: var(--accent-primary);">Registros Maestros</h6>
-                        <button class="btn btn-outline-light w-100 mb-2" @onclick='() => Download("api/v1/Export/pacientes")'>
-                            🐕 Padrón de Mascotas
-                        </button>
-                        <button class="btn btn-outline-light w-100 mb-2" @onclick='() => Download("api/v1/Export/propietarios")'>
-                            👩‍🦰 Padrón de Dueños
-                        </button>
-                        <div class="mt-4 pt-3 border-top border-secondary">
-                            <h6 class="mb-2" style="font-size: 0.85rem; color: var(--accent-primary);">Historial Clínico (Individual)</h6>
-                            <div class="input-group input-group-sm">
-                                <input type="text" @bind="pacienteIdParaExportar" class="form-control bg-dark text-light border-secondary" placeholder="ID Paciente (GUID)" />
-                                <button class="btn btn-secondary" disabled="@string.IsNullOrWhiteSpace(pacienteIdParaExportar)" @onclick="ExportarIndividual">Bajar</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ToggleAllStockSubreportes" style="border-radius: 8px; font-weight: 500;">
+                    @(isValuacionStockOpen && isListadoStockOpen ? "Contraer todos" : "Expandir todos")
+                </button>
+                <button class="btn btn-success btn-sm" @onclick='() => Download("api/v1/Export/productos")' style="border-radius: 8px; font-weight: 600; background-color: var(--accent-primary); border-color: var(--accent-primary); color: white;">
+                    Descargar Inventario (CSV)
+                </button>
+                <button class="btn btn-outline-warning btn-sm" @onclick='() => Download("api/v1/Export/stockBajo")' style="border-radius: 8px; font-weight: 600;">
+                    Descargar Faltantes (CSV)
+                </button>
             </div>
         </div>
 
-        @* ── Histórico de Tratamientos (R003) ── *@
-        <div class="glass-card mb-4">
-            <h5 class="text-light mb-3">📋 Histórico de Tratamientos</h5>
-            <p class="text-secondary small mb-3">Lista completa de tratamientos realizados. Utilice los filtros para refinar los resultados.</p>
-
-            @* Filtros *@
-            <div class="row g-2 mb-3">
-                <div class="col-md-2">
-                    <label class="form-label text-secondary small mb-1">Desde</label>
-                    <input type="date" @bind="filtroDesde" class="form-control form-control-sm bg-dark text-light border-secondary" />
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUBREPORTE 1: Valuación de Stock y Control de Existencias       -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
+            <!-- Encabezado colapsable -->
+            <div class="d-flex justify-content-between align-items-center pb-2 @(isValuacionStockOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isValuacionStockOpen = !isValuacionStockOpen">
+                <div>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Valuación de Stock y Control de Existencias</h5>
+                    <small class="text-secondary">Métricas generales de capital y artículos con stock crítico</small>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label text-secondary small mb-1">Hasta</label>
-                    <input type="date" @bind="filtroHasta" class="form-control form-control-sm bg-dark text-light border-secondary" />
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label text-secondary small mb-1">Paciente</label>
-                    <input type="text" @bind="filtroPaciente" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Buscar..." />
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label text-secondary small mb-1">Dueño</label>
-                    <input type="text" @bind="filtroPropietario" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Buscar..." />
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label text-secondary small mb-1">Veterinario</label>
-                    <input type="text" @bind="filtroVeterinario" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Buscar..." />
-                </div>
-                <div class="col-md-2 d-flex align-items-end gap-1">
-                    <button class="btn btn-primary-glass flex-fill" style="height: 31px; font-size: 0.875rem; padding: 0 0.75rem;" @onclick="BuscarTratamientos" disabled="@isLoadingTratamientos">
-                        @if (isLoadingTratamientos) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                        Buscar
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-none d-md-flex align-items-center gap-2">
+                        <span class="badge bg-light text-dark border px-2 py-1">Total Arts.: <strong>@reporteStock.ProductosActivos</strong></span>
+                        <span class="badge bg-light text-dark border px-2 py-1">Capital: <strong class="text-success">$@reporteStock.ValorTotalStock.ToString("N0")</strong></span>
+                        <span class="badge bg-light text-dark border px-2 py-1">Sin Stock: <strong class="text-danger">@reporteStock.ProductosSinStock</strong></span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Valuacion Stock">
+                        @(isValuacionStockOpen ? "▲" : "▼")
                     </button>
-                    @if (HasActiveTratamientosFilter)
-                    {
-                        <button class="btn btn-outline-secondary" style="height: 31px; font-size: 0.875rem; padding: 0 0.5rem;" @onclick="LimpiarFiltrosTratamientos" title="Limpiar filtros">✕</button>
-                    }
                 </div>
             </div>
 
-            @* Tabla de resultados *@
-            @if (historicoTratamientos != null)
+            @if (isValuacionStockOpen)
             {
-                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                    <table class="table table-dark table-sm table-hover" style="background: transparent;">
-                        <thead>
+                <!-- KPIs Destacados -->
+                <div class="row text-center mb-4 g-3">
+                    <div class="col-md-4">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-secondary fw-bold d-block mb-1" style="font-size: 0.75rem;">Total Artículos Activos</small>
+                            <h3 class="m-0 fw-bold" style="color: var(--text-primary); font-size: 1.75rem;">@reporteStock.ProductosActivos</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-secondary fw-bold d-block mb-1" style="font-size: 0.75rem;">Capital Inmovilizado (Valuación Total)</small>
+                            <h3 class="text-success m-0 fw-bold" style="font-size: 1.75rem;">$@reporteStock.ValorTotalStock.ToString("N0")</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-danger fw-bold d-block mb-1" style="font-size: 0.75rem;">Sin Stock Absoluto (Faltantes)</small>
+                            <h3 class="text-danger m-0 fw-bold" style="font-size: 1.75rem;">@reporteStock.ProductosSinStock</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold m-0" style="color: var(--text-primary);">Artículos con Stock Bajo o Nulo (@reporteStock.ListaStockBajo.Count)</h6>
+                    <small class="text-secondary">Productos que alcanzaron o están por debajo del umbral mínimo configurado</small>
+                </div>
+
+                <div class="table-responsive border rounded" style="max-height: 280px; overflow-y: auto;">
+                    <table class="table table-sm table-hover align-middle mb-0" style="background: transparent;">
+                        <thead class="table-light sticky-top">
                             <tr>
-                                <th>Paciente</th>
-                                <th>Tratamiento</th>
-                                <th>Fecha</th>
-                                <th>Veterinario</th>
-                                <th>Dueño</th>
+                                <th>Cód / Nombre del Producto</th>
+                                <th>Categoría</th>
+                                <th class="text-center">Stock Actual / Mínimo</th>
                                 <th class="text-center">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @if (!historicoTratamientos.Any())
-                            {
-                                <tr><td colspan="6" class="text-center text-secondary">No se encontraron tratamientos con los filtros aplicados.</td></tr>
-                            }
-                            @foreach (var t in historicoTratamientos)
+                            @if (!reporteStock.ListaStockBajo.Any())
                             {
                                 <tr>
-                                    <td class="text-light">@t.PacienteNombre</td>
-                                    <td>
-                                        <span class="text-light">@t.Diagnostico</span>
-                                        @if (!string.IsNullOrWhiteSpace(t.Descripcion))
-                                        {
-                                            <br/><small class="text-secondary">@t.Descripcion</small>
-                                        }
+                                    <td colspan="4" class="text-center text-secondary py-3">
+                                        No hay artículos con stock bajo en este momento.
                                     </td>
-                                    <td class="text-secondary">@t.Fecha.ToString("yyyy-MM-dd")</td>
-                                    <td class="text-secondary">@t.Veterinario</td>
-                                    <td class="text-secondary">@t.PropietarioNombre</td>
+                                </tr>
+                            }
+                            @foreach (var item in reporteStock.ListaStockBajo)
+                            {
+                                <tr>
+                                    <td class="fw-bold" style="color: var(--text-primary);">@item.Nombre</td>
+                                    <td><span class="badge bg-light text-dark border">@item.CategoriaNombre</span></td>
+                                    <td class="text-center fw-bold">
+                                        <span class="@(item.StockActual == 0 ? "text-danger" : "text-warning")">
+                                            @item.StockActual
+                                        </span>
+                                        <span class="text-secondary fw-normal"> / @item.StockMinimo</span>
+                                    </td>
                                     <td class="text-center">
-                                        <span class="badge @(t.Finalizado ? "bg-success" : "bg-warning text-dark")">@(t.Finalizado ? "Finalizado" : "En curso")</span>
+                                        <span class="badge @(item.StockActual == 0 ? "bg-danger" : "bg-warning text-dark")">
+                                            @(item.StockActual == 0 ? "Sin Stock" : "Stock Bajo")
+                                        </span>
                                     </td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 </div>
-                <p class="text-secondary small mt-2 mb-0">Total: @historicoTratamientos.Count tratamiento(s)</p>
+            }
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUBREPORTE 2: Listado Detallado de Existencias y Valuación      -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
+            <!-- Encabezado colapsable -->
+            <div class="d-flex justify-content-between align-items-center pb-2 @(isListadoStockOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isListadoStockOpen = !isListadoStockOpen">
+                <div>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Listado de Existencias y Valuación por Producto</h5>
+                    <small class="text-secondary">Inventario detallado con existencia total, valor unitario y valor total acumulado</small>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-light text-dark border px-2 py-1">@reporteStock.ListaTodosProductos.Count artículos</span>
+                    <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Listado Stock">
+                        @(isListadoStockOpen ? "▲" : "▼")
+                    </button>
+                </div>
+            </div>
+
+            @if (isListadoStockOpen)
+            {
+                var listaStockFiltrada = GetListaStockFiltradaYOrdenada();
+                int totalUnidadesListadas = listaStockFiltrada.Sum(p => p.StockActual);
+                decimal totalValorListado = listaStockFiltrada.Sum(p => p.ValorTotal);
+
+                <!-- Barra de Filtros, Búsqueda y Ordenamiento -->
+                <div class="row g-3 align-items-center mb-3">
+                    <!-- Buscador por texto -->
+                    <div class="col-md-4">
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control" placeholder="Buscar por nombre o categoría..." 
+                                   @bind="stockFiltroTexto" @bind:event="oninput" style="border-radius: 6px;" />
+                            @if (!string.IsNullOrEmpty(stockFiltroTexto))
+                            {
+                                <button class="btn btn-outline-secondary" type="button" @onclick="() => stockFiltroTexto = string.Empty">✕</button>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Filtro por Estado de Semáforo (Bajo / Medio / Óptimo) -->
+                    <div class="col-md-4">
+                        <div class="btn-group btn-group-sm w-100" role="group" aria-label="Filtro Estado">
+                            <button type="button" class="btn @(stockFiltroEstado == "TODOS" ? "btn-dark" : "btn-outline-secondary")" 
+                                    @onclick='() => stockFiltroEstado = "TODOS"'>Todos</button>
+                            <button type="button" class="btn @(stockFiltroEstado == "BAJO" ? "btn-danger text-white" : "btn-outline-danger")" 
+                                    @onclick='() => stockFiltroEstado = "BAJO"'>Bajo</button>
+                            <button type="button" class="btn @(stockFiltroEstado == "MEDIO" ? "btn-warning text-dark fw-bold" : "btn-outline-warning")" 
+                                    @onclick='() => stockFiltroEstado = "MEDIO"'>Medio</button>
+                            <button type="button" class="btn @(stockFiltroEstado == "OPTIMO" ? "btn-success text-white" : "btn-outline-success")" 
+                                    @onclick='() => stockFiltroEstado = "OPTIMO"'>Óptimo</button>
+                        </div>
+                    </div>
+
+                    <!-- Botones de Ordenamiento -->
+                    <div class="col-md-4 text-md-end">
+                        <div class="d-inline-flex align-items-center gap-1">
+                            <span class="small text-secondary fw-bold me-1">Ordenar:</span>
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Ordenamiento Stock">
+                                <button type="button" class="btn @(stockSortBy == "NOMBRE" ? "btn-primary" : "btn-outline-secondary")" 
+                                        @onclick='() => ToggleStockSort("NOMBRE")'>
+                                    Nombre @(stockSortBy == "NOMBRE" ? (isStockSortAsc ? "▲" : "▼") : "")
+                                </button>
+                                <button type="button" class="btn @(stockSortBy == "CANTIDAD" ? "btn-primary" : "btn-outline-secondary")" 
+                                        @onclick='() => ToggleStockSort("CANTIDAD")'>
+                                    Cantidad @(stockSortBy == "CANTIDAD" ? (isStockSortAsc ? "▲" : "▼") : "")
+                                </button>
+                                <button type="button" class="btn @(stockSortBy == "VALORTOTAL" ? "btn-primary" : "btn-outline-secondary")" 
+                                        @onclick='() => ToggleStockSort("VALORTOTAL")'>
+                                    Valor Total @(stockSortBy == "VALORTOTAL" ? (isStockSortAsc ? "▲" : "▼") : "")
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Lista Detallada con Colores Semáforo -->
+                @if (!listaStockFiltrada.Any())
+                {
+                    <div class="text-center text-secondary p-4 border rounded" style="background: #fafafa;">
+                        No se encontraron productos con los filtros aplicados.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive border rounded" style="max-height: 480px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle mb-0" style="background: transparent;">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th style="cursor: pointer; width: 35%;" @onclick='() => ToggleStockSort("NOMBRE")'>
+                                        Producto / Categoría @(stockSortBy == "NOMBRE" ? (isStockSortAsc ? "▲" : "▼") : "")
+                                    </th>
+                                    <th class="text-center" style="width: 15%;">Estado de Stock</th>
+                                    <th class="text-center" style="cursor: pointer; width: 16%;" @onclick='() => ToggleStockSort("CANTIDAD")'>
+                                        Existencia Total @(stockSortBy == "CANTIDAD" ? (isStockSortAsc ? "▲" : "▼") : "")
+                                    </th>
+                                    <th class="text-end" style="cursor: pointer; width: 16%;" @onclick='() => ToggleStockSort("PRECIOUNITARIO")'>
+                                        Valor Unitario @(stockSortBy == "PRECIOUNITARIO" ? (isStockSortAsc ? "▲" : "▼") : "")
+                                    </th>
+                                    <th class="text-end" style="cursor: pointer; width: 18%;" @onclick='() => ToggleStockSort("VALORTOTAL")'>
+                                        Valor Total Acumulado @(stockSortBy == "VALORTOTAL" ? (isStockSortAsc ? "▲" : "▼") : "")
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var prod in listaStockFiltrada)
+                                {
+                                    var status = GetStockStatus(prod.StockActual, prod.StockMinimo);
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold" style="color: var(--text-primary);">@prod.Nombre</div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                @if (!string.IsNullOrWhiteSpace(prod.CategoriaNombre))
+                                                {
+                                                    <small class="text-secondary">@prod.CategoriaNombre</small>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(prod.CodigoBarras))
+                                                {
+                                                    <small class="text-muted" style="font-family: monospace; font-size: 0.75rem;">(@prod.CodigoBarras)</small>
+                                                }
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge @status.BadgeClass px-2 py-1" style="font-weight: 600; font-size: 0.75rem;">
+                                                @status.Label
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="fw-bold fs-6 @status.TextClass">@prod.StockActual</span>
+                                            <span class="text-secondary small d-block" style="font-size: 0.75rem;">Mínimo: @prod.StockMinimo</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="fw-semibold" style="color: var(--text-primary);">$@prod.PrecioUnitario.ToString("N0")</span>
+                                            <small class="text-muted d-block" style="font-size: 0.75rem;">(Venta: $@prod.PrecioVenta.ToString("N0"))</small>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="fw-bold text-success fs-6">$@prod.ValorTotal.ToString("N0")</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-light fw-bold sticky-bottom">
+                                <tr>
+                                    <td>TOTALES (@listaStockFiltrada.Count artículos)</td>
+                                    <td></td>
+                                    <td class="text-center text-primary fs-6">@totalUnidadesListadas uds</td>
+                                    <td></td>
+                                    <td class="text-end text-success fs-6">$@totalValorListado.ToString("N0")</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                }
+            }
+        </div>
+    }
+
+    <!-- CONTENIDO: TURNOS (3 SUBREPORTES COLAPSABLES) -->
+    @if (activeTab == "TURNOS" && reporteTurnos != null)
+    {
+        <!-- Barra de Herramientas y Exportación -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+            <div>
+                <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Subreportes de Rendimiento de Turnos</h5>
+                <small class="text-secondary">Gestión operativa, atención profesional y demanda por servicios</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ToggleAllTurnosSubreportes" style="border-radius: 8px; font-weight: 500;">
+                    @(isGestionTurnosOpen && isVetTurnosOpen && isServiciosTurnosOpen ? "Contraer todos" : "Expandir todos")
+                </button>
+                <button class="btn btn-primary btn-sm" @onclick='() => Download("api/v1/Export/turnos")' style="border-radius: 8px; font-weight: 600; background-color: var(--accent-primary); border-color: var(--accent-primary); color: white;">
+                    Descargar Agenda (CSV)
+                </button>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUBREPORTE 1: Informe de Gestión y Atención de Turnos           -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
+            <!-- Encabezado colapsable -->
+            <div class="d-flex justify-content-between align-items-center pb-2 @(isGestionTurnosOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isGestionTurnosOpen = !isGestionTurnosOpen">
+                <div>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Informe de Gestión y Atención de Turnos</h5>
+                    <small class="text-secondary">Evolución diaria de turnos programados, completados, ausencias y cancelaciones (Últimos 30 días)</small>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-none d-md-flex align-items-center gap-2">
+                        <span class="badge bg-light text-dark border px-2 py-1">Total: <strong>@reporteTurnos.TotalTurnos</strong></span>
+                        <span class="badge bg-light text-dark border px-2 py-1">Completados: <strong class="text-success">@reporteTurnos.Completados</strong></span>
+                        <span class="badge bg-light text-dark border px-2 py-1">Cumplimiento: <strong class="text-info">@reporteTurnos.TasaCumplimiento.ToString("0.0")%</strong></span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Gestion Turnos">
+                        @(isGestionTurnosOpen ? "▲" : "▼")
+                    </button>
+                </div>
+            </div>
+
+            @if (isGestionTurnosOpen)
+            {
+                var diasTurnosVisualizados = ObtenerDiasTurnosFiltrados();
+                double scaleMax = GetEffectiveScaleMax(diasTurnosVisualizados);
+                var (stepMajor, stepMinor) = GetScaleSteps(scaleMax);
+
+                string linePathTotal = GetTurnosSvgPath(diasTurnosVisualizados, d => d.Total, scaleMax);
+                string linePathComp = GetTurnosSvgPath(diasTurnosVisualizados, d => d.Completados, scaleMax);
+                string linePathAus = GetTurnosSvgPath(diasTurnosVisualizados, d => d.Ausentes, scaleMax);
+                string linePathCanc = GetTurnosSvgPath(diasTurnosVisualizados, d => d.Cancelados, scaleMax);
+
+                <!-- KPIs Destacados -->
+                <div class="row text-center mb-4 g-3">
+                    <div class="col-md-3 col-6">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-secondary fw-bold d-block mb-1" style="font-size: 0.75rem;">Programados / Totales</small>
+                            <h3 class="m-0 fw-bold" style="color: #111827; font-size: 1.65rem;">@reporteTurnos.TotalTurnos</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-success fw-bold d-block mb-1" style="font-size: 0.75rem;">Completados / Atendidos</small>
+                            <h3 class="text-success m-0 fw-bold" style="font-size: 1.65rem;">@reporteTurnos.Completados</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-2 col-4">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-warning fw-bold d-block mb-1" style="font-size: 0.75rem;">Ausentes</small>
+                            <h3 class="text-warning m-0 fw-bold" style="font-size: 1.65rem;">@reporteTurnos.Ausentes</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-2 col-4">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-danger fw-bold d-block mb-1" style="font-size: 0.75rem;">Cancelados</small>
+                            <h3 class="text-danger m-0 fw-bold" style="font-size: 1.65rem;">@reporteTurnos.Cancelados</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-2 col-4">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-info fw-bold d-block mb-1" style="font-size: 0.75rem;">% Cumplimiento</small>
+                            <h3 class="text-info m-0 fw-bold" style="font-size: 1.65rem;">@reporteTurnos.TasaCumplimiento.ToString("0.0")%</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barra de Configuración y Escala Interactiva Moderna (Sin Emojis) -->
+                <div class="p-3 mb-4 rounded-3 border" style="background: #fcfcfc;">
+                    <div class="row g-3 align-items-center">
+                        <!-- Escala Horizontal (Rango de días) -->
+                        <div class="col-lg-4 col-md-6">
+                            <div class="d-flex flex-column gap-1">
+                                <span class="text-uppercase text-secondary fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Rango Temporal (Eje X)</span>
+                                <div class="btn-group p-1 rounded-2" style="background: #f1f3f5;" role="group">
+                                    <button type="button" class="btn btn-sm @(turnosDiasRango == 30 ? "bg-white text-dark shadow-sm fw-bold" : "text-secondary border-0")" 
+                                            style="border-radius: 6px; font-size: 0.75rem; padding: 4px 10px; transition: all 0.2s;"
+                                            @onclick="() => { turnosDiasRango = 30; diaTurnoSeleccionado = null; }">30 días</button>
+                                    <button type="button" class="btn btn-sm @(turnosDiasRango == 15 ? "bg-white text-dark shadow-sm fw-bold" : "text-secondary border-0")" 
+                                            style="border-radius: 6px; font-size: 0.75rem; padding: 4px 10px; transition: all 0.2s;"
+                                            @onclick="() => { turnosDiasRango = 15; diaTurnoSeleccionado = null; }">15 días</button>
+                                    <button type="button" class="btn btn-sm @(turnosDiasRango == 7 ? "bg-white text-dark shadow-sm fw-bold" : "text-secondary border-0")" 
+                                            style="border-radius: 6px; font-size: 0.75rem; padding: 4px 10px; transition: all 0.2s;"
+                                            @onclick="() => { turnosDiasRango = 7; diaTurnoSeleccionado = null; }">7 días</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Escala Vertical (Eje Y) -->
+                        <div class="col-lg-8 col-md-6">
+                            <div class="d-flex flex-column gap-1">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-uppercase text-secondary fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Tope Vertical (Eje Y)</span>
+                                    <span class="text-muted small" style="font-size: 0.7rem;">Escala activa: <strong>0 a @scaleMax.ToString("0")</strong></span>
+                                </div>
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <div class="btn-group p-1 rounded-2" style="background: #f1f3f5;" role="group">
+                                        <button type="button" class="btn btn-sm @(isAutoVerticalScale ? "bg-white text-primary shadow-sm fw-bold" : "text-secondary border-0")" 
+                                                style="border-radius: 6px; font-size: 0.75rem; padding: 4px 12px; transition: all 0.2s;"
+                                                @onclick="() => isAutoVerticalScale = true">
+                                            Automático
+                                        </button>
+                                        <button type="button" class="btn btn-sm @(!isAutoVerticalScale && scaleMaxTurnos == 10 ? "bg-white text-dark shadow-sm fw-bold" : "text-secondary border-0")" 
+                                                style="border-radius: 6px; font-size: 0.75rem; padding: 4px 10px; transition: all 0.2s;"
+                                                @onclick="() => { isAutoVerticalScale = false; scaleMaxTurnos = 10; }">10</button>
+                                        <button type="button" class="btn btn-sm @(!isAutoVerticalScale && scaleMaxTurnos == 20 ? "bg-white text-dark shadow-sm fw-bold" : "text-secondary border-0")" 
+                                                style="border-radius: 6px; font-size: 0.75rem; padding: 4px 10px; transition: all 0.2s;"
+                                                @onclick="() => { isAutoVerticalScale = false; scaleMaxTurnos = 20; }">20</button>
+                                        <button type="button" class="btn btn-sm @(!isAutoVerticalScale && scaleMaxTurnos == 30 ? "bg-white text-dark shadow-sm fw-bold" : "text-secondary border-0")" 
+                                                style="border-radius: 6px; font-size: 0.75rem; padding: 4px 10px; transition: all 0.2s;"
+                                                @onclick="() => { isAutoVerticalScale = false; scaleMaxTurnos = 30; }">30</button>
+                                        <button type="button" class="btn btn-sm @(!isAutoVerticalScale && scaleMaxTurnos == 60 ? "bg-white text-dark shadow-sm fw-bold" : "text-secondary border-0")" 
+                                                style="border-radius: 6px; font-size: 0.75rem; padding: 4px 10px; transition: all 0.2s;"
+                                                @onclick="() => { isAutoVerticalScale = false; scaleMaxTurnos = 60; }">60</button>
+                                    </div>
+
+                                    <!-- Stepper sutil de Zoom -->
+                                    <div class="d-inline-flex align-items-center border rounded-2 p-1 bg-white" style="height: 31px;">
+                                        <button class="btn btn-sm btn-light border-0 px-2 py-0" type="button" title="Reducir escala" 
+                                                @onclick="() => { isAutoVerticalScale = false; scaleMaxTurnos = Math.Max(4, scaleMaxTurnos - 2); }">
+                                            −
+                                        </button>
+                                        <span class="px-2 small fw-bold text-secondary" style="font-size: 0.75rem; min-width: 48px; text-align: center;">
+                                            Max @scaleMax.ToString("0")
+                                        </span>
+                                        <button class="btn btn-sm btn-light border-0 px-2 py-0" type="button" title="Aumentar escala" 
+                                                @onclick="() => { isAutoVerticalScale = false; scaleMaxTurnos = Math.Min(120, scaleMaxTurnos + 2); }">
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtros de Líneas (Curvas) Estilo Pill Moderno -->
+                    <div class="d-flex flex-wrap align-items-center justify-content-between pt-3 mt-3 border-top gap-2">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <span class="text-uppercase text-secondary fw-bold me-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Curvas visibles:</span>
+                            
+                            <button type="button" class="btn btn-sm @(showLineTotal ? "btn-dark" : "btn-light text-muted") d-inline-flex align-items-center gap-1" 
+                                    style="border-radius: 20px; font-size: 0.75rem; padding: 3px 12px; font-weight: 500; transition: all 0.2s;"
+                                    @onclick="() => showLineTotal = !showLineTotal">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: @(showLineTotal ? "#ffffff" : "#9ca3af");"></span>
+                                Programados
+                            </button>
+
+                            <button type="button" class="btn btn-sm @(showLineComp ? "btn-success" : "btn-light text-muted") d-inline-flex align-items-center gap-1" 
+                                    style="border-radius: 20px; font-size: 0.75rem; padding: 3px 12px; font-weight: 500; transition: all 0.2s;"
+                                    @onclick="() => showLineComp = !showLineComp">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: @(showLineComp ? "#ffffff" : "#10b981");"></span>
+                                Completados
+                            </button>
+
+                            <button type="button" class="btn btn-sm @(showLineAus ? "btn-warning text-dark" : "btn-light text-muted") d-inline-flex align-items-center gap-1" 
+                                    style="border-radius: 20px; font-size: 0.75rem; padding: 3px 12px; font-weight: 600; transition: all 0.2s;"
+                                    @onclick="() => showLineAus = !showLineAus">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: @(showLineAus ? "#78350f" : "#f59e0b");"></span>
+                                Ausentes
+                            </button>
+
+                            <button type="button" class="btn btn-sm @(showLineCanc ? "btn-danger" : "btn-light text-muted") d-inline-flex align-items-center gap-1" 
+                                    style="border-radius: 20px; font-size: 0.75rem; padding: 3px 12px; font-weight: 500; transition: all 0.2s;"
+                                    @onclick="() => showLineCanc = !showLineCanc">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: @(showLineCanc ? "#ffffff" : "#ef4444");"></span>
+                                Cancelados
+                            </button>
+                        </div>
+                        <small class="text-secondary" style="font-size: 0.75rem;">
+                            Total días en gráfica: <strong>@diasTurnosVisualizados.Count</strong>
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Gráfico de Líneas Vectorial SVG Interactivo -->
+                <div class="p-3 border rounded" style="background: #ffffff;">
+                    <div style="width: 100%; overflow-x: auto;">
+                        <svg viewBox="0 0 1000 370" style="width: 100%; min-width: 720px; height: auto; display: block;" font-family="Segoe UI, sans-serif">
+                            <!-- Líneas de Grilla Horizontal -->
+                            @for (int s = 0; s <= (int)scaleMax; s += stepMinor)
+                            {
+                                double yPos = 320.0 - (s / scaleMax) * 280.0;
+                                bool isMajor = (s % stepMajor == 0);
+                                if (isMajor)
+                                {
+                                    <line x1="75" y1="@yPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                          x2="970" y2="@yPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                          stroke="#e5e7eb" stroke-width="1" stroke-dasharray="@(s == 0 ? "none" : "3,3")" />
+                                    @RenderSvgText(65, yPos + 4, $"{s}", "end", 11, "#6b7280", "600")
+                                }
+                                else
+                                {
+                                    <!-- Marca corta (tick mark) en el eje Y -->
+                                    <line x1="70" y1="@yPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                          x2="75" y2="@yPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                          stroke="#9ca3af" stroke-width="1" />
+                                }
+                            }
+
+                            <!-- Eje X (Línea base) y Eje Y -->
+                            <line x1="75" y1="320" x2="970" y2="320" stroke="#9ca3af" stroke-width="1.5" />
+                            <line x1="75" y1="40" x2="75" y2="320" stroke="#9ca3af" stroke-width="1.5" />
+
+                            <!-- Línea 1: Programados / Totales (Negra / Gris Oscuro) -->
+                            @if (showLineTotal && !string.IsNullOrEmpty(linePathTotal))
+                            {
+                                <path d="@linePathTotal" fill="none" stroke="#111827" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                            }
+
+                            <!-- Línea 2: Completados (Verde) -->
+                            @if (showLineComp && !string.IsNullOrEmpty(linePathComp))
+                            {
+                                <path d="@linePathComp" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                            }
+
+                            <!-- Línea 3: Ausentes (Amarillo) -->
+                            @if (showLineAus && !string.IsNullOrEmpty(linePathAus))
+                            {
+                                <path d="@linePathAus" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                            }
+
+                            <!-- Línea 4: Cancelados (Rojo) -->
+                            @if (showLineCanc && !string.IsNullOrEmpty(linePathCanc))
+                            {
+                                <path d="@linePathCanc" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                            }
+
+                            <!-- Puntos y Etiquetas Eje X -->
+                            @for (int i = 0; i < diasTurnosVisualizados.Count; i++)
+                            {
+                                var day = diasTurnosVisualizados[i];
+                                double xPos = (diasTurnosVisualizados.Count == 1) ? 522.0 : 75.0 + i * (895.0 / (diasTurnosVisualizados.Count - 1.0));
+                                double yPosTotal = 320.0 - (day.Total / scaleMax) * 280.0;
+                                double yPosComp = 320.0 - (day.Completados / scaleMax) * 280.0;
+                                double yPosAus = 320.0 - (day.Ausentes / scaleMax) * 280.0;
+                                double yPosCanc = 320.0 - (day.Cancelados / scaleMax) * 280.0;
+
+                                bool isSelected = diaTurnoSeleccionado?.DiaNumero == day.DiaNumero;
+
+                                <!-- Marca vertical sutil en el eje X -->
+                                <line x1="@xPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" y1="320" 
+                                      x2="@xPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" y2="325" 
+                                      stroke="#9ca3af" stroke-width="1" />
+
+                                <!-- Etiqueta del Día -->
+                                string labelX = (turnosDiasRango <= 15) ? $"{day.Fecha.ToString("dd/MM")}" : day.DiaNumero.ToString();
+                                @RenderSvgText(xPos, 340, labelX, "middle", (turnosDiasRango <= 15 ? 10 : 9), isSelected ? "#10b981" : "#4b5563", isSelected ? "700" : "500")
+
+                                <!-- Punto interactivo sobre Total -->
+                                @if (showLineTotal)
+                                {
+                                    <circle cx="@xPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                            cy="@yPosTotal.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                            r="@(isSelected ? "7" : (day.Total > 0 ? "4.5" : "3"))" 
+                                            fill="@(isSelected ? "#ffffff" : "#111827")" 
+                                            stroke="@(isSelected ? "#111827" : "#ffffff")" 
+                                            stroke-width="@(isSelected ? "3.5" : "1.5")" 
+                                            style="cursor: pointer; transition: r 0.2s, stroke-width 0.2s;"
+                                            @onclick="() => diaTurnoSeleccionado = (diaTurnoSeleccionado?.DiaNumero == day.DiaNumero ? null : day)" />
+                                }
+
+                                @if (showLineComp && day.Completados > 0 && (!showLineTotal || day.Completados != day.Total))
+                                {
+                                    <circle cx="@xPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                            cy="@yPosComp.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                            r="3.5" fill="#10b981" stroke="#ffffff" stroke-width="1" 
+                                            style="cursor: pointer;"
+                                            @onclick="() => diaTurnoSeleccionado = (diaTurnoSeleccionado?.DiaNumero == day.DiaNumero ? null : day)" />
+                                }
+
+                                @if (showLineAus && day.Ausentes > 0)
+                                {
+                                    <circle cx="@xPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                            cy="@yPosAus.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                            r="3" fill="#f59e0b" stroke="#ffffff" stroke-width="1" 
+                                            style="cursor: pointer;"
+                                            @onclick="() => diaTurnoSeleccionado = (diaTurnoSeleccionado?.DiaNumero == day.DiaNumero ? null : day)" />
+                                }
+
+                                @if (showLineCanc && day.Cancelados > 0)
+                                {
+                                    <circle cx="@xPos.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                            cy="@yPosCanc.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" 
+                                            r="3" fill="#ef4444" stroke="#ffffff" stroke-width="1" 
+                                            style="cursor: pointer;"
+                                            @onclick="() => diaTurnoSeleccionado = (diaTurnoSeleccionado?.DiaNumero == day.DiaNumero ? null : day)" />
+                                }
+                            }
+
+                            <!-- Título del Eje X -->
+                            @RenderSvgText(522, 360, (turnosDiasRango <= 15 ? "Días seleccionados (Fecha)" : "Días del período (1 al 30)"), "middle", 11, "#6b7280", "600")
+                        </svg>
+                    </div>
+
+                    <!-- Panel de Detalle del Día Seleccionado -->
+                    @if (diaTurnoSeleccionado != null)
+                    {
+                        decimal tasaDia = diaTurnoSeleccionado.Total > 0 ? (decimal)diaTurnoSeleccionado.Completados / diaTurnoSeleccionado.Total * 100m : 0;
+                        <div class="d-flex flex-wrap align-items-center justify-content-between p-2 px-3 mt-3 rounded border" 
+                             style="background: rgba(16, 185, 129, 0.08); border-color: #10b981 !important;">
+                            <div>
+                                <strong style="color: var(--text-primary);">Día @diaTurnoSeleccionado.DiaNumero — @diaTurnoSeleccionado.Fecha.ToString("dd/MM/yyyy") (@diaTurnoSeleccionado.Fecha.ToString("dddd", new System.Globalization.CultureInfo("es-ES")))</strong>
+                            </div>
+                            <div class="d-flex flex-wrap gap-3 my-1">
+                                <span>Totales: <strong style="color: #111827;">@diaTurnoSeleccionado.Total turnos</strong></span>
+                                <span>Completados: <strong class="text-success">@diaTurnoSeleccionado.Completados</strong></span>
+                                <span>Ausentes: <strong class="text-warning">@diaTurnoSeleccionado.Ausentes</strong></span>
+                                <span>Cancelados: <strong class="text-danger">@diaTurnoSeleccionado.Cancelados</strong></span>
+                                <span>Efectividad: <strong class="text-info">@tasaDia.ToString("0.0")%</strong></span>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => diaTurnoSeleccionado = null" style="border-radius: 6px; padding: 2px 8px;">✕ Cerrar</button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUBREPORTE 2: Atención de Turnos por Profesional                -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
+            <!-- Encabezado colapsable -->
+            <div class="d-flex justify-content-between align-items-center pb-2 @(isVetTurnosOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isVetTurnosOpen = !isVetTurnosOpen">
+                <div>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Atención de Turnos por Profesional</h5>
+                    <small class="text-secondary">Comparativa de turnos programados (amarillo) vs. completados (verde) por cada veterinario</small>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-light text-dark border px-2 py-1">@reporteTurnos.TurnosPorVeterinario.Count profesionales</span>
+                    <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Vet Turnos">
+                        @(isVetTurnosOpen ? "▲" : "▼")
+                    </button>
+                </div>
+            </div>
+
+            @if (isVetTurnosOpen)
+            {
+                var listaVets = reporteTurnos.TurnosPorVeterinario;
+                int maxTurnosVet = listaVets.Any() ? listaVets.Max(v => v.TotalTurnos) : 1;
+                if (maxTurnosVet <= 0) maxTurnosVet = 1;
+
+                <!-- Leyenda de barras -->
+                <div class="d-flex flex-wrap align-items-center gap-3 mb-3 p-2 px-3 border rounded" style="background: #fafafa;">
+                    <span class="small fw-bold" style="color: var(--text-primary);">Código de Barras Superpuestas:</span>
+                    <span class="badge bg-warning text-dark px-2 py-1"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#b45309;margin-right:4px;"></span> Turnos Programados / Totales (Fondo)</span>
+                    <span class="badge bg-success text-white px-2 py-1"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ffffff;margin-right:4px;"></span> Turnos Completados (Frente)</span>
+                </div>
+
+                @if (!listaVets.Any())
+                {
+                    <div class="text-center text-secondary p-4 border rounded" style="background: #fafafa;">
+                        No se registraron turnos asignados a profesionales en el período.
+                    </div>
+                }
+                else
+                {
+                    <!-- Gráfico de Barras Superpuestas -->
+                    <div class="p-3 border rounded mb-4" style="background: #ffffff;">
+                        <div class="d-flex flex-column gap-3">
+                            @foreach (var vet in listaVets)
+                            {
+                                double barTotalPercent = (double)vet.TotalTurnos / maxTurnosVet * 100.0;
+                                if (barTotalPercent < 4 && vet.TotalTurnos > 0) barTotalPercent = 4;
+                                double barCompPercent = (double)vet.Completados / maxTurnosVet * 100.0;
+                                if (barCompPercent < 2 && vet.Completados > 0) barCompPercent = 2;
+
+                                decimal pctCumplimiento = vet.TotalTurnos > 0 ? (decimal)vet.Completados / vet.TotalTurnos * 100m : 0;
+
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="fw-bold" style="color: var(--text-primary);">Dr. @vet.VeterinarioNombre</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-success text-white">@vet.Completados completados</span>
+                                            <span class="badge bg-warning text-dark">@vet.TotalTurnos programados</span>
+                                            <span class="badge bg-light text-dark border">@pctCumplimiento.ToString("0.0")% éxito</span>
+                                        </div>
+                                    </div>
+                                    <div style="position: relative; height: 26px; background: #e5e7eb; border-radius: 6px; overflow: hidden;">
+                                        <!-- Barra Amarilla (Programados / Totales) -->
+                                        <div style="position: absolute; left: 0; top: 0; bottom: 0; width: @(barTotalPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))%; background: #f59e0b; border-radius: 6px; transition: width 0.5s ease; opacity: 0.9;">
+                                            <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; font-weight: 700; color: #78350f;">
+                                                @(vet.TotalTurnos > 0 ? $"{vet.TotalTurnos} tot" : "")
+                                            </span>
+                                        </div>
+                                        <!-- Barra Verde (Completados Superpuesta) -->
+                                        <div style="position: absolute; left: 0; top: 0; bottom: 0; width: @(barCompPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))%; background: #10b981; border-radius: 6px; transition: width 0.5s ease; z-index: 2;">
+                                            <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; font-weight: 700; color: white;">
+                                                @(vet.Completados > 0 ? $"{vet.Completados}" : "")
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Detalle por Profesional -->
+                    <div class="table-responsive border rounded">
+                        <table class="table table-sm table-hover align-middle mb-0" style="background: transparent;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Profesional Veterinario</th>
+                                    <th class="text-center">Programados (Totales)</th>
+                                    <th class="text-center">Completados</th>
+                                    <th class="text-center">Ausentes</th>
+                                    <th class="text-center">Cancelados</th>
+                                    <th class="text-end">Tasa de Cumplimiento</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var vet in listaVets)
+                                {
+                                    decimal pct = vet.TotalTurnos > 0 ? (decimal)vet.Completados / vet.TotalTurnos * 100m : 0;
+                                    <tr>
+                                        <td class="fw-bold" style="color: var(--text-primary);">Dr. @vet.VeterinarioNombre</td>
+                                        <td class="text-center"><span class="badge bg-warning text-dark">@vet.TotalTurnos</span></td>
+                                        <td class="text-center"><span class="badge bg-success text-white">@vet.Completados</span></td>
+                                        <td class="text-center"><span class="badge bg-light text-dark border">@vet.Ausentes</span></td>
+                                        <td class="text-center"><span class="badge bg-light text-dark border">@vet.Cancelados</span></td>
+                                        <td class="text-end fw-bold text-success">@pct.ToString("0.0")%</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUBREPORTE 3: Demanda por Tipo de Servicio                      -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
+            <!-- Encabezado colapsable -->
+            <div class="d-flex justify-content-between align-items-center pb-2 @(isServiciosTurnosOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isServiciosTurnosOpen = !isServiciosTurnosOpen">
+                <div>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Demanda por Tipo de Servicio</h5>
+                    <small class="text-secondary">Volumen y distribución de turnos por tipo de atención requerida</small>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-light text-dark border px-2 py-1">@reporteTurnos.TurnosPorServicio.Count servicios</span>
+                    <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Servicios Turnos">
+                        @(isServiciosTurnosOpen ? "▲" : "▼")
+                    </button>
+                </div>
+            </div>
+
+            @if (isServiciosTurnosOpen)
+            {
+                var listaServicios = reporteTurnos.TurnosPorServicio.OrderByDescending(s => s.CantidadTurnos).ToList();
+                int maxServ = listaServicios.Any() ? listaServicios.Max(s => s.CantidadTurnos) : 1;
+                if (maxServ <= 0) maxServ = 1;
+                int granTotalServ = reporteTurnos.TotalTurnos > 0 ? reporteTurnos.TotalTurnos : 1;
+
+                @if (!listaServicios.Any())
+                {
+                    <div class="text-center text-secondary p-4 border rounded" style="background: #fafafa;">
+                        No se registraron servicios solicitados en el período.
+                    </div>
+                }
+                else
+                {
+                    <!-- Gráfico de Barras Normal por Servicio -->
+                    <div class="p-3 border rounded mb-4" style="background: #ffffff;">
+                        <div class="d-flex flex-column gap-3">
+                            @for (int i = 0; i < listaServicios.Count; i++)
+                            {
+                                var serv = listaServicios[i];
+                                double barPercent = (double)serv.CantidadTurnos / maxServ * 100.0;
+                                if (barPercent < 3 && serv.CantidadTurnos > 0) barPercent = 3;
+                                decimal sharePercent = ((decimal)serv.CantidadTurnos / granTotalServ) * 100m;
+
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge @(i == 0 ? "bg-primary" : "bg-secondary") text-white" style="font-size: 0.75rem;">
+                                                #@(i + 1)
+                                            </span>
+                                            <span class="fw-bold" style="color: var(--text-primary);">@serv.ServicioNombre</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-light text-dark border">@sharePercent.ToString("0.0")%</span>
+                                            <span class="fw-bold text-primary">@serv.CantidadTurnos turnos</span>
+                                        </div>
+                                    </div>
+                                    <div class="progress" style="height: 22px; background: #e5e7eb; border-radius: 6px; overflow: hidden;">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: @barPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%; background: linear-gradient(90deg, #0284c7 0%, #38bdf8 100%); transition: width 0.5s ease; font-weight: 600; font-size: 0.75rem; text-align: right; padding-right: 8px;">
+                                            @serv.CantidadTurnos
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Detalle -->
+                    <div class="table-responsive border rounded">
+                        <table class="table table-sm table-hover align-middle mb-0" style="background: transparent;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Servicio</th>
+                                    <th class="text-center">Cantidad de Turnos</th>
+                                    <th class="text-end">% Participación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var serv in listaServicios)
+                                {
+                                    decimal share = ((decimal)serv.CantidadTurnos / granTotalServ) * 100m;
+                                    <tr>
+                                        <td class="fw-bold" style="color: var(--text-primary);">@serv.ServicioNombre</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary text-white">@serv.CantidadTurnos turnos</span>
+                                        </td>
+                                        <td class="text-end fw-bold text-info">@share.ToString("0.0")%</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-light fw-bold">
+                                <tr>
+                                    <td>TOTAL GENERAL</td>
+                                    <td class="text-center">@reporteTurnos.TotalTurnos turnos</td>
+                                    <td class="text-end text-info">100%</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                }
+            }
+        </div>
+    }
+
+    <!-- CONTENIDO: CLINICA (3 SUBREPORTES COLAPSABLES) -->
+    @if (activeTab == "CLINICA" && reporteClinico != null)
+    {
+        <!-- Barra de Herramientas y Exportación -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+            <div>
+                <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Subreportes de Atención Clínica y Pacientes</h5>
+                <small class="text-secondary">Padrón médico, distribución por especie e historial clínico</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ToggleAllClinicaSubreportes" style="border-radius: 8px; font-weight: 500;">
+                    @(isPanelClinicoOpen && isEspeciesOpen && isHistoricoTratamientosOpen ? "Contraer todos" : "Expandir todos")
+                </button>
+                <button class="btn btn-primary btn-sm" @onclick='() => Download("api/v1/Export/pacientes")' style="border-radius: 8px; font-weight: 600; background-color: var(--accent-primary); border-color: var(--accent-primary); color: white;">
+                    Padrón Mascotas (CSV)
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick='() => Download("api/v1/Export/propietarios")' style="border-radius: 8px; font-weight: 600;">
+                    Padrón Dueños (CSV)
+                </button>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUBREPORTE 1: Panel Clínico y Registro de Pacientes             -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
+            <!-- Encabezado colapsable -->
+            <div class="d-flex justify-content-between align-items-center pb-2 @(isPanelClinicoOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isPanelClinicoOpen = !isPanelClinicoOpen">
+                <div>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Panel Clínico y Registro de Pacientes</h5>
+                    <small class="text-secondary">Indicadores clave de población atendida, vacunación activa y tratamientos médicos</small>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-none d-md-flex align-items-center gap-2">
+                        <span class="badge bg-light text-dark border px-2 py-1">Pacientes: <strong>@reporteClinico.TotalPacientes</strong></span>
+                        <span class="badge bg-light text-dark border px-2 py-1">Vacunas Mes: <strong class="text-info">@reporteClinico.VacunasAplicadasMes</strong></span>
+                        <span class="badge bg-light text-dark border px-2 py-1">Tratamientos: <strong class="text-warning">@reporteClinico.TratamientosActivosCount</strong></span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Panel Clinico">
+                        @(isPanelClinicoOpen ? "▲" : "▼")
+                    </button>
+                </div>
+            </div>
+
+            @if (isPanelClinicoOpen)
+            {
+                <div class="row text-center mb-3 g-3">
+                    <div class="col-md-4">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-secondary fw-bold d-block mb-1" style="font-size: 0.75rem;">Pacientes Activos</small>
+                            <h3 class="m-0 fw-bold" style="color: var(--text-primary); font-size: 1.75rem;">@reporteClinico.TotalPacientes</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-info fw-bold d-block mb-1" style="font-size: 0.75rem;">Vacunaciones del Mes</small>
+                            <h3 class="text-info m-0 fw-bold" style="font-size: 1.75rem;">@reporteClinico.VacunasAplicadasMes</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded border" style="background: #f8faf9;">
+                            <small class="text-uppercase text-warning fw-bold d-block mb-1" style="font-size: 0.75rem;">Tratamientos en Curso</small>
+                            <h3 class="text-warning m-0 fw-bold" style="font-size: 1.75rem;">@reporteClinico.TratamientosActivosCount</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Exportación Individual de Historia Clínica -->
+                <div class="p-3 rounded border mt-3" style="background: #fcfcfc;">
+                    <div class="row align-items-center g-2">
+                        <div class="col-md-7">
+                            <h6 class="m-0 fw-bold" style="color: var(--text-primary); font-size: 0.9rem;">Exportar Historia Clínica Individual</h6>
+                            <small class="text-secondary">Descargue la ficha médica completa de un paciente en formato CSV</small>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="input-group input-group-sm">
+                                <input type="text" @bind="pacienteIdParaExportar" class="form-control" placeholder="ID o Código del Paciente..." />
+                                <button class="btn btn-secondary" disabled="@string.IsNullOrWhiteSpace(pacienteIdParaExportar)" @onclick="ExportarIndividual">
+                                    Descargar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUBREPORTE 2: Distribución de Pacientes por Especie (Torta)      -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
+            <!-- Encabezado colapsable -->
+            <div class="d-flex justify-content-between align-items-center pb-2 @(isEspeciesOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isEspeciesOpen = !isEspeciesOpen">
+                <div>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Distribución de Pacientes por Especie</h5>
+                    <small class="text-secondary">Composición demográfica y proporción de mascotas censadas</small>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-light text-dark border px-2 py-1">@reporteClinico.PacientesPorEspecie.Count especies</span>
+                    <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Especies">
+                        @(isEspeciesOpen ? "▲" : "▼")
+                    </button>
+                </div>
+            </div>
+
+            @if (isEspeciesOpen)
+            {
+                var pieSlices = GetEspeciesPieSlices();
+
+                @if (!pieSlices.Any())
+                {
+                    <div class="text-center text-secondary p-4 border rounded" style="background: #fafafa;">
+                        No hay pacientes registrados para calcular la distribución demográfica.
+                    </div>
+                }
+                else
+                {
+                    <div class="row align-items-center g-4">
+                        <!-- Columna Izquierda: Gráfico de Tortas Vectorial SVG (con Emojis de Especies) -->
+                        <div class="col-lg-5 col-md-6 text-center">
+                            <div style="position: relative; width: 100%; max-width: 320px; margin: 0 auto;">
+                                <svg viewBox="0 0 350 350" style="width: 100%; height: auto; display: block;" font-family="Segoe UI, sans-serif">
+                                    <!-- Porciones de la Torta -->
+                                    @foreach (var slice in pieSlices)
+                                    {
+                                        bool isSelected = especieSeleccionada?.EspecieId == slice.EspecieId;
+                                        <path d="@slice.SvgPath" 
+                                              fill="@slice.Color" 
+                                              stroke="#ffffff" 
+                                              stroke-width="@(isSelected ? "3" : "1.5")"
+                                              style="cursor: pointer; transition: transform 0.2s, opacity 0.2s; opacity: @(especieSeleccionada == null || isSelected ? "1" : "0.55");"
+                                              @onclick="() => especieSeleccionada = (especieSeleccionada?.EspecieId == slice.EspecieId ? null : slice)" />
+                                    }
+
+                                    <!-- Centro del Donut: Información y Totales -->
+                                    <circle cx="175" cy="175" r="64" fill="#ffffff" stroke="#e5e7eb" stroke-width="1" />
+                                    
+                                    @if (especieSeleccionada != null)
+                                    {
+                                        @RenderSvgText(175, 155, GetEspecieIcon(especieSeleccionada.EspecieNombre), "middle", 22, "#111827", "normal")
+                                        @RenderSvgText(175, 178, $"{especieSeleccionada.Cantidad} ({especieSeleccionada.Porcentaje:0.0}%)", "middle", 12, "#111827", "700")
+                                        @RenderSvgText(175, 195, especieSeleccionada.EspecieNombre, "middle", 11, "#6b7280", "600")
+                                    }
+                                    else
+                                    {
+                                        @RenderSvgText(175, 155, "🐾", "middle", 22, "#111827", "normal")
+                                        @RenderSvgText(175, 178, reporteClinico.TotalPacientes.ToString(), "middle", 17, "#111827", "700")
+                                        @RenderSvgText(175, 196, "Total Pacientes", "middle", 10, "#6b7280", "600")
+                                    }
+                                </svg>
+                            </div>
+                            <small class="text-secondary d-block mt-2" style="font-size: 0.75rem;">
+                                Haz clic en una porción de la torta para filtrar la especie
+                            </small>
+                        </div>
+
+                        <!-- Columna Derecha: Leyenda y Desglose de Especies (con Emojis de Especies) -->
+                        <div class="col-lg-7 col-md-6">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold" style="color: var(--text-primary); font-size: 0.9rem;">Especies Registradas</span>
+                                @if (especieSeleccionada != null)
+                                {
+                                    <button class="btn btn-sm btn-link text-decoration-none p-0" style="font-size: 0.8rem;" @onclick="() => especieSeleccionada = null">
+                                        Mostrar todas
+                                    </button>
+                                }
+                            </div>
+
+                            <div class="d-flex flex-column gap-2" style="max-height: 320px; overflow-y: auto;">
+                                @foreach (var slice in pieSlices)
+                                {
+                                    bool isSelected = especieSeleccionada?.EspecieId == slice.EspecieId;
+                                    <div class="p-2 px-3 rounded border @(isSelected ? "border-primary bg-light" : "")" 
+                                         style="cursor: pointer; transition: all 0.2s; background: @(isSelected ? "rgba(2, 132, 199, 0.06)" : "#ffffff");"
+                                         @onclick="() => especieSeleccionada = (especieSeleccionada?.EspecieId == slice.EspecieId ? null : slice)">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: @slice.Color;"></span>
+                                                <span style="font-size: 1.1rem;">@GetEspecieIcon(slice.EspecieNombre)</span>
+                                                <span class="fw-bold" style="color: var(--text-primary); font-size: 0.9rem;">@slice.EspecieNombre</span>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-light text-dark border">@slice.Porcentaje.ToString("0.0")%</span>
+                                                <strong style="color: var(--text-primary); font-size: 0.9rem;">@slice.Cantidad @(slice.Cantidad == 1 ? "mascota" : "mascotas")</strong>
+                                            </div>
+                                        </div>
+                                        <div class="progress" style="height: 6px; background: #e5e7eb; border-radius: 4px;">
+                                            <div class="progress-bar" role="progressbar" 
+                                                 style="width: @slice.Porcentaje.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%; background-color: @slice.Color; border-radius: 4px;"></div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- SUBREPORTE 3: Histórico de Tratamientos                         -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
+            <!-- Encabezado colapsable -->
+            <div class="d-flex justify-content-between align-items-center pb-2 @(isHistoricoTratamientosOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isHistoricoTratamientosOpen = !isHistoricoTratamientosOpen">
+                <div>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Histórico de Tratamientos</h5>
+                    <small class="text-secondary">Registro auditable de intervenciones médicas, diagnósticos y estado evolutivo</small>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-light text-dark border px-2 py-1">@(historicoTratamientos?.Count ?? 0) registros</span>
+                    <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Historico Tratamientos">
+                        @(isHistoricoTratamientosOpen ? "▲" : "▼")
+                    </button>
+                </div>
+            </div>
+
+            @if (isHistoricoTratamientosOpen)
+            {
+                <p class="text-secondary small mb-3">Lista completa de tratamientos realizados. Utilice los filtros para refinar los resultados.</p>
+
+                @* Filtros *@
+                <div class="row g-2 mb-3">
+                    <div class="col-md-2">
+                        <label class="form-label text-secondary small mb-1">Desde</label>
+                        <input type="date" @bind="filtroDesde" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label text-secondary small mb-1">Hasta</label>
+                        <input type="date" @bind="filtroHasta" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label text-secondary small mb-1">Paciente</label>
+                        <input type="text" @bind="filtroPaciente" class="form-control form-control-sm" placeholder="Buscar..." />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label text-secondary small mb-1">Dueño</label>
+                        <input type="text" @bind="filtroPropietario" class="form-control form-control-sm" placeholder="Buscar..." />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label text-secondary small mb-1">Veterinario</label>
+                        <input type="text" @bind="filtroVeterinario" class="form-control form-control-sm" placeholder="Buscar..." />
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end gap-1">
+                        <button class="btn btn-primary flex-fill" style="height: 31px; font-size: 0.875rem; padding: 0 0.75rem; background-color: var(--accent-primary); border-color: var(--accent-primary); color: white;" @onclick="BuscarTratamientos" disabled="@isLoadingTratamientos">
+                            @if (isLoadingTratamientos) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            Buscar
+                        </button>
+                        @if (HasActiveTratamientosFilter)
+                        {
+                            <button class="btn btn-outline-secondary" style="height: 31px; font-size: 0.875rem; padding: 0 0.5rem;" @onclick="LimpiarFiltrosTratamientos" title="Limpiar filtros">✕</button>
+                        }
+                    </div>
+                </div>
+
+                @* Tabla de resultados *@
+                @if (historicoTratamientos != null)
+                {
+                    <div class="table-responsive border rounded" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle mb-0" style="background: transparent;">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Paciente</th>
+                                    <th>Tratamiento</th>
+                                    <th>Fecha</th>
+                                    <th>Veterinario</th>
+                                    <th>Dueño</th>
+                                    <th class="text-center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (!historicoTratamientos.Any())
+                                {
+                                    <tr><td colspan="6" class="text-center text-secondary py-3">No se encontraron tratamientos con los filtros aplicados.</td></tr>
+                                }
+                                @foreach (var t in historicoTratamientos)
+                                {
+                                    <tr>
+                                        <td class="fw-bold" style="color: var(--text-primary);">@t.PacienteNombre</td>
+                                        <td>
+                                            <span class="fw-semibold" style="color: var(--text-primary);">@t.Diagnostico</span>
+                                            @if (!string.IsNullOrWhiteSpace(t.Descripcion))
+                                            {
+                                                <br/><small class="text-secondary">@t.Descripcion</small>
+                                            }
+                                        </td>
+                                        <td class="text-secondary">@t.Fecha.ToString("yyyy-MM-dd")</td>
+                                        <td class="text-secondary">@t.Veterinario</td>
+                                        <td class="text-secondary">@t.PropietarioNombre</td>
+                                        <td class="text-center">
+                                            <span class="badge @(t.Finalizado ? "bg-success" : "bg-warning text-dark")">@(t.Finalizado ? "Finalizado" : "En curso")</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-secondary small mt-2 mb-0">Total: @historicoTratamientos.Count tratamiento(s)</p>
+                }
             }
         </div>
     }
@@ -402,6 +1695,466 @@ else
 
     // UI States
     private string pacienteIdParaExportar = string.Empty;
+
+    // ═════════════════════════════════════════════════════
+    // ESTADOS Y MÉTODOS DE SUBREPORTES DE FINANZAS Y VENTAS
+    // ═════════════════════════════════════════════════════
+    private bool isResumenOpen = true;
+    private bool isMetodosOpen = true;
+    private bool isTopProductosOpen = true;
+
+    private string lineChartMetric = "FACTURADO"; // "FACTURADO" o "OPERACIONES"
+    private string metodoSortBy = "TOTAL";         // "TOTAL" o "CANTIDAD"
+    private string productoSortBy = "CANTIDAD";    // "CANTIDAD" o "TOTAL"
+    private DiaVentaItem? diaSeleccionado = null;
+
+    public class DiaVentaItem
+    {
+        public int DiaNumero { get; set; }
+        public DateTime Fecha { get; set; }
+        public decimal Facturado { get; set; }
+        public int Operaciones { get; set; }
+    }
+
+    private void ToggleAllSubreportes()
+    {
+        bool target = !(isResumenOpen && isMetodosOpen && isTopProductosOpen);
+        isResumenOpen = target;
+        isMetodosOpen = target;
+        isTopProductosOpen = target;
+    }
+
+    private List<DiaVentaItem> ObtenerDias30()
+    {
+        var list = new List<DiaVentaItem>();
+        if (reporteVentas == null) return list;
+
+        var fechaFin = reporteVentas.Hasta.Date > DateTime.Today ? DateTime.Today : reporteVentas.Hasta.Date;
+        if (fechaFin == DateTime.MinValue) fechaFin = DateTime.Today;
+        var fechaInicio = fechaFin.AddDays(-29);
+
+        var ventasDict = reporteVentas.VentasPorDia
+            .GroupBy(v => v.Fecha.Date)
+            .ToDictionary(g => g.Key, g => new { Total = g.Sum(x => x.Total), Cantidad = g.Sum(x => x.Cantidad) });
+
+        for (int i = 1; i <= 30; i++)
+        {
+            var fecha = fechaInicio.AddDays(i - 1);
+            decimal total = 0;
+            int cant = 0;
+            if (ventasDict.TryGetValue(fecha.Date, out var v))
+            {
+                total = v.Total;
+                cant = v.Cantidad;
+            }
+            list.Add(new DiaVentaItem
+            {
+                DiaNumero = i,
+                Fecha = fecha,
+                Facturado = total,
+                Operaciones = cant
+            });
+        }
+        return list;
+    }
+
+    private string GetSvgPath(List<DiaVentaItem> dias, string metric, decimal scaleMaxFact, int scaleMaxOps)
+    {
+        if (dias == null || !dias.Any()) return "";
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < dias.Count; i++)
+        {
+            double x = 85.0 + i * (885.0 / 29.0);
+            double y;
+            if (metric == "FACTURADO")
+            {
+                y = 315.0 - (double)(dias[i].Facturado / (scaleMaxFact > 0 ? scaleMaxFact : 100000m)) * 285.0;
+            }
+            else
+            {
+                y = 315.0 - (double)(dias[i].Operaciones / (double)(scaleMaxOps > 0 ? scaleMaxOps : 5)) * 285.0;
+            }
+            if (y < 30) y = 30;
+            if (y > 315) y = 315;
+
+            if (i == 0)
+                sb.Append(System.Globalization.CultureInfo.InvariantCulture, $"M {x:F2} {y:F2}");
+            else
+                sb.Append(System.Globalization.CultureInfo.InvariantCulture, $" L {x:F2} {y:F2}");
+        }
+        return sb.ToString();
+    }
+
+    private string GetSvgAreaPath(List<DiaVentaItem> dias, string metric, decimal scaleMaxFact, int scaleMaxOps)
+    {
+        var linePath = GetSvgPath(dias, metric, scaleMaxFact, scaleMaxOps);
+        if (string.IsNullOrEmpty(linePath)) return "";
+        double lastX = 85.0 + 29.0 * (885.0 / 29.0);
+        double firstX = 85.0;
+        return $"{linePath} L {lastX:F2} 315.00 L {firstX:F2} 315.00 Z";
+    }
+
+    private List<VentaPorMetodoPagoDto> GetListaMetodosOrdenada()
+    {
+        if (reporteVentas == null || reporteVentas.VentasPorMetodoPago == null) return new();
+        return metodoSortBy == "TOTAL"
+            ? reporteVentas.VentasPorMetodoPago.OrderByDescending(m => m.Total).ToList()
+            : reporteVentas.VentasPorMetodoPago.OrderByDescending(m => m.Cantidad).ToList();
+    }
+
+    private List<ProductoMasVendidoDto> GetListaProductosOrdenada()
+    {
+        if (reporteVentas == null || reporteVentas.ProductosMasVendidos == null) return new();
+        return productoSortBy == "CANTIDAD"
+            ? reporteVentas.ProductosMasVendidos.OrderByDescending(p => p.CantidadVendida).ToList()
+            : reporteVentas.ProductosMasVendidos.OrderByDescending(p => p.TotalVendido).ToList();
+    }
+
+    private MarkupString RenderSvgText(double x, double y, string content, string textAnchor = "start", int fontSize = 11, string fill = "#6b7280", string fontWeight = "normal")
+    {
+        var str = $"<text x=\"{x.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}\" y=\"{y.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}\" text-anchor=\"{textAnchor}\" font-size=\"{fontSize}\" fill=\"{fill}\" font-weight=\"{fontWeight}\">{System.Net.WebUtility.HtmlEncode(content)}</text>";
+        return new MarkupString(str);
+    }
+
+    private string GetIconoMetodoPago(string metodo)
+    {
+        if (string.IsNullOrWhiteSpace(metodo)) return "🏷️";
+        var m = metodo.ToLowerInvariant();
+        if (m.Contains("efectivo")) return "💵";
+        if (m.Contains("débito") || m.Contains("debito")) return "💳";
+        if (m.Contains("crédito") || m.Contains("credito")) return "💳";
+        if (m.Contains("transfer") || m.Contains("mp") || m.Contains("mercado") || m.Contains("qr")) return "📱";
+        return "🏷️";
+    }
+
+    // ═════════════════════════════════════════════════════
+    // ESTADOS Y MÉTODOS DE SUBREPORTES DE STOCK
+    // ═════════════════════════════════════════════════════
+    private bool isValuacionStockOpen = true;
+    private bool isListadoStockOpen = true;
+
+    private string stockSortBy = "VALORTOTAL"; // "NOMBRE", "CANTIDAD", "VALORTOTAL", "PRECIOUNITARIO"
+    private bool isStockSortAsc = false;
+    private string stockFiltroTexto = "";
+    private string stockFiltroEstado = "TODOS"; // "TODOS", "BAJO", "MEDIO", "OPTIMO"
+
+    private void ToggleAllStockSubreportes()
+    {
+        bool target = !(isValuacionStockOpen && isListadoStockOpen);
+        isValuacionStockOpen = target;
+        isListadoStockOpen = target;
+    }
+
+    private void ToggleStockSort(string column)
+    {
+        if (stockSortBy == column)
+        {
+            isStockSortAsc = !isStockSortAsc;
+        }
+        else
+        {
+            stockSortBy = column;
+            isStockSortAsc = (column == "NOMBRE");
+        }
+    }
+
+    private (string BadgeClass, string TextClass, string Label, string Icon, string EstadoKey) GetStockStatus(int stockActual, int stockMinimo)
+    {
+        if (stockActual <= stockMinimo)
+        {
+            return ("bg-danger text-white", "text-danger", stockActual == 0 ? "Sin Stock" : "Bajo Stock", "", "BAJO");
+        }
+        else if (stockMinimo > 0 ? (stockActual <= stockMinimo * 1.5) : (stockActual <= 3))
+        {
+            return ("bg-warning text-dark", "text-warning", "Stock Medio", "", "MEDIO");
+        }
+        else
+        {
+            return ("bg-success text-white", "text-success", "Stock Óptimo", "", "OPTIMO");
+        }
+    }
+
+    private List<ProductoStockItemDto> GetListaStockFiltradaYOrdenada()
+    {
+        if (reporteStock == null || reporteStock.ListaTodosProductos == null) return new();
+
+        var query = reporteStock.ListaTodosProductos.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(stockFiltroTexto))
+        {
+            var f = stockFiltroTexto.Trim();
+            query = query.Where(p => 
+                p.Nombre.Contains(f, StringComparison.OrdinalIgnoreCase) ||
+                p.CategoriaNombre.Contains(f, StringComparison.OrdinalIgnoreCase) ||
+                p.CodigoBarras.Contains(f, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (stockFiltroEstado != "TODOS")
+        {
+            query = query.Where(p => GetStockStatus(p.StockActual, p.StockMinimo).EstadoKey == stockFiltroEstado);
+        }
+
+        query = stockSortBy switch
+        {
+            "NOMBRE" => isStockSortAsc ? query.OrderBy(p => p.Nombre) : query.OrderByDescending(p => p.Nombre),
+            "CANTIDAD" => isStockSortAsc ? query.OrderBy(p => p.StockActual) : query.OrderByDescending(p => p.StockActual),
+            "PRECIOUNITARIO" => isStockSortAsc ? query.OrderBy(p => p.PrecioUnitario) : query.OrderByDescending(p => p.PrecioUnitario),
+            "VALORTOTAL" => isStockSortAsc ? query.OrderBy(p => p.ValorTotal) : query.OrderByDescending(p => p.ValorTotal),
+            _ => query.OrderByDescending(p => p.ValorTotal)
+        };
+
+        return query.ToList();
+    }
+
+    // ═════════════════════════════════════════════════════
+    // ESTADOS Y MÉTODOS DE SUBREPORTES DE TURNOS
+    // ═════════════════════════════════════════════════════
+    private bool isGestionTurnosOpen = true;
+    private bool isVetTurnosOpen = true;
+    private bool isServiciosTurnosOpen = true;
+
+    // Escala Interactiva del Gráfico
+    private double scaleMaxTurnos = 20.0;
+    private bool isAutoVerticalScale = true;
+    private int turnosDiasRango = 30; // 30, 15, 7
+
+    // Visibilidad de Líneas
+    private bool showLineTotal = true;
+    private bool showLineComp = true;
+    private bool showLineAus = true;
+    private bool showLineCanc = true;
+
+    private DiaTurnoItem? diaTurnoSeleccionado = null;
+
+    public class DiaTurnoItem
+    {
+        public int DiaNumero { get; set; }
+        public DateTime Fecha { get; set; }
+        public int Total { get; set; }
+        public int Programados { get; set; }
+        public int Completados { get; set; }
+        public int Ausentes { get; set; }
+        public int Cancelados { get; set; }
+    }
+
+    private void ToggleAllTurnosSubreportes()
+    {
+        bool target = !(isGestionTurnosOpen && isVetTurnosOpen && isServiciosTurnosOpen);
+        isGestionTurnosOpen = target;
+        isVetTurnosOpen = target;
+        isServiciosTurnosOpen = target;
+    }
+
+    private List<DiaTurnoItem> ObtenerDiasTurnosFiltrados()
+    {
+        var todos = ObtenerDiasTurnos30();
+        if (!todos.Any()) return todos;
+
+        if (turnosDiasRango == 7)
+            return todos.TakeLast(7).ToList();
+        if (turnosDiasRango == 15)
+            return todos.TakeLast(15).ToList();
+        return todos;
+    }
+
+    private double GetEffectiveScaleMax(List<DiaTurnoItem> dias)
+    {
+        if (isAutoVerticalScale)
+        {
+            int maxVal = dias.Any() ? dias.Max(d => Math.Max(d.Total, Math.Max(d.Completados, Math.Max(d.Ausentes, d.Cancelados)))) : 10;
+            if (maxVal <= 4) return 6.0;
+            if (maxVal <= 8) return 10.0;
+            if (maxVal <= 16) return 20.0;
+            if (maxVal <= 26) return 30.0;
+            if (maxVal <= 50) return 60.0;
+            return Math.Ceiling(maxVal * 1.2 / 5.0) * 5.0;
+        }
+        return scaleMaxTurnos > 0 ? scaleMaxTurnos : 20.0;
+    }
+
+    private (int StepMajor, int StepMinor) GetScaleSteps(double scaleMax)
+    {
+        if (scaleMax <= 10) return (2, 1);
+        if (scaleMax <= 24) return (5, 1);
+        if (scaleMax <= 40) return (5, 2);
+        if (scaleMax <= 70) return (10, 2);
+        return (20, 5);
+    }
+
+    private List<DiaTurnoItem> ObtenerDiasTurnos30()
+    {
+        var list = new List<DiaTurnoItem>();
+        if (reporteTurnos == null) return list;
+
+        var fechaFin = reporteTurnos.Hasta.Date > DateTime.Today ? DateTime.Today : reporteTurnos.Hasta.Date;
+        if (fechaFin == DateTime.MinValue) fechaFin = DateTime.Today;
+        var fechaInicio = fechaFin.AddDays(-29);
+
+        var dict = reporteTurnos.TurnosPorDia
+            .GroupBy(t => t.Fecha.Date)
+            .ToDictionary(g => g.Key, g => new
+            {
+                Total = g.Sum(x => x.Total),
+                Programados = g.Sum(x => x.Programados),
+                Completados = g.Sum(x => x.Completados),
+                Ausentes = g.Sum(x => x.Ausentes),
+                Cancelados = g.Sum(x => x.Cancelados)
+            });
+
+        for (int i = 1; i <= 30; i++)
+        {
+            var fecha = fechaInicio.AddDays(i - 1);
+            int tot = 0, prog = 0, comp = 0, aus = 0, canc = 0;
+            if (dict.TryGetValue(fecha.Date, out var d))
+            {
+                tot = d.Total;
+                prog = d.Programados;
+                comp = d.Completados;
+                aus = d.Ausentes;
+                canc = d.Cancelados;
+            }
+
+            list.Add(new DiaTurnoItem
+            {
+                DiaNumero = i,
+                Fecha = fecha,
+                Total = tot,
+                Programados = prog,
+                Completados = comp,
+                Ausentes = aus,
+                Cancelados = canc
+            });
+        }
+        return list;
+    }
+
+    private string GetTurnosSvgPath(List<DiaTurnoItem> dias, Func<DiaTurnoItem, int> selector, double scaleMax = 60.0)
+    {
+        if (dias == null || !dias.Any()) return "";
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < dias.Count; i++)
+        {
+            double x = (dias.Count == 1) ? 522.0 : 75.0 + i * (895.0 / (dias.Count - 1.0));
+            int val = selector(dias[i]);
+            double y = 320.0 - (val / scaleMax) * 280.0;
+            if (y < 40) y = 40;
+            if (y > 320) y = 320;
+
+            if (i == 0)
+                sb.Append(System.Globalization.CultureInfo.InvariantCulture, $"M {x:F2} {y:F2}");
+            else
+                sb.Append(System.Globalization.CultureInfo.InvariantCulture, $" L {x:F2} {y:F2}");
+        }
+        return sb.ToString();
+    }
+
+    // ═════════════════════════════════════════════════════
+    // ESTADOS Y MÉTODOS DE SUBREPORTES CLÍNICOS
+    // ═════════════════════════════════════════════════════
+    private bool isPanelClinicoOpen = true;
+    private bool isEspeciesOpen = true;
+    private bool isHistoricoTratamientosOpen = true;
+
+    private EspeciePieSlice? especieSeleccionada = null;
+
+    public class EspeciePieSlice
+    {
+        public int EspecieId { get; set; }
+        public string EspecieNombre { get; set; } = string.Empty;
+        public int Cantidad { get; set; }
+        public decimal Porcentaje { get; set; }
+        public string Color { get; set; } = "#0284c7";
+        public string SvgPath { get; set; } = string.Empty;
+        public double MidAngle { get; set; }
+    }
+
+    private void ToggleAllClinicaSubreportes()
+    {
+        bool target = !(isPanelClinicoOpen && isEspeciesOpen && isHistoricoTratamientosOpen);
+        isPanelClinicoOpen = target;
+        isEspeciesOpen = target;
+        isHistoricoTratamientosOpen = target;
+    }
+
+    private static readonly string[] EspeciePalette = new[]
+    {
+        "#0284c7", "#8b5cf6", "#10b981", "#f59e0b", "#ec4899", 
+        "#06b6d4", "#6366f1", "#f97316", "#14b8a6", "#84cc16"
+    };
+
+    private List<EspeciePieSlice> GetEspeciesPieSlices()
+    {
+        var result = new List<EspeciePieSlice>();
+        if (reporteClinico == null || reporteClinico.PacientesPorEspecie == null || !reporteClinico.PacientesPorEspecie.Any())
+            return result;
+
+        var ordenados = reporteClinico.PacientesPorEspecie.OrderByDescending(e => e.Cantidad).ToList();
+        int total = ordenados.Sum(e => e.Cantidad);
+        if (total <= 0) return result;
+
+        double currentAngle = -90.0;
+        double cx = 175.0, cy = 175.0;
+        double R = 130.0, r = 70.0;
+
+        for (int i = 0; i < ordenados.Count; i++)
+        {
+            var item = ordenados[i];
+            double angle = (double)item.Cantidad / total * 360.0;
+            if (angle > 359.999) angle = 359.999;
+            double startAngle = currentAngle;
+            double endAngle = currentAngle + angle;
+            double midAngle = startAngle + angle / 2.0;
+            currentAngle += angle;
+
+            double startRad = startAngle * Math.PI / 180.0;
+            double endRad = endAngle * Math.PI / 180.0;
+
+            double x1 = cx + R * Math.Cos(startRad);
+            double y1 = cy + R * Math.Sin(startRad);
+            double x2 = cx + R * Math.Cos(endRad);
+            double y2 = cy + R * Math.Sin(endRad);
+
+            double x3 = cx + r * Math.Cos(endRad);
+            double y3 = cy + r * Math.Sin(endRad);
+            double x4 = cx + r * Math.Cos(startRad);
+            double y4 = cy + r * Math.Sin(startRad);
+
+            int largeArc = (angle > 180.0) ? 1 : 0;
+
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            string path = string.Format(ci,
+                "M {0:F2} {1:F2} A {2:F2} {2:F2} 0 {3} 1 {4:F2} {5:F2} L {6:F2} {7:F2} A {8:F2} {8:F2} 0 {3} 0 {9:F2} {10:F2} Z",
+                x1, y1, R, largeArc, x2, y2, x3, y3, r, x4, y4);
+
+            string color = EspeciePalette[i % EspeciePalette.Length];
+            decimal pct = ((decimal)item.Cantidad / total) * 100m;
+
+            result.Add(new EspeciePieSlice
+            {
+                EspecieId = item.EspecieId,
+                EspecieNombre = item.EspecieNombre,
+                Cantidad = item.Cantidad,
+                Porcentaje = pct,
+                Color = color,
+                SvgPath = path,
+                MidAngle = midAngle
+            });
+        }
+        return result;
+    }
+
+    private string GetEspecieIcon(string nombre)
+    {
+        var n = (nombre ?? "").ToLowerInvariant();
+        if (n.Contains("can") || n.Contains("perr") || n.Contains("dog")) return "🐕";
+        if (n.Contains("fel") || n.Contains("gat") || n.Contains("cat")) return "🐈";
+        if (n.Contains("av") || n.Contains("paj") || n.Contains("bird") || n.Contains("loro")) return "🦜";
+        if (n.Contains("con") || n.Contains("roed") || n.Contains("ham") || n.Contains("cob")) return "🐇";
+        if (n.Contains("rep") || n.Contains("tort") || n.Contains("serp") || n.Contains("igua")) return "🐢";
+        if (n.Contains("equ") || n.Contains("cab")) return "🐎";
+        if (n.Contains("bov") || n.Contains("vac")) return "🐄";
+        return "🐾";
+    }
 
     // Filtros Histórico de Tratamientos
     private DateTime? filtroDesde;

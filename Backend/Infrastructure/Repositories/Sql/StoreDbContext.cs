@@ -117,7 +117,7 @@ namespace Infrastructure.Repositories.Sql
                 entity.HasKey(p => p.Id);
                 entity.Property(p => p.Nombre).IsRequired().HasMaxLength(100);
                 entity.Property(p => p.Sexo).IsRequired().HasMaxLength(1);
-                entity.Property(p => p.FotoUrl).HasMaxLength(500);
+                entity.Property(p => p.FotoUrl).HasMaxLength(2000000);
                 entity.Property(p => p.Observaciones).HasMaxLength(1000);
 
                 entity.HasOne(p => p.Especie)
@@ -164,10 +164,18 @@ namespace Infrastructure.Repositories.Sql
                 entity.HasOne(r => r.Vacuna)
                     .WithMany(v => v.Registros)
                     .HasForeignKey(r => r.VacunaId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(r => r.Producto)
+                    .WithMany()
+                    .HasForeignKey(r => r.ProductoId)
+                    .IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasIndex(r => r.PacienteId);
                 entity.HasIndex(r => r.VacunaId);
+                entity.HasIndex(r => r.ProductoId);
             });
 
             // Configuración de Tratamiento
@@ -180,6 +188,7 @@ namespace Infrastructure.Repositories.Sql
                 entity.Property(t => t.Medicacion).HasMaxLength(500);
                 entity.Property(t => t.Veterinario).IsRequired().HasMaxLength(100);
                 entity.Property(t => t.Observaciones).HasMaxLength(1000);
+                entity.Property(t => t.ArchivosAdjuntos);
 
                 entity.HasOne(t => t.Paciente)
                     .WithMany()
@@ -200,6 +209,7 @@ namespace Infrastructure.Repositories.Sql
                 entity.Property(h => h.Indicaciones).HasMaxLength(1000);
                 entity.Property(h => h.Veterinario).IsRequired().HasMaxLength(100);
                 entity.Property(h => h.Observaciones).HasMaxLength(1000);
+                entity.Property(h => h.ArchivosAdjuntos);
                 entity.Property(h => h.Peso).HasColumnType("decimal(10,2)");
                 entity.Property(h => h.Temperatura).HasColumnType("decimal(4,1)");
 
@@ -220,6 +230,7 @@ namespace Infrastructure.Repositories.Sql
                 entity.Property(s => s.Nombre).IsRequired().HasMaxLength(100);
                 entity.Property(s => s.Descripcion).HasMaxLength(500);
                 entity.Property(s => s.Precio).HasColumnType("decimal(10,2)");
+                entity.Property(s => s.ProductosUtilizados).HasMaxLength(2000);
             });
 
             // Configuración de Veterinario
@@ -288,6 +299,7 @@ namespace Infrastructure.Repositories.Sql
                 entity.HasKey(t => t.Id);
                 entity.Property(t => t.Motivo).HasMaxLength(200);
                 entity.Property(t => t.Observaciones).HasMaxLength(500);
+                entity.Property(t => t.ArchivosAdjuntos);
 
                 entity.HasOne(t => t.Paciente)
                     .WithMany()
@@ -485,6 +497,7 @@ namespace Infrastructure.Repositories.Sql
                 entity.HasOne(d => d.Producto)
                     .WithMany()
                     .HasForeignKey(d => d.ProductoId)
+                    .IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasIndex(d => d.VentaId);

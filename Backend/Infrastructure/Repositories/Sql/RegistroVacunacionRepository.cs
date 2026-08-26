@@ -13,6 +13,7 @@ namespace Infrastructure.Repositories.Sql
         {
             return await Repository
                 .Include(r => r.Vacuna)
+                .Include(r => r.Producto)
                 .Where(r => r.PacienteId == pacienteId)
                 .OrderByDescending(r => r.FechaAplicacion)
                 .ToListAsync();

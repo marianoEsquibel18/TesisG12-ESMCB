@@ -13,6 +13,7 @@ namespace Controllers
         IPacienteRepository pacienteRepo,
         IPropietarioRepository propietarioRepo,
         IProductoRepository productoRepo,
+        IProductoDepositoRepository pdRepo,
         IVentaRepository ventaRepo,
         ITurnoRepository turnoRepo,
         IHistorialClinicoRepository historialRepo,
@@ -142,21 +143,29 @@ namespace Controllers
         /// Exporta el inventario completo a CSV
         /// </summary>
         [HttpGet("api/v1/Export/productos")]
-        public async Task<IActionResult> ExportProductos([FromQuery] bool soloActivos = true)
+        public async Task<IActionResult> ExportProductos([FromQuery] bool soloActivos = true, [FromQuery] int? sucursalId = null)
         {
             var productos = await productoRepo.FindAllAsync();
             if (soloActivos) productos = productos.Where(p => p.Activo).ToList();
+            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
 
             var sb = new StringBuilder();
             sb.AppendLine("Id,Nombre,CodigoBarras,Categoria,Marca,Proveedor,Deposito,PrecioCompra,PrecioVenta,StockActual,StockMinimo,Activo");
 
             foreach (var p in productos.OrderBy(p => p.Nombre))
             {
+                int currentStock = p.StockActual;
+                if (targetSucursalId.HasValue)
+                {
+                    var pds = await pdRepo.GetByProductoIdAsync(p.Id);
+                    currentStock = pds.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).Sum(s => s.StockActual);
+                }
+
                 sb.AppendLine(string.Join(",",
                     p.Id, Escape(p.Nombre), Escape(p.CodigoBarras ?? ""),
                     Escape(p.Categoria?.Nombre ?? ""), Escape(p.Marca?.Nombre ?? ""),
                     Escape(p.Proveedor?.RazonSocial ?? ""), Escape(p.Deposito?.Nombre ?? ""),
-                    p.PrecioCompra, p.PrecioVenta, p.StockActual, p.StockMinimo,
+                    p.PrecioCompra, p.PrecioVenta, currentStock, p.StockMinimo,
                     p.Activo ? "Sí" : "No"));
             }
 
@@ -167,24 +176,40 @@ namespace Controllers
         /// Exporta solo productos con stock bajo a CSV
         /// </summary>
         [HttpGet("api/v1/Export/stockBajo")]
-        public async Task<IActionResult> ExportStockBajo()
+        public async Task<IActionResult> ExportStockBajo([FromQuery] int? sucursalId = null)
         {
-            var productos = (await productoRepo.FindAllAsync())
-                .Where(p => p.Activo && p.StockActual <= p.StockMinimo).ToList();
+            var productos = (await productoRepo.FindAllAsync()).Where(p => p.Activo).ToList();
+            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+
+            var itemsBajo = new List<(Domain.Entities.Producto prod, int stock)>();
+            foreach (var p in productos)
+            {
+                int currentStock = p.StockActual;
+                if (targetSucursalId.HasValue)
+                {
+                    var pds = await pdRepo.GetByProductoIdAsync(p.Id);
+                    currentStock = pds.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).Sum(s => s.StockActual);
+                }
+
+                if (currentStock <= p.StockMinimo)
+                {
+                    itemsBajo.Add((p, currentStock));
+                }
+            }
 
             var sb = new StringBuilder();
             sb.AppendLine($"ALERTA STOCK BAJO - {DateTime.Now:dd/MM/yyyy HH:mm}");
-            sb.AppendLine($"Productos con stock bajo: {productos.Count}");
+            sb.AppendLine($"Productos con stock bajo: {itemsBajo.Count}");
             sb.AppendLine();
             sb.AppendLine("Nombre,StockActual,StockMinimo,Faltante,Proveedor,Telefono Proveedor");
 
-            foreach (var p in productos.OrderBy(p => p.StockActual))
+            foreach (var item in itemsBajo.OrderBy(x => x.stock))
             {
                 sb.AppendLine(string.Join(",",
-                    Escape(p.Nombre), p.StockActual, p.StockMinimo,
-                    p.StockMinimo - p.StockActual,
-                    Escape(p.Proveedor?.RazonSocial ?? ""),
-                    Escape(p.Proveedor?.Telefono ?? "")));
+                    Escape(item.prod.Nombre), item.stock, item.prod.StockMinimo,
+                    item.prod.StockMinimo - item.stock,
+                    Escape(item.prod.Proveedor?.RazonSocial ?? ""),
+                    Escape(item.prod.Proveedor?.Telefono ?? "")));
             }
 
             return File(Encoding.UTF8.GetBytes(sb.ToString()), "text/csv", $"stock_bajo_{DateTime.Now:yyyyMMdd}.csv");
@@ -204,6 +229,10 @@ namespace Controllers
             var d = desde ?? DateTime.Today.AddMonths(-1);
             var h = hasta ?? DateTime.Today.AddDays(1);
             var ventas = await ventaRepo.GetByFechaRangoAsync(d, h);
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value).ToList();
+            }
 
             var sb = new StringBuilder();
             sb.AppendLine($"REPORTE DE VENTAS - {d:dd/MM/yyyy} al {h:dd/MM/yyyy}");
@@ -238,16 +267,22 @@ namespace Controllers
             var d = desde ?? DateTime.Today;
             var h = hasta ?? DateTime.Today.AddDays(7);
             var turnos = (await turnoRepo.FindAllAsync())
-                .Where(t => t.FechaHora >= d && t.FechaHora <= h)
-                .OrderBy(t => t.FechaHora).ToList();
+                .Where(t => t.FechaHora >= d && t.FechaHora <= h).AsEnumerable();
+
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                turnos = turnos.Where(t => t.SucursalId == UserSucursalId.Value);
+            }
+
+            var list = turnos.OrderBy(t => t.FechaHora).ToList();
 
             var sb = new StringBuilder();
             sb.AppendLine($"AGENDA DE TURNOS - {d:dd/MM/yyyy} al {h:dd/MM/yyyy}");
-            sb.AppendLine($"Total turnos: {turnos.Count}");
+            sb.AppendLine($"Total turnos: {list.Count}");
             sb.AppendLine();
             sb.AppendLine("Fecha,Hora,Paciente,Propietario,Veterinario,Servicio,Estado,Motivo,Duracion(min)");
 
-            foreach (var t in turnos)
+            foreach (var t in list)
             {
                 sb.AppendLine(string.Join(",",
                     t.FechaHora.ToString("dd/MM/yyyy"), t.FechaHora.ToString("HH:mm"),

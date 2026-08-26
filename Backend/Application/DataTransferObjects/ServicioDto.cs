@@ -7,6 +7,7 @@ namespace Application.DataTransferObjects
         public string Descripcion { get; set; }
         public int DuracionMinutos { get; set; }
         public decimal Precio { get; set; }
+        public string ProductosUtilizados { get; set; }
         public bool Activo { get; set; }
     }
 }

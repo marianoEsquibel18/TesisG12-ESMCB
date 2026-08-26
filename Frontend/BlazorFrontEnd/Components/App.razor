@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="app.css?v=20260504b" />
     <link rel="stylesheet" href="@Assets["BlazorFrontEnd.styles.css"]" />
     <ImportMap />
@@ -16,6 +17,36 @@
 <body>
     <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     <script src="_framework/blazor.web.js"></script>
+    <script>
+        window.openBase64File = function (base64Data, fileName, mimeType) {
+            let byteString;
+            if (base64Data.indexOf(',') >= 0) {
+                byteString = atob(base64Data.split(',')[1]);
+            } else {
+                byteString = atob(base64Data);
+            }
+
+            const arrayBuffer = new ArrayBuffer(byteString.length);
+            const int8Array = new Uint8Array(arrayBuffer);
+            for (let i = 0; i < byteString.length; i++) {
+                int8Array[i] = byteString.charCodeAt(i);
+            }
+            const blob = new Blob([arrayBuffer], { type: mimeType });
+            const blobUrl = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.target = '_blank';
+            // Open images/PDFs in new tab, download videos and others
+            if (mimeType !== 'application/pdf' && !mimeType.startsWith('image/')) {
+                link.download = fileName;
+            }
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 200);
+        }
+    </script>
 </body>
 
 </html>

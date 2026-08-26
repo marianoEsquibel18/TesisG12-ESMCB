@@ -81,7 +81,8 @@ namespace Controllers
                 request.Descripcion,
                 request.Veterinario,
                 request.Medicacion ?? "",
-                request.Observaciones ?? "");
+                request.Observaciones ?? "",
+                archivosAdjuntos: request.ArchivosAdjuntos);
 
             if (!entity.IsValid)
                 return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
@@ -101,7 +102,7 @@ namespace Controllers
             var entity = await _tratamientoRepository.FindOneAsync(request.Id);
             if (entity == null) return NotFound($"No se encontró el tratamiento con Id {request.Id}");
 
-            entity.Actualizar(request.Diagnostico, request.Descripcion, request.Medicacion ?? "", request.Observaciones ?? "");
+            entity.Actualizar(request.Diagnostico, request.Descripcion, request.Medicacion ?? "", request.Observaciones ?? "", archivosAdjuntos: request.ArchivosAdjuntos);
 
             if (!entity.IsValid)
                 return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
@@ -150,7 +151,8 @@ namespace Controllers
             Medicacion = t.Medicacion,
             Veterinario = t.Veterinario,
             Observaciones = t.Observaciones,
-            Finalizado = t.Finalizado
+            Finalizado = t.Finalizado,
+            ArchivosAdjuntos = t.ArchivosAdjuntos
         };
     }
 
@@ -163,6 +165,7 @@ namespace Controllers
         public string Veterinario { get; set; }
         public string Medicacion { get; set; }
         public string Observaciones { get; set; }
+        public string? ArchivosAdjuntos { get; set; }
     }
 
     public class UpdateTratamientoRequest
@@ -172,5 +175,6 @@ namespace Controllers
         public string Descripcion { get; set; }
         public string Medicacion { get; set; }
         public string Observaciones { get; set; }
+        public string? ArchivosAdjuntos { get; set; }
     }
 }

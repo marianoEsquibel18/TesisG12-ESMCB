@@ -181,53 +181,67 @@ namespace Controllers
             decimal totalVenta = 0;
             foreach (var det in request.Detalles)
             {
-                // Validar producto
-                var producto = await _productoRepo.FindOneAsync(det.ProductoId);
-                if (producto == null)
-                    return BadRequest($"No existe el producto con Id {det.ProductoId}");
-
-                // Descontar stock por depósito si se especifica
-                if (det.DepositoId.HasValue && det.DepositoId.Value > 0)
+                if (!string.IsNullOrWhiteSpace(det.ProductoId))
                 {
-                    var pd = await _pdRepo.GetByProductoYDepositoAsync(det.ProductoId, det.DepositoId.Value);
-                    if (pd == null)
-                        return BadRequest($"No hay stock del producto '{producto.Nombre}' en el depósito seleccionado");
-                    
-                    if (!IsAdmin && UserSucursalId.HasValue && pd.Deposito?.SucursalId != UserSucursalId.Value)
+                    // Validar producto
+                    var producto = await _productoRepo.FindOneAsync(det.ProductoId);
+                    if (producto == null)
+                        return BadRequest($"No existe el producto con Id {det.ProductoId}");
+
+                    // Descontar stock por depósito si se especifica
+                    if (det.DepositoId.HasValue && det.DepositoId.Value > 0)
                     {
-                        return BadRequest($"El depósito '{pd.Deposito?.Nombre}' no pertenece a su sucursal");
+                        var pd = await _pdRepo.GetByProductoYDepositoAsync(det.ProductoId, det.DepositoId.Value);
+                        if (pd == null)
+                            return BadRequest($"No hay stock del producto '{producto.Nombre}' en el depósito seleccionado");
+                        
+                        if (!IsAdmin && UserSucursalId.HasValue && pd.Deposito?.SucursalId != UserSucursalId.Value)
+                        {
+                            return BadRequest($"El depósito '{pd.Deposito?.Nombre}' no pertenece a su sucursal");
+                        }
+
+                        if (!pd.DescontarStock(det.Cantidad))
+                            return BadRequest($"Stock insuficiente para '{producto.Nombre}' en el depósito. Disponible: {pd.StockActual}");
+                        _pdRepo.Update(pd.Id, pd);
+
+                        // Sincronizar stock total
+                        var allStocks = await _pdRepo.GetByProductoIdAsync(det.ProductoId);
+                        producto.SetStockDirecto(allStocks.Sum(s => s.StockActual));
+                    }
+                    else
+                    {
+                        // Fallback: descontar del stock global
+                        if (!producto.DescontarStock(det.Cantidad))
+                            return BadRequest($"Stock insuficiente para '{producto.Nombre}'. Disponible: {producto.StockActual}");
                     }
 
-                    if (!pd.DescontarStock(det.Cantidad))
-                        return BadRequest($"Stock insuficiente para '{producto.Nombre}' en el depósito. Disponible: {pd.StockActual}");
-                    _pdRepo.Update(pd.Id, pd);
+                    _productoRepo.Update(det.ProductoId, producto);
 
-                    // Sincronizar stock total
-                    var allStocks = await _pdRepo.GetByProductoIdAsync(det.ProductoId);
-                    producto.SetStockDirecto(allStocks.Sum(s => s.StockActual));
+                    // Registrar movimiento de stock
+                    var movimiento = new Domain.Entities.MovimientoStock(
+                        det.ProductoId, TipoMovimiento.Salida, det.Cantidad, "Venta", ventaId.ToString());
+                    await _movimientoRepo.AddAsync(movimiento);
+
+                    // Crear detalle y guardar en DB (con depósito para poder revertir al anular)
+                    var precioUnit = det.PrecioUnitario > 0 ? det.PrecioUnitario : producto.PrecioVenta;
+                    var detalle = new Domain.Entities.DetalleVenta(
+                        ventaId, det.ProductoId, det.Descripcion ?? producto.Nombre,
+                        det.Cantidad, precioUnit, det.DepositoId);
+
+                    await _detalleRepo.AddAsync(detalle);
+                    totalVenta += detalle.Subtotal;
                 }
                 else
                 {
-                    // Fallback: descontar del stock global
-                    if (!producto.DescontarStock(det.Cantidad))
-                        return BadRequest($"Stock insuficiente para '{producto.Nombre}'. Disponible: {producto.StockActual}");
+                    // Es un servicio u otro concepto no inventariable
+                    var precioUnit = det.PrecioUnitario;
+                    var detalle = new Domain.Entities.DetalleVenta(
+                        ventaId, null, det.Descripcion ?? "Servicio",
+                        det.Cantidad, precioUnit, null);
+
+                    await _detalleRepo.AddAsync(detalle);
+                    totalVenta += detalle.Subtotal;
                 }
-
-                _productoRepo.Update(det.ProductoId, producto);
-
-                // Registrar movimiento de stock
-                var movimiento = new Domain.Entities.MovimientoStock(
-                    det.ProductoId, TipoMovimiento.Salida, det.Cantidad, "Venta", ventaId.ToString());
-                await _movimientoRepo.AddAsync(movimiento);
-
-                // Crear detalle y guardar en DB (con depósito para poder revertir al anular)
-                var precioUnit = det.PrecioUnitario > 0 ? det.PrecioUnitario : producto.PrecioVenta;
-                var detalle = new Domain.Entities.DetalleVenta(
-                    ventaId, det.ProductoId, det.Descripcion ?? producto.Nombre,
-                    det.Cantidad, precioUnit, det.DepositoId);
-
-                await _detalleRepo.AddAsync(detalle);
-                totalVenta += detalle.Subtotal;
             }
 
             // Actualizar total y confirmar
@@ -394,7 +408,7 @@ namespace Controllers
 
     public class CreateDetalleVentaRequest
     {
-        public string ProductoId { get; set; }
+        public string? ProductoId { get; set; }
         public string Descripcion { get; set; }
         public int Cantidad { get; set; }
         public decimal PrecioUnitario { get; set; }

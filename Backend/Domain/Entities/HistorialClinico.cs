@@ -19,6 +19,7 @@ namespace Domain.Entities
         public decimal? Peso { get; private set; }  // Peso en kg al momento de la consulta
         public decimal? Temperatura { get; private set; }  // Temperatura corporal
         public string Observaciones { get; private set; }
+        public string? ArchivosAdjuntos { get; private set; } = "[]";
 
         // Navegación
         public virtual Paciente Paciente { get; private set; }
@@ -35,7 +36,8 @@ namespace Domain.Entities
             string indicaciones = "",
             decimal? peso = null,
             decimal? temperatura = null,
-            string observaciones = "") : this()
+            string observaciones = "",
+            string? archivosAdjuntos = "[]") : this()
         {
             Id = Guid.NewGuid().ToString();
             PacienteId = pacienteId;
@@ -48,10 +50,11 @@ namespace Domain.Entities
             Peso = peso;
             Temperatura = temperatura;
             Observaciones = observaciones;
+            ArchivosAdjuntos = archivosAdjuntos ?? "[]";
         }
 
         public void Actualizar(string motivo, string sintomas, string diagnostico, string indicaciones, 
-            decimal? peso, decimal? temperatura, string observaciones)
+            decimal? peso, decimal? temperatura, string observaciones, string? archivosAdjuntos = null)
         {
             Motivo = motivo;
             Sintomas = sintomas;
@@ -60,6 +63,10 @@ namespace Domain.Entities
             Peso = peso;
             Temperatura = temperatura;
             Observaciones = observaciones;
+            if (archivosAdjuntos != null)
+            {
+                ArchivosAdjuntos = archivosAdjuntos;
+            }
         }
     }
 }

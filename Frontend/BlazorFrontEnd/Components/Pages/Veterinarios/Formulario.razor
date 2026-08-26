@@ -6,6 +6,8 @@
 @inject VeterinarioService VeterinarioService
 @inject HorarioService HorarioService
 @inject NavigationManager Navigation
+@inject SucursalService SucursalService
+
 
 <style>
     .bg-light-hover:hover {
@@ -75,6 +77,18 @@
                         }
                     </ul>
                 }
+            </div>
+
+            <div class="mb-3">
+                <label>Sucursal (*)</label>
+                <InputSelect @bind-Value="model.SucursalId" class="form-select bg-dark text-light border-secondary">
+                    <option value="">-- Seleccionar Sucursal --</option>
+                    @foreach (var suc in sucursales)
+                    {
+                        <option value="@suc.Id">@suc.Nombre</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="@(() => model.SucursalId)" class="text-danger" />
             </div>
 
             <div class="row mb-3">
@@ -217,6 +231,7 @@
     public string? Id { get; set; }
 
     private VeterinarioDto model = new();
+    private List<SucursalDto> sucursales = new();
     private bool isEdit => !string.IsNullOrEmpty(Id);
     private bool isLoading = true;
     private bool isSaving;
@@ -254,6 +269,16 @@
 
     protected override async Task OnInitializedAsync()
     {
+        try
+        {
+            var sucs = await SucursalService.GetAllAsync(true);
+            if (sucs != null) sucursales = sucs;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar sucursales: {ex.Message}");
+        }
+
         if (isEdit)
         {
             isLoading = true;
@@ -404,6 +429,11 @@
         validationErrors.Clear();
 
         // Validaciones del lado del cliente
+        if (!model.SucursalId.HasValue || model.SucursalId.Value <= 0)
+        {
+            validationErrors.Add("Debe seleccionar una sucursal.");
+        }
+
         if (string.IsNullOrWhiteSpace(model.Nombre) || string.IsNullOrWhiteSpace(model.Apellido))
         {
             validationErrors.Add("Nombre y Apellido son obligatorios.");

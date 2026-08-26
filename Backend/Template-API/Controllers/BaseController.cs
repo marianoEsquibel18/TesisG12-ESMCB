@@ -8,12 +8,26 @@ namespace Controllers
         {
             get
             {
+                if (Request.Headers.TryGetValue("X-Sucursal-Id", out var hVal) && int.TryParse(hVal, out var hId))
+                {
+                    return hId > 0 ? hId : null;
+                }
                 var claim = User.FindFirst("sucursalId")?.Value;
                 return string.IsNullOrEmpty(claim) ? null : int.Parse(claim);
             }
         }
 
-        protected bool IsAdmin => User.IsInRole("Admin");
+        protected bool IsAdmin
+        {
+            get
+            {
+                if (Request.Headers.TryGetValue("X-Impersonate-Role", out var rVal) && !string.IsNullOrWhiteSpace(rVal))
+                {
+                    return rVal.ToString().Equals("Admin", StringComparison.OrdinalIgnoreCase);
+                }
+                return User.IsInRole("Admin");
+            }
+        }
 
         public override OkResult Ok()
         {

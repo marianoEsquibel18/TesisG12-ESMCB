@@ -14,7 +14,10 @@ namespace Controllers
     public class RegistroVacunacionController(
         IRegistroVacunacionRepository registroRepository,
         IPacienteRepository pacienteRepository,
-        IVacunaRepository vacunaRepository) : BaseController
+        IVacunaRepository vacunaRepository,
+        IProductoRepository productoRepository,
+        IProductoDepositoRepository pdRepository,
+        IMovimientoStockRepository movimientoRepo) : BaseController
     {
         private readonly IRegistroVacunacionRepository _registroRepository = registroRepository
             ?? throw new ArgumentNullException(nameof(registroRepository));
@@ -22,6 +25,12 @@ namespace Controllers
             ?? throw new ArgumentNullException(nameof(pacienteRepository));
         private readonly IVacunaRepository _vacunaRepository = vacunaRepository
             ?? throw new ArgumentNullException(nameof(vacunaRepository));
+        private readonly IProductoRepository _productoRepository = productoRepository
+            ?? throw new ArgumentNullException(nameof(productoRepository));
+        private readonly IProductoDepositoRepository _pdRepository = pdRepository
+            ?? throw new ArgumentNullException(nameof(pdRepository));
+        private readonly IMovimientoStockRepository _movimientoRepo = movimientoRepo
+            ?? throw new ArgumentNullException(nameof(movimientoRepo));
 
         /// <summary>
         /// Obtiene los registros de vacunación de un paciente
@@ -65,7 +74,7 @@ namespace Controllers
         }
 
         /// <summary>
-        /// Registra una vacunación aplicada
+        /// Registra una vacunación aplicada y descuenta 1 unidad del inventario
         /// </summary>
         [HttpPost("api/v1/[Controller]")]
         public async Task<IActionResult> Create([FromBody] CreateRegistroVacunacionRequest request)
@@ -75,24 +84,73 @@ namespace Controllers
             var paciente = await _pacienteRepository.FindOneAsync(request.PacienteId);
             if (paciente == null) return BadRequest($"No existe el paciente con Id {request.PacienteId}");
 
-            var vacuna = await _vacunaRepository.FindOneAsync(request.VacunaId);
-            if (vacuna == null) return BadRequest($"No existe la vacuna con Id {request.VacunaId}");
+            int? vacunaId = request.VacunaId > 0 ? request.VacunaId : null;
+            string? productoId = !string.IsNullOrWhiteSpace(request.ProductoId) ? request.ProductoId : null;
 
-            // Calcular próxima dosis automáticamente si la vacuna tiene intervalo definido
-            DateTime? fechaProximaDosis = request.FechaProximaDosis;
-            if (!fechaProximaDosis.HasValue && vacuna.IntervaloDosisDias.HasValue)
+            if (vacunaId == null && productoId == null)
+                return BadRequest("Debe seleccionar una vacuna válida");
+
+            // Si viene asociado a un producto del inventario, descontar stock y generar movimiento
+            if (!string.IsNullOrWhiteSpace(productoId))
             {
-                fechaProximaDosis = request.FechaAplicacion.AddDays(vacuna.IntervaloDosisDias.Value);
+                var producto = await _productoRepository.FindOneAsync(productoId);
+                if (producto == null) return BadRequest($"No existe el producto con Id {productoId}");
+
+                if (request.DepositoId.HasValue && request.DepositoId.Value > 0)
+                {
+                    var pd = await _pdRepository.GetByProductoYDepositoAsync(productoId, request.DepositoId.Value);
+                    if (pd == null)
+                        return BadRequest($"No hay stock de la vacuna '{producto.Nombre}' en el depósito seleccionado");
+
+                    if (!pd.DescontarStock(1))
+                        return BadRequest($"Stock insuficiente para la vacuna '{producto.Nombre}' en el depósito. Disponible: {pd.StockActual}");
+
+                    _pdRepository.Update(pd.Id, pd);
+
+                    var allStocks = await _pdRepository.GetByProductoIdAsync(productoId);
+                    producto.SetStockDirecto(allStocks.Sum(s => s.StockActual));
+                }
+                else
+                {
+                    // Intentar descontar del primer depósito con stock o stock global
+                    var stocksDepositos = await _pdRepository.GetByProductoIdAsync(productoId);
+                    var primerDepConStock = stocksDepositos.FirstOrDefault(s => s.StockActual > 0);
+                    if (primerDepConStock != null)
+                    {
+                        primerDepConStock.DescontarStock(1);
+                        _pdRepository.Update(primerDepConStock.Id, primerDepConStock);
+                        producto.SetStockDirecto(stocksDepositos.Sum(s => s.StockActual));
+                    }
+                    else
+                    {
+                        if (!producto.DescontarStock(1))
+                            return BadRequest($"Stock insuficiente para la vacuna '{producto.Nombre}'. Disponible: {producto.StockActual}");
+                    }
+                }
+
+                _productoRepository.Update(productoId, producto);
+
+                // Movimiento de stock
+                var mov = new Domain.Entities.MovimientoStock(
+                    productoId, Domain.Entities.TipoMovimiento.Salida, 1, $"Vacunación aplicada a paciente {paciente.Nombre}");
+                await _movimientoRepo.AddAsync(mov);
+            }
+            else if (vacunaId.HasValue)
+            {
+                var vacuna = await _vacunaRepository.FindOneAsync(vacunaId.Value);
+                if (vacuna == null) return BadRequest($"No existe la vacuna con Id {vacunaId.Value}");
             }
 
             var entity = new Domain.Entities.RegistroVacunacion(
                 request.PacienteId,
-                request.VacunaId,
+                vacunaId,
                 request.FechaAplicacion,
                 request.Veterinario,
                 request.NroLote ?? "",
-                fechaProximaDosis,
-                request.Observaciones ?? "");
+                request.FechaProximaDosis,
+                request.Observaciones ?? "",
+                productoId,
+                request.DepositoId);
 
             if (!entity.IsValid)
                 return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
@@ -113,7 +171,7 @@ namespace Controllers
             if (entity == null) return NotFound($"No se encontró el registro con Id {request.Id}");
 
             entity.Actualizar(request.FechaAplicacion, request.Veterinario, request.NroLote ?? "",
-                request.FechaProximaDosis, request.Observaciones ?? "");
+                request.FechaProximaDosis, request.Observaciones ?? "", request.ProductoId, request.DepositoId);
 
             if (!entity.IsValid)
                 return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
@@ -140,8 +198,10 @@ namespace Controllers
             Id = r.Id,
             PacienteId = r.PacienteId,
             PacienteNombre = r.Paciente?.Nombre ?? "",
-            VacunaId = r.VacunaId,
-            VacunaNombre = r.Vacuna?.Nombre ?? "",
+            VacunaId = r.VacunaId ?? 0,
+            ProductoId = r.ProductoId ?? "",
+            DepositoId = r.DepositoId,
+            VacunaNombre = !string.IsNullOrEmpty(r.Producto?.Nombre) ? r.Producto.Nombre : (r.Vacuna?.Nombre ?? ""),
             FechaAplicacion = r.FechaAplicacion,
             FechaProximaDosis = r.FechaProximaDosis,
             ProximaDosisVencida = r.FechaProximaDosis.HasValue && r.FechaProximaDosis.Value <= DateTime.Now,
@@ -155,6 +215,8 @@ namespace Controllers
     {
         public string PacienteId { get; set; }
         public int VacunaId { get; set; }
+        public string ProductoId { get; set; }
+        public int? DepositoId { get; set; }
         public DateTime FechaAplicacion { get; set; }
         public DateTime? FechaProximaDosis { get; set; }
         public string Veterinario { get; set; }
@@ -165,6 +227,8 @@ namespace Controllers
     public class UpdateRegistroVacunacionRequest
     {
         public string Id { get; set; }
+        public string ProductoId { get; set; }
+        public int? DepositoId { get; set; }
         public DateTime FechaAplicacion { get; set; }
         public DateTime? FechaProximaDosis { get; set; }
         public string Veterinario { get; set; }

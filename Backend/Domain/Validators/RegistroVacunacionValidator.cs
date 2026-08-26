@@ -11,12 +11,13 @@ namespace Domain.Validators
             RuleFor(r => r.PacienteId)
                 .NotEmpty().WithMessage("Debe indicar el paciente");
 
-            RuleFor(r => r.VacunaId)
-                .GreaterThan(0).WithMessage("Debe seleccionar una vacuna válida");
+            RuleFor(r => r)
+                .Must(r => (r.VacunaId.HasValue && r.VacunaId.Value > 0) || !string.IsNullOrWhiteSpace(r.ProductoId))
+                .WithMessage("Debe seleccionar una vacuna válida");
 
             RuleFor(r => r.FechaAplicacion)
                 .NotEmpty().WithMessage("La fecha de aplicación es requerida")
-                .LessThanOrEqualTo(DateTime.Now).WithMessage("La fecha de aplicación no puede ser futura");
+                .LessThanOrEqualTo(DateTime.Now.AddDays(1)).WithMessage("La fecha de aplicación no puede ser futura");
 
             RuleFor(r => r.Veterinario)
                 .NotEmpty().WithMessage("Debe indicar el veterinario que aplicó la vacuna")
@@ -24,10 +25,6 @@ namespace Domain.Validators
 
             RuleFor(r => r.NroLote)
                 .MaximumLength(50).WithMessage("El número de lote no puede superar los 50 caracteres");
-
-            RuleFor(r => r.FechaProximaDosis)
-                .GreaterThan(r => r.FechaAplicacion).When(r => r.FechaProximaDosis.HasValue)
-                .WithMessage("La fecha de próxima dosis debe ser posterior a la fecha de aplicación");
         }
     }
 }

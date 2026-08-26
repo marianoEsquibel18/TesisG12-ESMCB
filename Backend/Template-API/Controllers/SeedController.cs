@@ -292,18 +292,18 @@ namespace Controllers
 
             // ═══════════════════════
             // 5. SERVICIOS
-            // Servicio(nombre, descripcion, duracionMinutos, precio)
+            // Servicio(nombre, descripcion, duracionMinutos, precio, insumos)
             // ═══════════════════════
             var servicios = new List<Servicio>
             {
-                new("Consulta General", "Revisión clínica general", 30, 5000m),
-                new("Vacunación", "Aplicación de vacunas", 15, 3500m),
-                new("Cirugía menor", "Cirugías ambulatorias", 60, 15000m),
-                new("Castración", "Esterilización quirúrgica", 45, 12000m),
-                new("Limpieza dental", "Profilaxis dental", 40, 8000m),
-                new("Análisis clínico", "Extracción y análisis de sangre", 20, 4500m),
-                new("Ecografía", "Estudio por imágenes", 30, 6000m),
-                new("Desparasitación", "Tratamiento antiparasitario", 10, 2500m),
+                new("Consulta general", "Revisión clínica completa del paciente", 30, 5000m, ""),
+                new("Vacunación", "Aplicación de vacuna e insumos descartables", 15, 3500m, "Jeringa descartable 5ml x 100"),
+                new("Cirugía menor", "Cirugías ambulatorias y suturas", 60, 15000m, "Amoxicilina 250mg x 20 comp, Jeringa descartable 5ml x 100"),
+                new("Castración", "Esterilización quirúrgica completa", 45, 12000m, "Meloxicam 1.5mg/ml x 10ml, Jeringa descartable 5ml x 100"),
+                new("Limpieza dental", "Profilaxis dental por ultrasonido", 40, 8000m, ""),
+                new("Análisis clínico", "Extracción y análisis de sangre", 20, 4500m, "Jeringa descartable 5ml x 100"),
+                new("Ecografía", "Estudio diagnóstico por imágenes", 30, 6000m, ""),
+                new("Desparasitación", "Tratamiento antiparasitario", 10, 2500m, "Collar antipulgas canino"),
             };
             foreach (var s in servicios) await servicioRepo.AddAsync(s);
             resumen["Servicios"] = servicios.Count;
@@ -314,11 +314,11 @@ namespace Controllers
             // ═══════════════════════
             var vacunas = new List<Vacuna>
             {
-                new("Antirrábica", "Vacuna antirrábica obligatoria", "Laboratorio XYZ", 365),
-                new("Quíntuple Canina", "Moquillo, Hepatitis, Parvo, Parainfluenza, Lepto", "Laboratorio ABC", 365),
-                new("Triple Felina", "Panleucopenia, Rinotraqueitis, Calicivirus", "Laboratorio ABC", 365),
-                new("Antitetánica", "Protección contra tétanos", "Laboratorio DEF", 365),
-                new("Leucemia Felina", "Virus de Leucemia Felina (FeLV)", "Laboratorio ABC", 365),
+                new("Antirrábica", "Vacuna antirrábica obligatoria", "Bayer", 365),
+                new("Séxtuple Canina", "Moquillo, Parvo, Hepatitis, Adenovirus, Parainfluenza, Leptospira", "Holliday", 365),
+                new("Triple Felina", "Panleucopenia, Rinotraqueitis, Calicivirus", "Holliday", 365),
+                new("Puppy DP", "Protección temprana cachorros Distemper y Parvovirus", "Bayer", 365),
+                new("Leucemia Felina", "Virus de Leucemia Felina (FeLV)", "Holliday", 365),
             };
             foreach (var v in vacunas) await vacunaRepo.AddAsync(v);
             resumen["Vacunas"] = vacunas.Count;
@@ -414,7 +414,7 @@ namespace Controllers
             // ═══════════════════════
             var cats = new List<Categoria>
             {
-                new("Medicamentos"), new("Alimentos"), new("Accesorios"), new("Higiene"),
+                new("Medicamentos"), new("Vacunas"), new("Alimentos"), new("Accesorios"), new("Higiene"),
             };
             foreach (var c in cats) await categoriaRepo.AddAsync(c);
             resumen["Categorías"] = cats.Count;
@@ -437,9 +437,9 @@ namespace Controllers
             var deps = new List<Deposito>
             {
                 new("Depósito Central", "Sala de atrás", sucursalCentral.Id),
-                new("Refrigerados Central", "Heladera de medicamentos", sucursalCentral.Id),
+                new("Refrigerados Central", "Heladera de medicamentos y biológicos", sucursalCentral.Id),
                 new("Depósito Norte", "Sala de atrás", sucursalNorte.Id),
-                new("Refrigerados Norte", "Heladera de medicamentos", sucursalNorte.Id),
+                new("Refrigerados Norte", "Heladera de medicamentos y biológicos", sucursalNorte.Id),
             };
             foreach (var d in deps) await depositoRepo.AddAsync(d);
             resumen["Depósitos"] = deps.Count;
@@ -447,22 +447,39 @@ namespace Controllers
             // Producto(nombre, descripcion, codigoBarras, categoriaId, precioCompra, precioVenta, stockActual, stockMinimo, marcaId?, proveedorId?, depositoId?)
             var productos = new List<Producto>
             {
+                // Medicamentos (cats[0])
                 new("Amoxicilina 250mg x 20 comp", "Antibiótico amplio espectro", "7790001001",
                     cats[0].Id, 1200m, 2500m, 50, 10, marcas[1].Id, provs[0].Id, deps[0].Id),
                 new("Meloxicam 1.5mg/ml x 10ml", "Antiinflamatorio no esteroideo", "7790001002",
                     cats[0].Id, 1800m, 3500m, 30, 5, marcas[3].Id, provs[0].Id, deps[1].Id),
-                new("Royal Canin Adult 15kg", "Alimento seco para perro adulto", "7790002001",
-                    cats[1].Id, 18000m, 28000m, 20, 5, marcas[0].Id, provs[0].Id, deps[0].Id),
-                new("Purina Cat Chow 8kg", "Alimento seco para gato", "7790002002",
-                    cats[1].Id, 8000m, 12500m, 15, 5, marcas[2].Id, provs[1].Id, deps[0].Id),
-                new("Collar antipulgas canino", "Collar antiparasitario externo", "7790003001",
-                    cats[2].Id, 2000m, 4500m, 25, 10, marcas[1].Id, provs[1].Id, deps[0].Id),
-                new("Shampoo dermatológico 250ml", "Shampoo medicado piel sensible", "7790004001",
-                    cats[3].Id, 1500m, 3000m, 40, 10, marcas[3].Id, provs[0].Id, deps[0].Id),
                 new("Probiótico veterinario x 10", "Suplemento para flora intestinal", "7790001003",
-                    cats[0].Id, 900m, 1800m, 3, 10, marcas[3].Id, provs[0].Id, deps[1].Id),
+                    cats[0].Id, 900m, 1800m, 30, 10, marcas[3].Id, provs[0].Id, deps[1].Id),
+
+                // Vacunas en Inventario (cats[1])
+                new("Vacuna Antirrábica Canina/Felina", "Inmunización contra el virus de la rabia", "7790005001",
+                    cats[1].Id, 2200m, 4500m, 40, 10, marcas[1].Id, provs[1].Id, deps[1].Id),
+                new("Vacuna Séxtuple Canina", "Moquillo, Parvo, Hepatitis, Adenovirus, Parainfluenza, Leptospira", "7790005002",
+                    cats[1].Id, 3500m, 6800m, 35, 10, marcas[3].Id, provs[1].Id, deps[1].Id),
+                new("Vacuna Triple Felina", "Panleucopenia, Rinotraqueitis y Calicivirus", "7790005003",
+                    cats[1].Id, 3000m, 6200m, 25, 8, marcas[3].Id, provs[1].Id, deps[1].Id),
+                new("Vacuna Puppy DP", "Prevención temprana de Distemper y Parvovirus", "7790005004",
+                    cats[1].Id, 2800m, 5800m, 20, 5, marcas[1].Id, provs[0].Id, deps[1].Id),
+
+                // Alimentos (cats[2])
+                new("Royal Canin Adult 15kg", "Alimento seco para perro adulto", "7790002001",
+                    cats[2].Id, 18000m, 28000m, 20, 5, marcas[0].Id, provs[0].Id, deps[0].Id),
+                new("Purina Cat Chow 8kg", "Alimento seco para gato", "7790002002",
+                    cats[2].Id, 8000m, 12500m, 15, 5, marcas[2].Id, provs[1].Id, deps[0].Id),
+
+                // Accesorios e Insumos (cats[3])
+                new("Collar antipulgas canino", "Collar antiparasitario externo", "7790003001",
+                    cats[3].Id, 2000m, 4500m, 25, 10, marcas[1].Id, provs[1].Id, deps[0].Id),
                 new("Jeringa descartable 5ml x 100", "Jeringas descartables uso veterinario", "7790003002",
-                    cats[2].Id, 3000m, 5500m, 8, 20, marcas[1].Id, provs[1].Id, deps[0].Id),
+                    cats[3].Id, 3000m, 5500m, 80, 20, marcas[1].Id, provs[1].Id, deps[0].Id),
+
+                // Higiene (cats[4])
+                new("Shampoo dermatológico 250ml", "Shampoo medicado piel sensible", "7790004001",
+                    cats[4].Id, 1500m, 3000m, 40, 10, marcas[3].Id, provs[0].Id, deps[0].Id),
             };
             foreach (var p in productos)
             {

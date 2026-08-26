@@ -215,6 +215,7 @@ namespace Controllers
             var sinStock = new List<Producto>();
             decimal valorTotalStock = 0;
             var listStockBajo = new List<ProductoStockBajoDto>();
+            var todosProductos = new List<ProductoStockItemDto>();
 
             if (!IsAdmin && UserSucursalId.HasValue)
             {
@@ -241,6 +242,19 @@ namespace Controllers
                         sinStock.Add(p);
                     }
                     valorTotalStock += branchStockActual * p.PrecioCompra;
+
+                    todosProductos.Add(new ProductoStockItemDto
+                    {
+                        Id = p.Id,
+                        Nombre = p.Nombre,
+                        CodigoBarras = p.CodigoBarras ?? "",
+                        CategoriaNombre = p.Categoria?.Nombre ?? "",
+                        StockActual = branchStockActual,
+                        StockMinimo = p.StockMinimo,
+                        PrecioUnitario = p.PrecioCompra,
+                        PrecioVenta = p.PrecioVenta,
+                        ValorTotal = branchStockActual * p.PrecioCompra
+                    });
                 }
             }
             else
@@ -256,6 +270,19 @@ namespace Controllers
                     StockMinimo = p.StockMinimo,
                     CategoriaNombre = p.Categoria?.Nombre ?? ""
                 }).OrderBy(p => p.StockActual).ToList();
+
+                todosProductos = activos.Select(p => new ProductoStockItemDto
+                {
+                    Id = p.Id,
+                    Nombre = p.Nombre,
+                    CodigoBarras = p.CodigoBarras ?? "",
+                    CategoriaNombre = p.Categoria?.Nombre ?? "",
+                    StockActual = p.StockActual,
+                    StockMinimo = p.StockMinimo,
+                    PrecioUnitario = p.PrecioCompra,
+                    PrecioVenta = p.PrecioVenta,
+                    ValorTotal = p.StockActual * p.PrecioCompra
+                }).OrderBy(p => p.Nombre).ToList();
             }
 
             return Ok(new ReporteStockDto
@@ -265,7 +292,8 @@ namespace Controllers
                 ProductosStockBajo = stockBajo.Count,
                 ProductosSinStock = sinStock.Count,
                 ValorTotalStock = valorTotalStock,
-                ListaStockBajo = listStockBajo
+                ListaStockBajo = listStockBajo,
+                ListaTodosProductos = todosProductos
             });
         }
 
@@ -309,8 +337,12 @@ namespace Controllers
                     VeterinarioId = g.Key,
                     VeterinarioNombre = vets.FirstOrDefault(v => v.Id == g.Key)?.NombreCompleto ?? "Desconocido",
                     TotalTurnos = g.Count(),
-                    Completados = g.Count(t => t.Estado == EstadoTurno.Completado)
-                }).ToList();
+                    Completados = g.Count(t => t.Estado == EstadoTurno.Completado),
+                    Ausentes = g.Count(t => t.Estado == EstadoTurno.Ausente),
+                    Cancelados = g.Count(t => t.Estado == EstadoTurno.Cancelado)
+                })
+                .OrderByDescending(v => v.TotalTurnos)
+                .ToList();
 
             // Turnos por servicio
             var servicios = await servicioRepo.FindAllAsync();
@@ -321,7 +353,24 @@ namespace Controllers
                     ServicioId = g.Key,
                     ServicioNombre = servicios.FirstOrDefault(s => s.Id == g.Key)?.Nombre ?? "Desconocido",
                     CantidadTurnos = g.Count()
-                }).ToList();
+                })
+                .OrderByDescending(s => s.CantidadTurnos)
+                .ToList();
+
+            // Turnos por día
+            var turnosPorDia = todosTurnos
+                .GroupBy(t => t.FechaHora.Date)
+                .Select(g => new TurnoPorDiaDto
+                {
+                    Fecha = g.Key,
+                    Total = g.Count(),
+                    Programados = g.Count(t => t.Estado == EstadoTurno.Programado || t.Estado == EstadoTurno.Confirmado || t.Estado == EstadoTurno.EnCurso),
+                    Completados = g.Count(t => t.Estado == EstadoTurno.Completado),
+                    Ausentes = g.Count(t => t.Estado == EstadoTurno.Ausente),
+                    Cancelados = g.Count(t => t.Estado == EstadoTurno.Cancelado)
+                })
+                .OrderBy(t => t.Fecha)
+                .ToList();
 
             return Ok(new ReporteTurnosDto
             {
@@ -332,7 +381,8 @@ namespace Controllers
                 Ausentes = ausentes,
                 TasaCumplimiento = total > 0 ? (decimal)completados / total * 100 : 0,
                 TurnosPorVeterinario = turnosPorVet,
-                TurnosPorServicio = turnosPorServicio
+                TurnosPorServicio = turnosPorServicio,
+                TurnosPorDia = turnosPorDia
             });
         }
 

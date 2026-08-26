@@ -56,15 +56,6 @@
                     <span class="nav-label">Información del paciente</span>
                 </NavLink>
             </div>
-
-            <div class="nav-item">
-                <NavLink class="nav-link" href="vacunas">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 0-6.23.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
-                    </svg>
-                    <span class="nav-label">Vacunas</span>
-                </NavLink>
-            </div>
         </Authorized>
     </AuthorizeView>
 
@@ -101,6 +92,15 @@
     </div>
 
     <div class="nav-item">
+        <NavLink class="nav-link" href="servicios">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 4.5v3a2.25 2.25 0 0 0 4.5 0v-3m7.5 0v3a2.25 2.25 0 0 0 4.5 0v-3M6.75 9.75v1.5a5.25 5.25 0 0 0 10.5 0v-1.5m-5.25 6.75v3.75a3 3 0 0 0 6 0v-2.25m0 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+            </svg>
+            <span class="nav-label">Servicios</span>
+        </NavLink>
+    </div>
+
+    <div class="nav-item">
         <NavLink class="nav-link" href="ventas">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
@@ -130,7 +130,7 @@
         </NavLink>
     </div>
 
-    <AuthorizeView Roles="Admin">
+    <AuthorizeView Roles="Admin,Gerente">
         <Authorized>
             <div class="nav-item" style="margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px;">
                 <NavLink class="nav-link" href="usuarios">
@@ -141,6 +141,11 @@
                     <span class="nav-label">Administrar Usuarios</span>
                 </NavLink>
             </div>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="Admin">
+        <Authorized>
             <div class="nav-item">
                 <NavLink class="nav-link" href="sucursales">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

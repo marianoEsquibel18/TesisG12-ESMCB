@@ -126,6 +126,20 @@
                 </div>
             </div>
 
+            <div class="row" style="margin-bottom: var(--sp-sm);">
+                <div class="col-12">
+                    <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Foto de la mascota (opcional)</label>
+                    <InputFile OnChange="OnFileSelected" accept="image/*" class="form-control bg-dark text-light border-secondary" style="color: var(--text-secondary); font-size: 0.875rem;" />
+                    @if (!string.IsNullOrEmpty(model.FotoUrl))
+                    {
+                        <div style="margin-top: 10px; display: flex; align-items: center; gap: 15px;">
+                            <img src="@model.FotoUrl" style="width: 100px; height: 100px; border-radius: 8px; object-fit: cover; border: 2px solid var(--accent-primary);" />
+                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="RemovePhoto">Quitar Foto</button>
+                        </div>
+                    }
+                </div>
+            </div>
+
             @if (!string.IsNullOrEmpty(errorMessage))
             {
                 <div class="alert alert-danger mt-3" style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-danger); color: white;">
@@ -255,6 +269,56 @@
     </div>
 }
 
+@if (showSimilarEspeciesConfirm)
+{
+    <div class="modal-overlay modal-overlay-z3" style="background: rgba(0,0,0,0.85);">
+        <div class="modal-panel modal-panel-sm" style="border: 1px solid var(--accent-primary);">
+            <div class="modal-header-row">
+                <h3>¿Quisiste decir?</h3>
+            </div>
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p class="text-light">Se encontraron las siguientes especies similares cargadas en el sistema:</p>
+                <ul style="color: var(--accent-primary); font-size: 1.1rem; font-weight: bold; margin-bottom: 20px;">
+                    @foreach (var s in similarEspeciesList)
+                    {
+                        <li>@s</li>
+                    }
+                </ul>
+                <p class="text-secondary" style="font-size: 0.9rem;">¿Deseas continuar y guardar de todos modos?</p>
+            </div>
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CancelEspecieSimilarity">Cancelar</button>
+                <button type="button" class="btn btn-primary" style="background: var(--accent-primary); border: none;" @onclick="BypassEspecieSimilarity">Continuar y guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showSimilarRazasConfirm)
+{
+    <div class="modal-overlay modal-overlay-z3" style="background: rgba(0,0,0,0.85);">
+        <div class="modal-panel modal-panel-sm" style="border: 1px solid var(--accent-primary);">
+            <div class="modal-header-row">
+                <h3>¿Quisiste decir?</h3>
+            </div>
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p class="text-light">Se encontraron las siguientes razas similares cargadas en el sistema:</p>
+                <ul style="color: var(--accent-primary); font-size: 1.1rem; font-weight: bold; margin-bottom: 20px;">
+                    @foreach (var r in similarRazasList)
+                    {
+                        <li>@r</li>
+                    }
+                </ul>
+                <p class="text-secondary" style="font-size: 0.9rem;">¿Deseas continuar y guardar de todos modos?</p>
+            </div>
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CancelRazaSimilarity">Cancelar</button>
+                <button type="button" class="btn btn-primary" style="background: var(--accent-primary); border: none;" @onclick="BypassRazaSimilarity">Continuar y guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter]
     public string? Id { get; set; }
@@ -282,6 +346,16 @@
     private RazaDto razaModel = new();
     private bool isSavingRaza;
     private string razaErrorMessage = string.Empty;
+
+    // ── Similarity Checks ──
+    private bool showSimilarEspeciesConfirm;
+    private List<string> similarEspeciesList = new();
+    private bool bypassEspecieSimilarity;
+
+    private bool showSimilarRazasConfirm;
+    private List<string> similarRazasList = new();
+    private bool bypassRazaSimilarity;
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -402,6 +476,24 @@
         especieErrorMessage = string.Empty;
         try
         {
+            if (!bypassEspecieSimilarity && especies != null)
+            {
+                similarEspeciesList = especies
+                    .Where(e => BlazorFrontEnd.Helpers.SimilarityHelper.AreSimilar(especieModel.Nombre, e.Nombre))
+                    .Select(e => e.Nombre)
+                    .ToList();
+
+                if (similarEspeciesList.Any())
+                {
+                    showSimilarEspeciesConfirm = true;
+                    isSavingEspecie = false;
+                    return;
+                }
+            }
+
+            bypassEspecieSimilarity = false;
+            showSimilarEspeciesConfirm = false;
+
             var result = await CatalogoService.CreateEspecieAsync(especieModel);
             if (result)
             {
@@ -430,6 +522,19 @@
         }
     }
 
+    private void CancelEspecieSimilarity()
+    {
+        showSimilarEspeciesConfirm = false;
+        bypassEspecieSimilarity = false;
+    }
+
+    private async Task BypassEspecieSimilarity()
+    {
+        showSimilarEspeciesConfirm = false;
+        bypassEspecieSimilarity = true;
+        await HandleSaveEspecie();
+    }
+
     // ── Modal Raza Handlers ──
     private void OpenRazaModal()
     {
@@ -451,6 +556,24 @@
         razaErrorMessage = string.Empty;
         try
         {
+            if (!bypassRazaSimilarity && razas != null)
+            {
+                similarRazasList = razas
+                    .Where(r => BlazorFrontEnd.Helpers.SimilarityHelper.AreSimilar(razaModel.Nombre, r.Nombre))
+                    .Select(r => r.Nombre)
+                    .ToList();
+
+                if (similarRazasList.Any())
+                {
+                    showSimilarRazasConfirm = true;
+                    isSavingRaza = false;
+                    return;
+                }
+            }
+
+            bypassRazaSimilarity = false;
+            showSimilarRazasConfirm = false;
+
             var result = await CatalogoService.CreateRazaAsync(razaModel);
             if (result)
             {
@@ -476,5 +599,54 @@
         {
             isSavingRaza = false;
         }
+    }
+
+    private void CancelRazaSimilarity()
+    {
+        showSimilarRazasConfirm = false;
+        bypassRazaSimilarity = false;
+    }
+
+    private async Task BypassRazaSimilarity()
+    {
+        showSimilarRazasConfirm = false;
+        bypassRazaSimilarity = true;
+        await HandleSaveRaza();
+    }
+
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file.Size > 1_000_000) // 1MB max
+            {
+                errorMessage = "La imagen no puede superar 1MB";
+                return;
+            }
+
+            var buffer = new byte[file.Size];
+            using var stream = file.OpenReadStream(1_000_000);
+            int bytesRead = 0;
+            while (bytesRead < file.Size)
+            {
+                int read = await stream.ReadAsync(buffer, bytesRead, (int)file.Size - bytesRead);
+                if (read == 0) break;
+                bytesRead += read;
+            }
+            var base64 = $"data:{file.ContentType};base64,{Convert.ToBase64String(buffer)}";
+            model.FotoUrl = base64;
+            errorMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al cargar la imagen: {ex.Message}";
+        }
+    }
+
+    private void RemovePhoto()
+    {
+        model.FotoUrl = string.Empty;
     }
 }

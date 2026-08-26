@@ -1,11 +1,14 @@
 @page "/usuarios"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Gerente")]
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
 @inject UsuarioService UsuarioService
 @inject NavigationManager Navigation
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @inject BlazorFrontEnd.Auth.TokenStorageService TokenStorage
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Gestión de Usuarios y Accesos</PageTitle>
 
@@ -42,13 +45,40 @@
     <!-- TAB: USUARIOS                                        -->
     <!-- ══════════════════════════════════════════════════════ -->
     <div class="glass-card">
+        <!-- Filtros de usuarios -->
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 pb-2" style="border-bottom: 1px solid var(--border-glass);">
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-secondary" style="font-size: 0.82rem; font-weight: 600;">Estado:</span>
+                <button class="btn btn-sm @(filtroEstadoUsuario == "activos" ? "btn-primary" : "btn-outline-secondary")"
+                        style="border-radius: 6px; font-size: 0.78rem; padding: 3px 10px;"
+                        @onclick='() => SetFiltroEstado("activos")'>
+                    Activos
+                </button>
+                <button class="btn btn-sm @(filtroEstadoUsuario == "inactivos" ? "btn-primary" : "btn-outline-secondary")"
+                        style="border-radius: 6px; font-size: 0.78rem; padding: 3px 10px;"
+                        @onclick='() => SetFiltroEstado("inactivos")'>
+                    Revocados / Inactivos
+                </button>
+                <button class="btn btn-sm @(filtroEstadoUsuario == "todos" ? "btn-primary" : "btn-outline-secondary")"
+                        style="border-radius: 6px; font-size: 0.78rem; padding: 3px 10px;"
+                        @onclick='() => SetFiltroEstado("todos")'>
+                    Todos
+                </button>
+            </div>
+            <div style="min-width: 200px;">
+                <input type="text" class="form-control form-control-sm" placeholder="Buscar por alias, nombre o email..."
+                       @bind="busquedaTexto" @bind:event="oninput"
+                       style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: white; font-size: 0.82rem;" />
+            </div>
+        </div>
+
         @if (isLoading)
         {
             <p class="text-secondary">Cargando cuentas del personal...</p>
         }
-        else if (usuarios == null || !usuarios.Any())
+        else if (FilteredUsers == null || !FilteredUsers.Any())
         {
-            <p class="text-secondary">No se encontraron usuarios en el sistema.</p>
+            <p class="text-secondary">No se encontraron usuarios con el filtro seleccionado.</p>
         }
         else
         {
@@ -60,17 +90,19 @@
                             <th>Nombre Completo</th>
                             <th>Rol Asignado</th>
                             <th>Sucursal</th>
+                            <th>Estado</th>
                             <th>Último Acceso</th>
                             <th class="text-end">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var user in usuarios)
+                        @foreach (var user in FilteredUsers)
                         {
                             var rolColor = user.RolNombre.ToUpper() == "ADMIN" ? "badge bg-danger" : 
+                                           user.RolNombre.ToUpper() == "GERENTE" ? "badge bg-primary" :
                                            user.RolNombre.ToUpper() == "VETERINARIO" ? "badge bg-success" : "badge bg-info";
 
-                            <tr style="border-bottom: 1px solid var(--border-glass);">
+                            <tr style="border-bottom: 1px solid var(--border-glass); opacity: @(user.Activo ? "1" : "0.65");">
                                 <td>
                                     <strong>@user.NombreUsuario</strong>
                                     <br/><small class="text-secondary">@user.Email</small>
@@ -89,6 +121,16 @@
                                         <span class="text-secondary" style="font-size: 0.85rem;">Global</span>
                                     }
                                 </td>
+                                <td>
+                                    @if (user.Activo)
+                                    {
+                                        <span class="badge bg-success" style="font-size: 0.72rem; font-weight: 500;">Activo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger" style="font-size: 0.72rem; font-weight: 500;">Revocado</span>
+                                    }
+                                </td>
                                 <td class="text-secondary">
                                     @if(user.UltimoLogin.HasValue) {
                                         <span>@user.UltimoLogin.Value.ToString("dd/MM/yyyy HH:mm")</span>
@@ -97,7 +139,21 @@
                                     }
                                 </td>
                                 <td class="text-end">
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmarDelete(user)">Revocar Acceso</button>
+                                    @if (CanManageUser(user))
+                                    {
+                                        @if (user.Activo)
+                                        {
+                                            <button class="btn btn-sm btn-outline-danger" style="font-size: 0.78rem;" @onclick="() => ConfirmarDelete(user)">Revocar Acceso</button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-outline-success" style="font-size: 0.78rem;" @onclick="() => RestaurarUser(user)">Restaurar Acceso</button>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-secondary" style="font-size: 0.8rem;">—</span>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -114,7 +170,16 @@ else
     <!-- ══════════════════════════════════════════════════════ -->
     <div class="glass-card">
         <div style="margin-bottom: 16px;">
-            <h4 style="margin: 0 0 12px 0;">Registro de Actividad del Sistema</h4>
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <h4 style="margin: 0;">Registro de Actividad del Sistema</h4>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm @(modoSimplificado ? "btn-info" : "btn-outline-secondary")"
+                            style="font-size: 0.78rem; border-radius: 6px; padding: 4px 10px;"
+                            @onclick="ToggleModoSimplificado">
+                        @(modoSimplificado ? "👁️ Vista Simplificada (Activa)" : "⚙️ Vista Técnica (Activa)")
+                    </button>
+                </div>
+            </div>
 
             <!-- Filtros -->
             <div class="d-flex flex-wrap align-items-end gap-3">
@@ -202,8 +267,18 @@ else
                                     <span style="@GetAccionStyle(log.Accion); font-size: 0.75rem; padding: 2px 8px; border-radius: 6px;">@log.Accion</span>
                                 </td>
                                 <td>@log.Entidad</td>
-                                <td class="text-secondary" style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    @(log.Descripcion ?? "—")
+                                <td>
+                                    @if (modoSimplificado)
+                                    {
+                                        var friendly = GetFriendlyDescription(log);
+                                        <span style="@friendly.Style">@friendly.Text</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-secondary" style="max-width: 400px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                            @(log.Descripcion ?? "—")
+                                        </span>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -229,12 +304,20 @@ else
     private bool isLoading = true;
     private string errorMessage = string.Empty;
     private string activeTab = "usuarios";
+    private string filtroEstadoUsuario = "activos";
+    private string busquedaTexto = string.Empty;
+
+    private string currentUserRole = "Usuario";
+    private int? currentUserSucursalId = null;
+    private bool IsAdmin => currentUserRole.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+    private bool IsGerente => currentUserRole.Equals("Gerente", StringComparison.OrdinalIgnoreCase);
 
     // Audit log
     private List<AuditLogDto>? allAuditLogs;
     private List<AuditLogDto>? filteredAuditLogs;
     private bool isLoadingAudit;
     private bool auditLoaded;
+    private bool modoSimplificado = false;
 
     // Audit filters
     private DateTime? filtroDesde;
@@ -247,11 +330,50 @@ else
     private List<string> usuariosUnicos = new();
     private List<string> entidadesUnicas = new();
 
+    private IEnumerable<UsuarioDto> FilteredUsers
+    {
+        get
+        {
+            if (usuarios == null) return Enumerable.Empty<UsuarioDto>();
+
+            var q = usuarios.AsEnumerable();
+
+            if (filtroEstadoUsuario == "activos")
+                q = q.Where(u => u.Activo);
+            else if (filtroEstadoUsuario == "inactivos")
+                q = q.Where(u => !u.Activo);
+
+            if (!string.IsNullOrWhiteSpace(busquedaTexto))
+            {
+                var t = busquedaTexto.Trim().ToLower();
+                q = q.Where(u => (u.NombreUsuario != null && u.NombreUsuario.ToLower().Contains(t)) ||
+                                 (u.NombreCompleto != null && u.NombreCompleto.ToLower().Contains(t)) ||
+                                 (u.Email != null && u.Email.ToLower().Contains(t)) ||
+                                 (u.RolNombre != null && u.RolNombre.ToLower().Contains(t)));
+            }
+
+            return q;
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             await SyncTokenAsync();
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            currentUserRole = user.FindFirst(ClaimTypes.Role)?.Value ?? user.FindFirst("role")?.Value ?? "Usuario";
+            var sucClaim = user.FindFirst("sucursalId")?.Value;
+            currentUserSucursalId = int.TryParse(sucClaim, out var sId) ? sId : null;
+
+            // Gerente default to simplified mode for friendly human readability
+            if (IsGerente)
+            {
+                modoSimplificado = true;
+            }
+
             await LoadDataAsync();
             StateHasChanged();
         }
@@ -268,17 +390,52 @@ else
         catch { }
     }
 
+    private void SetFiltroEstado(string estado)
+    {
+        filtroEstadoUsuario = estado;
+    }
+
+    private void ToggleModoSimplificado()
+    {
+        modoSimplificado = !modoSimplificado;
+    }
+
+    private bool CanManageUser(UsuarioDto target)
+    {
+        if (target.NombreUsuario.Equals("admin", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (IsAdmin)
+            return true;
+
+        if (IsGerente)
+        {
+            var r = target.RolNombre ?? "";
+            var isManageableRole = r.Equals("Veterinario", StringComparison.OrdinalIgnoreCase) ||
+                                  r.Equals("Recepcionista", StringComparison.OrdinalIgnoreCase);
+
+            if (!isManageableRole) return false;
+
+            if (currentUserSucursalId.HasValue && target.SucursalId.HasValue && target.SucursalId != currentUserSucursalId)
+                return false;
+
+            return true;
+        }
+
+        return false;
+    }
+
     private async Task LoadDataAsync()
     {
         isLoading = true;
         errorMessage = string.Empty;
         try
         {
-            usuarios = await UsuarioService.GetAllUsersAsync();
+            usuarios = await UsuarioService.GetAllUsersAsync(incluirInactivos: true);
         }
         catch (Exception)
         {
-            errorMessage = "No se pudieron cargar los usuarios. Verifica si posees el Rol 'Admin'.";
+            errorMessage = "No se pudieron cargar los usuarios. Verifica tus permisos de acceso.";
         }
         finally
         {
@@ -343,21 +500,17 @@ else
 
         IEnumerable<AuditLogDto> items = allAuditLogs;
 
-        // Filter by date range
         if (filtroDesde.HasValue)
             items = items.Where(l => l.Fecha.Date >= filtroDesde.Value.Date);
         if (filtroHasta.HasValue)
             items = items.Where(l => l.Fecha.Date <= filtroHasta.Value.Date);
 
-        // Filter by user
         if (!string.IsNullOrEmpty(filtroUsuario))
             items = items.Where(l => l.NombreUsuario == filtroUsuario);
 
-        // Filter by action
         if (!string.IsNullOrEmpty(filtroAccion))
             items = items.Where(l => l.Accion == filtroAccion);
 
-        // Filter by entity
         if (!string.IsNullOrEmpty(filtroEntidad))
             items = items.Where(l => l.Entidad == filtroEntidad);
 
@@ -381,17 +534,33 @@ else
 
     private async Task ConfirmarDelete(UsuarioDto user)
     {
-        if(user.NombreUsuario.ToLower() == "admin") {
+        if (user.NombreUsuario.Equals("admin", StringComparison.OrdinalIgnoreCase))
+        {
             errorMessage = "No se puede eliminar la cuenta de Super-Administrador del sistema.";
             return;
         }
 
-        bool confirm = true; // Use real JS interact in prod
-        if(confirm)
+        var res = await UsuarioService.DeleteUserAsync(user.Id);
+        if (res)
         {
-            var res = await UsuarioService.DeleteUserAsync(user.Id);
-            if(res) await LoadDataAsync();
-            else errorMessage = "Hubo un error al intentar eliminar el acceso del usuario.";
+            await LoadDataAsync();
+        }
+        else
+        {
+            errorMessage = "Hubo un error al intentar revocar el acceso del usuario.";
+        }
+    }
+
+    private async Task RestaurarUser(UsuarioDto user)
+    {
+        var res = await UsuarioService.RestoreUserAsync(user.Id);
+        if (res)
+        {
+            await LoadDataAsync();
+        }
+        else
+        {
+            errorMessage = "Hubo un error al intentar restaurar el acceso del usuario.";
         }
     }
 
@@ -402,4 +571,130 @@ else
         "DELETE" => "background: rgba(239,68,68,0.15); color: var(--accent-danger); font-weight: 600;",
         _ => "color: var(--text-secondary);"
     };
+
+    // ═══════════════════════════════════════════
+    // Traducción de audit logs a lenguaje natural (Modo Simplificado)
+    // ═══════════════════════════════════════════
+
+    private record FriendlyLog(string Text, string Style);
+
+    private static readonly Dictionary<string, string> EntityNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Paciente"] = "paciente",
+        ["Propietario"] = "propietario",
+        ["Turno"] = "turno",
+        ["Tratamiento"] = "tratamiento",
+        ["RegistroVacunacion"] = "registro de vacunación",
+        ["Venta"] = "venta",
+        ["Producto"] = "producto",
+        ["Especie"] = "especie",
+        ["Raza"] = "raza",
+        ["Categoria"] = "categoría",
+        ["Marca"] = "marca",
+        ["Proveedor"] = "proveedor",
+        ["Deposito"] = "depósito",
+        ["Servicio"] = "servicio",
+        ["Veterinario"] = "veterinario",
+        ["HistorialClinico"] = "historial clínico",
+        ["Configuracion"] = "configuración",
+        ["Notificacion"] = "notificación",
+        ["auth"] = "sesión / usuario",
+        ["Usuario"] = "usuario",
+        ["Audit"] = "auditoría",
+        ["Paginacion"] = "consulta",
+    };
+
+    private FriendlyLog GetFriendlyDescription(AuditLogDto log)
+    {
+        var desc = log.Descripcion ?? "";
+        var entity = log.Entidad ?? "";
+        var action = log.Accion?.ToUpper() ?? "";
+
+        var entityFriendly = EntityNames.GetValueOrDefault(entity, entity.ToLower());
+        var subAction = ExtractSubAction(desc);
+
+        string text;
+        string style;
+
+        if (action == "POST")
+        {
+            style = "color: #22c55e;";
+            text = subAction switch
+            {
+                "login" => "Inició sesión en el sistema",
+                "register" => "Registró un nuevo usuario",
+                "seed" => "Ejecutó la carga inicial de datos",
+                "entrada" => $"Registró una entrada de stock de {entityFriendly}",
+                "salida" => $"Registró una salida de stock de {entityFriendly}",
+                "facturar" => $"Facturó una {entityFriendly}",
+                "generar" => "Generó notificaciones automáticas",
+                "completo" => "Ejecutó la carga completa de datos",
+                _ => $"Registró un/a {entityFriendly}"
+            };
+        }
+        else if (action == "PUT")
+        {
+            style = "color: #f59e0b;";
+            text = subAction switch
+            {
+                "restaurar" => $"Restauró el acceso a un/a {entityFriendly}",
+                "completar" => $"Marcó un {entityFriendly} como completado",
+                "cancelar" => $"Canceló un {entityFriendly}",
+                "reprogramar" => $"Reprogramó un {entityFriendly}",
+                "confirmar" => $"Confirmó un {entityFriendly}",
+                "encurso" => $"Marcó un {entityFriendly} como en curso",
+                "finalizar" => $"Finalizó un {entityFriendly}",
+                "ausente" => $"Marcó ausente en un {entityFriendly}",
+                "anular" => $"Anuló una {entityFriendly}",
+                "leer" => "Leyó una notificación",
+                "cambiarPassword" => "Cambió su contraseña",
+                "cambiarPropietario" => $"Cambió el propietario de un {entityFriendly}",
+                "perfil" => "Actualizó su perfil",
+                "foto" => "Actualizó su foto de perfil",
+                "veterinario" => "Actualizó datos de veterinario",
+                _ => $"Modificó un/a {entityFriendly}"
+            };
+        }
+        else if (action == "DELETE")
+        {
+            style = "color: var(--accent-danger);";
+            text = subAction switch
+            {
+                "limpiar" => "Limpió la caché del sistema",
+                "reset" => "Reinició métricas de rendimiento",
+                _ => $"Revocó/Eliminó un/a {entityFriendly}"
+            };
+        }
+        else
+        {
+            style = "color: var(--text-secondary);";
+            text = desc;
+        }
+
+        return new FriendlyLog(text, style);
+    }
+
+    private static string ExtractSubAction(string descripcion)
+    {
+        if (string.IsNullOrEmpty(descripcion)) return "";
+
+        var parts = descripcion.Split(' ', 2);
+        var path = parts.Length > 1 ? parts[1] : parts[0];
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        if (segments.Length >= 5)
+        {
+            var last = segments[^1];
+            if (!Guid.TryParse(last, out _) && !last.All(c => char.IsDigit(c)))
+                return last;
+        }
+        if (segments.Length >= 4)
+        {
+            var last = segments[^1];
+            if (!Guid.TryParse(last, out _) && !last.All(c => char.IsDigit(c)))
+                return last;
+        }
+
+        return "";
+    }
 }

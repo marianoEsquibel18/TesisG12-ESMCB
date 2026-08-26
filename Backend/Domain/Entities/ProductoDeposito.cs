@@ -47,5 +47,11 @@ namespace Domain.Entities
         {
             StockMinimo = stockMinimo;
         }
+
+        public void AsignarDeposito(Deposito deposito)
+        {
+            Deposito = deposito;
+            if (deposito != null) DepositoId = deposito.Id;
+        }
     }
 }

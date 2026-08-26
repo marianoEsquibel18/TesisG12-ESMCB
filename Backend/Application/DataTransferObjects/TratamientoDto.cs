@@ -12,5 +12,6 @@ namespace Application.DataTransferObjects
         public string Veterinario { get; set; }
         public string Observaciones { get; set; }
         public bool Finalizado { get; set; }
+        public string? ArchivosAdjuntos { get; set; } = "[]";
     }
 }

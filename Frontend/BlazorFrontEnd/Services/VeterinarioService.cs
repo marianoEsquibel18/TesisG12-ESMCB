@@ -37,6 +37,7 @@ namespace BlazorFrontEnd.Services
                 v.Telefono,
                 v.Email,
                 v.Especialidad,
+                v.SucursalId,
                 Horarios = v.Horarios.Select(h => new {
                     h.DiaSemana,
                     h.HoraInicio,
@@ -60,6 +61,7 @@ namespace BlazorFrontEnd.Services
                 v.Telefono,
                 v.Email,
                 v.Especialidad,
+                v.SucursalId,
                 Horarios = v.Horarios.Select(h => new {
                     h.DiaSemana,
                     h.HoraInicio,

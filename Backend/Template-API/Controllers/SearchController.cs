@@ -13,6 +13,7 @@ namespace Controllers
         IPacienteRepository pacienteRepo,
         IPropietarioRepository propietarioRepo,
         IProductoRepository productoRepo,
+        IProductoDepositoRepository pdRepo,
         IVeterinarioRepository veterinarioRepo,
         ITurnoRepository turnoRepo,
         IVacunaRepository vacunaRepo,
@@ -21,6 +22,7 @@ namespace Controllers
         private readonly IPacienteRepository _pacienteRepo = pacienteRepo;
         private readonly IPropietarioRepository _propietarioRepo = propietarioRepo;
         private readonly IProductoRepository _productoRepo = productoRepo;
+        private readonly IProductoDepositoRepository _pdRepo = pdRepo;
         private readonly IVeterinarioRepository _veterinarioRepo = veterinarioRepo;
         private readonly ITurnoRepository _turnoRepo = turnoRepo;
         private readonly IVacunaRepository _vacunaRepo = vacunaRepo;
@@ -66,21 +68,39 @@ namespace Controllers
                 });
 
             // Buscar productos
-            var productos = (await _productoRepo.FindAllAsync())
+            var matchedProds = (await _productoRepo.FindAllAsync())
                 .Where(p => p.Activo && (p.Nombre.ToLower().Contains(term) ||
                             (p.CodigoBarras ?? "").Contains(term)))
                 .Take(10)
-                .Select(p => new SearchResultDto
+                .ToList();
+
+            var productos = new List<SearchResultDto>();
+            foreach (var p in matchedProds)
+            {
+                int stock = p.StockActual;
+                if (!IsAdmin && UserSucursalId.HasValue)
+                {
+                    var pds = await _pdRepo.GetByProductoIdAsync(p.Id);
+                    stock = pds.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).Sum(s => s.StockActual);
+                }
+
+                productos.Add(new SearchResultDto
                 {
                     Tipo = "Producto",
                     Id = p.Id,
                     Titulo = p.Nombre,
-                    Subtitulo = $"Stock: {p.StockActual} | ${p.PrecioVenta}",
+                    Subtitulo = $"Stock: {stock} | ${p.PrecioVenta}",
                     Url = $"/api/v1/Producto/{p.Id}"
                 });
+            }
 
             // Buscar veterinarios
-            var veterinarios = (await _veterinarioRepo.FindAllAsync())
+            var vetQuery = (await _veterinarioRepo.FindAllAsync()).AsEnumerable();
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                vetQuery = vetQuery.Where(v => v.SucursalId == UserSucursalId.Value);
+            }
+            var veterinarios = vetQuery
                 .Where(v => v.Nombre.ToLower().Contains(term) ||
                             v.Apellido.ToLower().Contains(term) ||
                             v.Matricula.Contains(term))
@@ -123,13 +143,12 @@ namespace Controllers
             if (!string.IsNullOrWhiteSpace(propietarioId))
                 query = query.Where(p => p.PropietarioId == propietarioId);
 
-            var results = query.ToList().Select(p => new PacienteSearchDto
+            var results = query.ToList().Select(p => new
             {
-                Id = p.Id, Nombre = p.Nombre, Sexo = p.Sexo,
-                FechaNacimiento = p.FechaNacimiento,
-                EspecieNombre = p.Especie != null ? p.Especie.Nombre : "",
-                RazaNombre = p.Raza != null ? p.Raza.Nombre : "",
-                PropietarioNombre = (p.Propietario != null ? p.Propietario.Nombre + " " + p.Propietario.Apellido : "")
+                p.Id, p.Nombre, p.Sexo, p.FechaNacimiento,
+                EspecieNombre = p.Especie?.Nombre ?? "",
+                RazaNombre = p.Raza?.Nombre ?? "",
+                PropietarioNombre = p.Propietario != null ? $"{p.Propietario.Nombre} {p.Propietario.Apellido}" : ""
             }).Take(50).ToList();
 
             return Ok(results);
@@ -140,21 +159,29 @@ namespace Controllers
         /// </summary>
         [HttpGet("api/v1/Search/propietarios")]
         public async Task<IActionResult> SearchPropietarios(
-            [FromQuery] string nombre, [FromQuery] string dni, [FromQuery] string telefono)
+            [FromQuery] string q, [FromQuery] string dni, [FromQuery] string telefono, [FromQuery] string email)
         {
-            var query = (await _propietarioRepo.FindAllAsync()).AsQueryable();
+            var query = (await _propietarioRepo.FindAllAsync()).Where(p => p.Activo).AsQueryable();
 
-            if (!string.IsNullOrWhiteSpace(nombre))
-                query = query.Where(p => p.Nombre.ToLower().Contains(nombre.ToLower()) ||
-                                         p.Apellido.ToLower().Contains(nombre.ToLower()));
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var term = q.ToLower();
+                query = query.Where(p => p.Nombre.ToLower().Contains(term) ||
+                                         p.Apellido.ToLower().Contains(term) ||
+                                         p.DNI.Contains(term));
+            }
             if (!string.IsNullOrWhiteSpace(dni))
                 query = query.Where(p => p.DNI.Contains(dni));
             if (!string.IsNullOrWhiteSpace(telefono))
                 query = query.Where(p => p.Telefono.Contains(telefono));
+            if (!string.IsNullOrWhiteSpace(email))
+                query = query.Where(p => (p.Email ?? "").ToLower().Contains(email.ToLower()));
 
-            var results = query.Select(p => new
+            var results = query.ToList().Select(p => new
             {
-                p.Id, p.Nombre, p.Apellido, p.DNI, p.Telefono, p.Email, p.Direccion
+                p.Id, p.Nombre, p.Apellido, p.DNI, p.Telefono, p.Email,
+                NombreCompleto = $"{p.Apellido}, {p.Nombre}",
+                CantidadMascotas = p.Mascotas?.Count ?? 0
             }).Take(50).ToList();
 
             return Ok(results);
@@ -166,31 +193,47 @@ namespace Controllers
         [HttpGet("api/v1/Search/productos")]
         public async Task<IActionResult> SearchProductos(
             [FromQuery] string nombre, [FromQuery] int? categoriaId, [FromQuery] int? marcaId,
-            [FromQuery] bool? stockBajo, [FromQuery] decimal? precioMin, [FromQuery] decimal? precioMax)
+            [FromQuery] bool? stockBajo, [FromQuery] decimal? precioMin, [FromQuery] decimal? precioMax,
+            [FromQuery] int? sucursalId = null)
         {
-            var query = (await _productoRepo.FindAllAsync()).Where(p => p.Activo).AsQueryable();
+            var list = (await _productoRepo.FindAllAsync()).Where(p => p.Activo).ToList();
+            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
 
-            if (!string.IsNullOrWhiteSpace(nombre))
-                query = query.Where(p => p.Nombre.ToLower().Contains(nombre.ToLower()));
-            if (categoriaId.HasValue)
-                query = query.Where(p => p.CategoriaId == categoriaId.Value);
-            if (marcaId.HasValue)
-                query = query.Where(p => p.MarcaId == marcaId.Value);
-            if (stockBajo == true)
-                query = query.Where(p => p.StockActual <= p.StockMinimo);
-            if (precioMin.HasValue)
-                query = query.Where(p => p.PrecioVenta >= precioMin.Value);
-            if (precioMax.HasValue)
-                query = query.Where(p => p.PrecioVenta <= precioMax.Value);
-
-            var results = query.ToList().Select(p => new
+            var filtered = new List<object>();
+            foreach (var p in list)
             {
-                p.Id, p.Nombre, p.CodigoBarras, p.PrecioVenta, p.StockActual, p.StockMinimo,
-                CategoriaNombre = p.Categoria != null ? p.Categoria.Nombre : "",
-                MarcaNombre = p.Marca != null ? p.Marca.Nombre : ""
-            }).Take(50).ToList();
+                if (!string.IsNullOrWhiteSpace(nombre) && !p.Nombre.ToLower().Contains(nombre.ToLower()))
+                    continue;
+                if (categoriaId.HasValue && p.CategoriaId != categoriaId.Value)
+                    continue;
+                if (marcaId.HasValue && p.MarcaId != marcaId.Value)
+                    continue;
+                if (precioMin.HasValue && p.PrecioVenta < precioMin.Value)
+                    continue;
+                if (precioMax.HasValue && p.PrecioVenta > precioMax.Value)
+                    continue;
 
-            return Ok(results);
+                int currentStock = p.StockActual;
+                if (targetSucursalId.HasValue)
+                {
+                    var pds = await _pdRepo.GetByProductoIdAsync(p.Id);
+                    currentStock = pds.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).Sum(s => s.StockActual);
+                }
+
+                if (stockBajo == true && currentStock > p.StockMinimo)
+                    continue;
+
+                filtered.Add(new
+                {
+                    p.Id, p.Nombre, p.CodigoBarras, p.PrecioVenta,
+                    StockActual = currentStock,
+                    p.StockMinimo,
+                    CategoriaNombre = p.Categoria != null ? p.Categoria.Nombre : "",
+                    MarcaNombre = p.Marca != null ? p.Marca.Nombre : ""
+                });
+            }
+
+            return Ok(filtered.Take(50).ToList());
         }
 
         /// <summary>
@@ -207,6 +250,11 @@ namespace Controllers
             var query = (await _turnoRepo.FindAllAsync())
                 .Where(t => t.FechaHora >= d && t.FechaHora <= h).AsQueryable();
 
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                query = query.Where(t => t.SucursalId == UserSucursalId.Value);
+            }
+
             if (!string.IsNullOrWhiteSpace(veterinarioId))
                 query = query.Where(t => t.VeterinarioId == veterinarioId);
             if (servicioId.HasValue)
@@ -214,13 +262,14 @@ namespace Controllers
             if (estado.HasValue)
                 query = query.Where(t => (int)t.Estado == estado.Value);
 
-            var results = query.OrderBy(t => t.FechaHora).ToList().Select(t => new
+            var results = query.ToList().Select(t => new
             {
-                t.Id, t.FechaHora, Estado = t.Estado.ToString(),
-                t.PacienteId, PacienteNombre = t.Paciente != null ? t.Paciente.Nombre : "",
+                t.Id, t.FechaHora, t.DuracionMinutos,
+                Estado = t.Estado.ToString(), t.Motivo,
+                PacienteNombre = t.Paciente?.Nombre ?? "",
                 VeterinarioNombre = t.Veterinario != null ? $"Dr. {t.Veterinario.Apellido}" : "",
-                ServicioNombre = t.Servicio != null ? t.Servicio.Nombre : "", t.Motivo
-            }).Take(100).ToList();
+                ServicioNombre = t.Servicio?.Nombre ?? ""
+            }).Take(50).ToList();
 
             return Ok(results);
         }

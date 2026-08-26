@@ -12,6 +12,7 @@ namespace Controllers
         IPacienteRepository pacienteRepo,
         IPropietarioRepository propietarioRepo,
         IProductoRepository productoRepo,
+        IProductoDepositoRepository pdRepo,
         IVentaRepository ventaRepo,
         ITurnoRepository turnoRepo,
         IHistorialClinicoRepository historialRepo,
@@ -31,20 +32,41 @@ namespace Controllers
             var pacientes = await pacienteRepo.FindAllAsync();
             var propietarios = await propietarioRepo.FindAllAsync();
             var productos = await productoRepo.FindAllAsync();
-            var ventas = await ventaRepo.FindAllAsync();
-            var turnos = await turnoRepo.FindAllAsync();
+            var ventas = (await ventaRepo.FindAllAsync()).AsEnumerable();
+            var turnos = (await turnoRepo.FindAllAsync()).AsEnumerable();
+
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value);
+                turnos = turnos.Where(t => t.SucursalId == UserSucursalId.Value);
+            }
 
             var hoy = DateTime.Today;
             var mesActual = ventas.Where(v => v.Fecha.Month == hoy.Month && v.Fecha.Year == hoy.Year
                 && v.Estado != EstadoVenta.Anulada);
             var turnosHoy = turnos.Where(t => t.FechaHora.Date == hoy);
 
+            int stockBajoCount = 0;
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                foreach (var p in productos.Where(p => p.Activo))
+                {
+                    var pds = await pdRepo.GetByProductoIdAsync(p.Id);
+                    var branchStock = pds.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).Sum(s => s.StockActual);
+                    if (branchStock <= p.StockMinimo) stockBajoCount++;
+                }
+            }
+            else
+            {
+                stockBajoCount = productos.Count(p => p.Activo && p.StockActual <= p.StockMinimo);
+            }
+
             return Ok(new
             {
                 TotalPacientes = pacientes.Count(p => p.Activo),
                 TotalPropietarios = propietarios.Count,
                 TotalProductos = productos.Count(p => p.Activo),
-                ProductosStockBajo = productos.Count(p => p.Activo && p.StockActual <= p.StockMinimo),
+                ProductosStockBajo = stockBajoCount,
                 VentasMesActual = mesActual.Count(),
                 IngresosMesActual = mesActual.Sum(v => v.Total),
                 TurnosHoy = turnosHoy.Count(),
@@ -63,7 +85,11 @@ namespace Controllers
         [HttpGet("api/v1/Estadisticas/ingresos/mensual")]
         public async Task<IActionResult> IngresosMensuales([FromQuery] int meses = 12)
         {
-            var ventas = await ventaRepo.FindAllAsync();
+            var ventas = (await ventaRepo.FindAllAsync()).AsEnumerable();
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value);
+            }
             var desde = DateTime.Today.AddMonths(-meses + 1);
             desde = new DateTime(desde.Year, desde.Month, 1);
 
@@ -94,7 +120,11 @@ namespace Controllers
         {
             var d = desde ?? DateTime.Today.AddDays(-30);
             var h = hasta ?? DateTime.Today;
-            var ventas = await ventaRepo.FindAllAsync();
+            var ventas = (await ventaRepo.FindAllAsync()).AsEnumerable();
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value);
+            }
 
             var resultado = new List<object>();
             for (var dia = d; dia <= h; dia = dia.AddDays(1))
@@ -123,7 +153,11 @@ namespace Controllers
         [HttpGet("api/v1/Estadisticas/topClientes")]
         public async Task<IActionResult> TopClientes([FromQuery] int top = 10)
         {
-            var ventas = await ventaRepo.FindAllAsync();
+            var ventas = (await ventaRepo.FindAllAsync()).AsEnumerable();
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value);
+            }
             var propietarios = await propietarioRepo.FindAllAsync();
 
             var ranking = ventas

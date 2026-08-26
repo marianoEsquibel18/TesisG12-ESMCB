@@ -116,18 +116,33 @@ else if (usuario != null)
             </h5>
             <div style="margin-bottom: 12px;">
                 <label class="text-secondary" style="font-size: 0.78rem; display: block; margin-bottom: 4px;">Contraseña Actual</label>
-                <input type="password" @bind="passwordActual" class="form-control form-control-sm"
-                       style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: white;" />
+                <div class="input-group">
+                    <input type="@passwordTypeActual" @bind="passwordActual" class="form-control form-control-sm"
+                           style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); border-right: none; color: white;" />
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="TogglePasswordActual" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); border-left: none; color: white; display: flex; align-items: center; justify-content: center; padding: 4px 8px;">
+                        <i class="@passwordIconActual" style="font-size: 0.9rem;"></i>
+                    </button>
+                </div>
             </div>
             <div style="margin-bottom: 12px;">
                 <label class="text-secondary" style="font-size: 0.78rem; display: block; margin-bottom: 4px;">Nueva Contraseña</label>
-                <input type="password" @bind="passwordNueva" class="form-control form-control-sm"
-                       style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: white;" />
+                <div class="input-group">
+                    <input type="@passwordTypeNueva" @bind="passwordNueva" class="form-control form-control-sm"
+                           style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); border-right: none; color: white;" />
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="TogglePasswordNueva" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); border-left: none; color: white; display: flex; align-items: center; justify-content: center; padding: 4px 8px;">
+                        <i class="@passwordIconNueva" style="font-size: 0.9rem;"></i>
+                    </button>
+                </div>
             </div>
             <div style="margin-bottom: 12px;">
                 <label class="text-secondary" style="font-size: 0.78rem; display: block; margin-bottom: 4px;">Confirmar Nueva Contraseña</label>
-                <input type="password" @bind="passwordConfirm" class="form-control form-control-sm"
-                       style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: white;" />
+                <div class="input-group">
+                    <input type="@passwordTypeConfirm" @bind="passwordConfirm" class="form-control form-control-sm"
+                           style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); border-right: none; color: white;" />
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="TogglePasswordConfirm" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); border-left: none; color: white; display: flex; align-items: center; justify-content: center; padding: 4px 8px;">
+                        <i class="@passwordIconConfirm" style="font-size: 0.9rem;"></i>
+                    </button>
+                </div>
             </div>
             <button class="btn-primary-glass" style="width: 100%; font-size: 0.85rem;" @onclick="ChangePassword" disabled="@isChangingPassword">
                 @(isChangingPassword ? "Cambiando..." : "Cambiar Contraseña")
@@ -284,6 +299,55 @@ else if (usuario != null)
     private bool isChangingPassword;
     private string passwordMessage = string.Empty;
     private bool passwordSuccess;
+
+    private string passwordTypeActual = "password";
+    private string passwordIconActual = "bi bi-eye-slash";
+    private string passwordTypeNueva = "password";
+    private string passwordIconNueva = "bi bi-eye-slash";
+    private string passwordTypeConfirm = "password";
+    private string passwordIconConfirm = "bi bi-eye-slash";
+
+    private void TogglePasswordActual()
+    {
+        if (passwordTypeActual == "password")
+        {
+            passwordTypeActual = "text";
+            passwordIconActual = "bi bi-eye";
+        }
+        else
+        {
+            passwordTypeActual = "password";
+            passwordIconActual = "bi bi-eye-slash";
+        }
+    }
+
+    private void TogglePasswordNueva()
+    {
+        if (passwordTypeNueva == "password")
+        {
+            passwordTypeNueva = "text";
+            passwordIconNueva = "bi bi-eye";
+        }
+        else
+        {
+            passwordTypeNueva = "password";
+            passwordIconNueva = "bi bi-eye-slash";
+        }
+    }
+
+    private void TogglePasswordConfirm()
+    {
+        if (passwordTypeConfirm == "password")
+        {
+            passwordTypeConfirm = "text";
+            passwordIconConfirm = "bi bi-eye";
+        }
+        else
+        {
+            passwordTypeConfirm = "password";
+            passwordIconConfirm = "bi bi-eye-slash";
+        }
+    }
 
     // Veterinario
     private string vetNombre = string.Empty;

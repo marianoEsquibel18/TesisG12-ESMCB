@@ -16,12 +16,21 @@
     </div>
     <AuthorizeView Roles="Admin,Veterinario,Recepcionista">
         <Authorized>
-            <button @onclick="OpenPacienteModal" class="btn-primary-glass" style="display: flex; align-items: center; gap: 8px; border: none; cursor: pointer;">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px;">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                Nuevo Paciente
-            </button>
+            <div class="d-flex gap-2 align-items-center">
+                <button type="button" @onclick="OpenEspeciesRazasModal" class="btn d-flex align-items-center gap-2" style="background: var(--accent-primary); color: #FFFFFF; font-weight: 600; font-size: 14px; padding: 8px 18px; border-radius: var(--radius-sm); border: none; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(0, 163, 108, 0.25);">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" />
+                    </svg>
+                    Especies/Razas
+                </button>
+                <button @onclick="OpenPacienteModal" class="btn-primary-glass" style="display: flex; align-items: center; gap: 8px; border: none; cursor: pointer;">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px;">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Nuevo Paciente
+                </button>
+            </div>
         </Authorized>
     </AuthorizeView>
 </div>
@@ -96,8 +105,20 @@
                     @foreach (var pac in filteredItems)
                     {
                         <tr style="border-bottom: 1px solid var(--border-glass);">
-                            <td>
-                                <strong><button type="button" class="btn btn-link p-0 text-start fw-bold" style="color: var(--text-primary); text-decoration: none; border: none; background: transparent; cursor: pointer;" @onclick="() => OpenPacienteDetailModal(pac.Id)">@pac.Nombre</button></strong>
+                            <td class="align-middle">
+                                <div class="d-flex align-items-center gap-2">
+                                    @if (!string.IsNullOrEmpty(pac.FotoUrl))
+                                    {
+                                        <img src="@pac.FotoUrl" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-glass);" />
+                                    }
+                                    else
+                                    {
+                                        <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 1px solid var(--border-glass); display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+                                            🐾
+                                        </div>
+                                    }
+                                    <strong><button type="button" class="btn btn-link p-0 text-start fw-bold" style="color: var(--text-primary); text-decoration: none; border: none; background: transparent; cursor: pointer;" @onclick="() => OpenPacienteDetailModal(pac.Id)">@pac.Nombre</button></strong>
+                                </div>
                             </td>
                             <td>
                                 @pac.EspecieNombre
@@ -312,6 +333,20 @@
                         </div>
                     </div>
 
+                    <div class="row" style="margin-bottom: var(--sp-sm);">
+                        <div class="col-12">
+                            <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Foto de la mascota (opcional)</label>
+                            <InputFile OnChange="OnModalFileSelected" accept="image/*" class="form-control bg-dark text-light border-secondary" style="color: var(--text-secondary); font-size: 0.875rem;" />
+                            @if (!string.IsNullOrEmpty(pacienteModel.FotoUrl))
+                            {
+                                <div style="margin-top: 10px; display: flex; align-items: center; gap: 15px;">
+                                    <img src="@pacienteModel.FotoUrl" style="width: 100px; height: 100px; border-radius: 8px; object-fit: cover; border: 2px solid var(--accent-primary);" />
+                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="RemoveModalPhoto">Quitar Foto</button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
                     @if (!string.IsNullOrEmpty(pacienteErrorMessage))
                     {
                         <div class="alert alert-danger mt-3" style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-danger); color: white;">
@@ -515,6 +550,57 @@
     </div>
 }
 
+@if (showSimilarEspeciesConfirm)
+{
+    <div class="modal-overlay modal-overlay-z3" style="background: rgba(0,0,0,0.85);">
+        <div class="modal-panel modal-panel-sm" style="border: 1px solid var(--accent-primary);">
+            <div class="modal-header-row">
+                <h3>¿Quisiste decir?</h3>
+            </div>
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p class="text-light">Se encontraron las siguientes especies similares cargadas en el sistema:</p>
+                <ul style="color: var(--accent-primary); font-size: 1.1rem; font-weight: bold; margin-bottom: 20px;">
+                    @foreach (var s in similarEspeciesList)
+                    {
+                        <li>@s</li>
+                    }
+                </ul>
+                <p class="text-secondary" style="font-size: 0.9rem;">¿Deseas continuar y guardar de todos modos?</p>
+            </div>
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CancelEspecieSimilarity">Cancelar</button>
+                <button type="button" class="btn btn-primary" style="background: var(--accent-primary); border: none;" @onclick="BypassEspecieSimilarity">Continuar y guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showSimilarRazasConfirm)
+{
+    <div class="modal-overlay modal-overlay-z3" style="background: rgba(0,0,0,0.85);">
+        <div class="modal-panel modal-panel-sm" style="border: 1px solid var(--accent-primary);">
+            <div class="modal-header-row">
+                <h3>¿Quisiste decir?</h3>
+            </div>
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p class="text-light">Se encontraron las siguientes razas similares cargadas en el sistema:</p>
+                <ul style="color: var(--accent-primary); font-size: 1.1rem; font-weight: bold; margin-bottom: 20px;">
+                    @foreach (var r in similarRazasList)
+                    {
+                        <li>@r</li>
+                    }
+                </ul>
+                <p class="text-secondary" style="font-size: 0.9rem;">¿Deseas continuar y guardar de todos modos?</p>
+            </div>
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CancelRazaSimilarity">Cancelar</button>
+                <button type="button" class="btn btn-primary" style="background: var(--accent-primary); border: none;" @onclick="BypassRazaSimilarity">Continuar y guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+
 @* ═══════ MODAL 5: Detalle Paciente ═══════ *@
 @if (showPacienteDetailModal)
 {
@@ -534,10 +620,22 @@
             }
             else
             {
+                <div class="mt-3 text-center mb-3">
+                    @if (!string.IsNullOrEmpty(selectedPacienteDetail.FotoUrl))
+                    {
+                        <img src="@selectedPacienteDetail.FotoUrl" style="width: 120px; height: 120px; border-radius: 8px; object-fit: cover; border: 2px solid var(--accent-primary);" />
+                    }
+                    else
+                    {
+                        <div style="width: 120px; height: 120px; border-radius: 8px; background: rgba(255,255,255,0.1); border: 2px solid var(--border-glass); display: inline-flex; align-items: center; justify-content: center; font-size: 3rem;">
+                            🐾
+                        </div>
+                    }
+                </div>
                 <div class="mt-3">
                     <p><strong>Nombre:</strong> @selectedPacienteDetail.Nombre</p>
-                    <p><strong>Especie:</strong> @selectedPacienteDetail.EspecieNombre</p>
-                    <p><strong>Raza:</strong> @selectedPacienteDetail.RazaNombre</p>
+                    <p><strong>Especie:</strong> @(!string.IsNullOrWhiteSpace(selectedPacienteDetail.EspecieNombre) ? selectedPacienteDetail.EspecieNombre : "—")</p>
+                    <p><strong>Raza:</strong> @(!string.IsNullOrWhiteSpace(selectedPacienteDetail.RazaNombre) ? selectedPacienteDetail.RazaNombre : "Sin especificar / Mestizo")</p>
                     <p><strong>Sexo:</strong> @(selectedPacienteDetail.Sexo == "M" ? "Macho" : "Hembra")</p>
                     <p><strong>Nacimiento:</strong> @(selectedPacienteDetail.FechaNacimiento?.ToString("dd/MM/yyyy") ?? "—")</p>
                     <p><strong>Observaciones:</strong> @(string.IsNullOrEmpty(selectedPacienteDetail.Observaciones) ? "Ninguna" : selectedPacienteDetail.Observaciones)</p>
@@ -615,6 +713,417 @@
     </div>
 }
 
+@* ═══════ MODAL PRINCIPAL: Gestión de Especies y Razas ═══════ *@
+@if (showEspeciesRazasModal)
+{
+    <div class="modal-overlay modal-overlay-z1" @onclick="CloseEspeciesRazasModal" @onclick:stopPropagation="false">
+        <div class="modal-panel" style="max-width: 960px; max-height: 88vh; display: flex; flex-direction: column;" @onclick:stopPropagation="true">
+            <div class="modal-header-row" style="margin-bottom: 0.85rem; padding-bottom: 0.75rem;">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(0, 163, 108, 0.15); display: flex; align-items: center; justify-content: center; color: var(--accent-primary);">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.25rem;">Gestión de Especies y Razas</h3>
+                        <p class="text-secondary" style="margin: 0; font-size: 0.82rem;">Administra el catálogo de especies y sus razas asociadas</p>
+                    </div>
+                </div>
+                <button class="modal-close-btn" @onclick="CloseEspeciesRazasModal" title="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(especiesRazasGeneralMessage))
+            {
+                <div class="alert alert-info py-2 px-3 mb-3 d-flex justify-content-between align-items-center" style="font-size: 0.875rem;">
+                    <span>@especiesRazasGeneralMessage</span>
+                    <button type="button" class="btn-close" style="font-size: 0.75rem;" @onclick='() => especiesRazasGeneralMessage = string.Empty'></button>
+                </div>
+            }
+
+            <div class="row g-3" style="flex: 1; min-height: 0;">
+                @* ──── COLUMNA 1: ESPECIES ──── *@
+                <div class="col-md-5 d-flex flex-column" style="border-right: 1px solid var(--border-light); padding-right: 15px;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fw-bold" style="color: var(--text-primary); font-size: 0.95rem;">Especies</span>
+                            <span class="badge bg-light text-dark border" style="font-size: 0.75rem;">@(adminEspeciesList?.Count ?? 0)</span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-success d-flex align-items-center gap-1" style="font-size: 0.8rem; padding: 4px 10px;" @onclick="OpenCreateEspecieModal">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 14px; height: 14px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                            Nueva Especie
+                        </button>
+                    </div>
+
+                    <div style="margin-bottom: 8px;">
+                        <input type="text" @bind-value="searchEspecieFilter" @bind-value:event="oninput" class="form-control form-control-sm" placeholder="Buscar especie..." style="font-size: 0.82rem;" />
+                    </div>
+
+                    <div class="d-flex flex-column gap-2" style="overflow-y: auto; max-height: 48vh; padding-right: 4px;">
+                        @if (isLoadingAdminEspecies)
+                        {
+                            <div class="text-center py-4 text-secondary" style="font-size: 0.85rem;">Cargando especies...</div>
+                        }
+                        else if (FilteredAdminEspecies == null || !FilteredAdminEspecies.Any())
+                        {
+                            <div class="text-center py-4 text-secondary" style="font-size: 0.85rem;">
+                                No se encontraron especies cargadas.
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var esp in FilteredAdminEspecies)
+                            {
+                                var isSel = selectedAdminEspecie?.Id == esp.Id;
+                                <div class="p-2 rounded d-flex justify-content-between align-items-center"
+                                     style="cursor: pointer; border: 1.5px solid @(isSel ? "var(--accent-primary)" : "var(--border-light)"); background: @(isSel ? "rgba(0, 163, 108, 0.08)" : "var(--bg-main)"); transition: all 0.15s ease;"
+                                     @onclick="() => SelectAdminEspecie(esp)">
+                                    <div class="d-flex align-items-center gap-2" style="min-width: 0;">
+                                        <div style="font-size: 1.25rem;">@GetEspecieEmoji(esp.Nombre)</div>
+                                        <div style="min-width: 0;">
+                                            <div class="fw-bold text-truncate" style="font-size: 0.88rem; color: var(--text-primary);">
+                                                @esp.Nombre
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(esp.Descripcion))
+                                            {
+                                                <div class="text-secondary text-truncate" style="font-size: 0.75rem; max-width: 170px;">
+                                                    @esp.Descripcion
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1" @onclick:stopPropagation="true">
+                                        <button type="button" class="btn btn-sm btn-link p-1" title="Editar especie" @onclick="() => OpenEditEspecieModal(esp)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width: 15px; height: 15px; color: var(--accent-primary);">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                                            </svg>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-link p-1" title="Eliminar especie" @onclick="() => ConfirmDeleteEspecie(esp)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width: 15px; height: 15px; color: var(--accent-danger);">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+
+                @* ──── COLUMNA 2: RAZAS ──── *@
+                <div class="col-md-7 d-flex flex-column" style="padding-left: 10px;">
+                    @if (selectedAdminEspecie == null)
+                    {
+                        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center py-5 text-secondary">
+                            <div style="font-size: 2.5rem; margin-bottom: 10px; opacity: 0.5;">🐾</div>
+                            <h6 style="color: var(--text-primary); font-weight: 600;">Selecciona una especie</h6>
+                            <p style="font-size: 0.85rem; max-width: 280px; margin: 0;">Haz clic en una especie de la izquierda para ver, crear y editar sus razas.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <span class="fw-bold" style="color: var(--text-primary); font-size: 0.95rem;">Razas de @selectedAdminEspecie.Nombre</span>
+                                <span class="badge bg-light text-dark border ms-1" style="font-size: 0.75rem;">@(adminRazasList?.Count ?? 0)</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-success d-flex align-items-center gap-1" style="font-size: 0.8rem; padding: 4px 10px;" @onclick="OpenCreateRazaModal">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 14px; height: 14px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                                Nueva Raza
+                            </button>
+                        </div>
+
+                        <div style="margin-bottom: 8px;">
+                            <input type="text" @bind-value="searchRazaFilter" @bind-value:event="oninput" class="form-control form-control-sm" placeholder="Buscar raza..." style="font-size: 0.82rem;" />
+                        </div>
+
+                        <div class="d-flex flex-column gap-2" style="overflow-y: auto; max-height: 48vh; padding-right: 4px;">
+                            @if (isLoadingAdminRazas)
+                            {
+                                <div class="text-center py-4 text-secondary" style="font-size: 0.85rem;">Cargando razas...</div>
+                            }
+                            else if (FilteredAdminRazas == null || !FilteredAdminRazas.Any())
+                            {
+                                <div class="text-center py-4 text-secondary" style="font-size: 0.85rem;">
+                                    No hay razas registradas para @selectedAdminEspecie.Nombre.
+                                    <br />
+                                    <button type="button" class="btn btn-link btn-sm p-0 mt-1" style="color: var(--accent-primary); font-size: 0.82rem;" @onclick="OpenCreateRazaModal">+ Registrar primera raza</button>
+                                </div>
+                            }
+                            else
+                            {
+                                @foreach (var r in FilteredAdminRazas)
+                                {
+                                    <div class="p-2 rounded d-flex justify-content-between align-items-center"
+                                         style="border: 1px solid var(--border-light); background: var(--bg-main);">
+                                        <div style="min-width: 0;">
+                                            <div class="fw-bold text-truncate" style="font-size: 0.88rem; color: var(--text-primary);">
+                                                @r.Nombre
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(r.Descripcion))
+                                            {
+                                                <div class="text-secondary text-truncate" style="font-size: 0.75rem; max-width: 250px;">
+                                                    @r.Descripcion
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <button type="button" class="btn btn-sm btn-link p-1" title="Editar raza" @onclick="() => OpenEditRazaModal(r)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width: 15px; height: 15px; color: var(--accent-primary);">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                                                </svg>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-link p-1" title="Eliminar raza" @onclick="() => ConfirmDeleteRaza(r)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width: 15px; height: 15px; color: var(--accent-danger);">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-3 pt-2 border-top">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CloseEspeciesRazasModal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Modal Crear/Editar Especie (Admin) ── *@
+@if (showAdminEspecieFormModal)
+{
+    <div class="modal-overlay modal-overlay-z2" @onclick="CloseAdminEspecieFormModal" @onclick:stopPropagation="false">
+        <div class="modal-panel modal-panel-sm" @onclick:stopPropagation="true">
+            <div class="modal-header-row">
+                <h3>@(adminEspecieFormModel.Id == 0 ? "Nueva Especie" : "Editar Especie")</h3>
+                <button class="modal-close-btn" @onclick="CloseAdminEspecieFormModal" title="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <EditForm Model="adminEspecieFormModel" OnValidSubmit="HandleSaveAdminEspecie" FormName="modalAdminEspecieForm">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Nombre de la Especie (*)</label>
+                        <InputText @bind-Value="adminEspecieFormModel.Nombre" class="form-control bg-dark text-light border-secondary" placeholder="Ej. Canino, Felino, Ave..." />
+                        <ValidationMessage For="@(() => adminEspecieFormModel.Nombre)" class="text-danger" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Descripción</label>
+                        <InputTextArea @bind-Value="adminEspecieFormModel.Descripcion" class="form-control bg-dark text-light border-secondary" rows="2" placeholder="Opcional..." />
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(adminEspecieErrorMessage))
+                {
+                    <div class="alert alert-danger mt-2" style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-danger); color: white;">
+                        @adminEspecieErrorMessage
+                    </div>
+                }
+
+                <div class="d-flex justify-content-end mt-3" style="gap: 10px;">
+                    <button type="button" class="btn btn-outline-secondary text-light" @onclick="CloseAdminEspecieFormModal">Cancelar</button>
+                    <button type="submit" class="btn-primary-glass" disabled="@isSavingAdminEspecie">
+                        @if (isSavingAdminEspecie) { <span>Guardando...</span> } else { <span>@(adminEspecieFormModel.Id == 0 ? "Guardar Especie" : "Guardar Cambios")</span> }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@* ── Modal Crear/Editar Raza (Admin) ── *@
+@if (showAdminRazaFormModal)
+{
+    <div class="modal-overlay modal-overlay-z2" @onclick="CloseAdminRazaFormModal" @onclick:stopPropagation="false">
+        <div class="modal-panel modal-panel-sm" @onclick:stopPropagation="true">
+            <div class="modal-header-row">
+                <h3>@(adminRazaFormModel.Id == 0 ? "Nueva Raza" : "Editar Raza")</h3>
+                <button class="modal-close-btn" @onclick="CloseAdminRazaFormModal" title="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <EditForm Model="adminRazaFormModel" OnValidSubmit="HandleSaveAdminRaza" FormName="modalAdminRazaForm">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Especie</label>
+                        <input type="text" class="form-control bg-dark text-light border-secondary" value="@adminRazaFormModel.EspecieNombre" disabled="true" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Nombre de la Raza (*)</label>
+                        <InputText @bind-Value="adminRazaFormModel.Nombre" class="form-control bg-dark text-light border-secondary" placeholder="Ej. Golden Retriever, Labrador, Mestizo..." />
+                        <ValidationMessage For="@(() => adminRazaFormModel.Nombre)" class="text-danger" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Descripción</label>
+                        <InputTextArea @bind-Value="adminRazaFormModel.Descripcion" class="form-control bg-dark text-light border-secondary" rows="2" placeholder="Opcional..." />
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(adminRazaErrorMessage))
+                {
+                    <div class="alert alert-danger mt-2" style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-danger); color: white;">
+                        @adminRazaErrorMessage
+                    </div>
+                }
+
+                <div class="d-flex justify-content-end mt-3" style="gap: 10px;">
+                    <button type="button" class="btn btn-outline-secondary text-light" @onclick="CloseAdminRazaFormModal">Cancelar</button>
+                    <button type="submit" class="btn-primary-glass" disabled="@isSavingAdminRaza">
+                        @if (isSavingAdminRaza) { <span>Guardando...</span> } else { <span>@(adminRazaFormModel.Id == 0 ? "Guardar Raza" : "Guardar Cambios")</span> }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@* ── Modal Confirmar Eliminar Especie (Admin) ── *@
+@if (showAdminDeleteEspecieConfirm)
+{
+    <div class="modal-overlay modal-overlay-z3" style="background: rgba(0,0,0,0.85);">
+        <div class="modal-panel modal-panel-sm" style="border: 1px solid var(--accent-danger);">
+            <div class="modal-header-row">
+                <h3 class="text-danger">Eliminar Especie</h3>
+                <button class="modal-close-btn" @onclick="CloseAdminDeleteEspecieConfirm">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p class="text-light">
+                    ¿Estás seguro de que deseas eliminar la especie <strong style="color: var(--accent-primary);">@adminEspecieToDelete?.Nombre</strong>?
+                </p>
+                <p class="text-secondary" style="font-size: 0.85rem;">
+                    Esta acción desactivará la especie del catálogo del sistema.
+                </p>
+            </div>
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CloseAdminDeleteEspecieConfirm">Cancelar</button>
+                <button type="button" class="btn btn-danger" style="background: var(--accent-danger); border: none;" disabled="@isDeletingAdminEspecie" @onclick="ExecuteDeleteAdminEspecie">
+                    @if (isDeletingAdminEspecie) { <span>Eliminando...</span> } else { <span>Sí, eliminar</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Modal Confirmar Eliminar Raza (Admin) ── *@
+@if (showAdminDeleteRazaConfirm)
+{
+    <div class="modal-overlay modal-overlay-z3" style="background: rgba(0,0,0,0.85);">
+        <div class="modal-panel modal-panel-sm" style="border: 1px solid var(--accent-danger);">
+            <div class="modal-header-row">
+                <h3 class="text-danger">Eliminar Raza</h3>
+                <button class="modal-close-btn" @onclick="CloseAdminDeleteRazaConfirm">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p class="text-light">
+                    ¿Estás seguro de que deseas eliminar la raza <strong style="color: var(--accent-primary);">@adminRazaToDelete?.Nombre</strong>?
+                </p>
+                <p class="text-secondary" style="font-size: 0.85rem;">
+                    Esta acción desactivará la raza del catálogo del sistema.
+                </p>
+            </div>
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CloseAdminDeleteRazaConfirm">Cancelar</button>
+                <button type="button" class="btn btn-danger" style="background: var(--accent-danger); border: none;" disabled="@isDeletingAdminRaza" @onclick="ExecuteDeleteAdminRaza">
+                    @if (isDeletingAdminRaza) { <span>Eliminando...</span> } else { <span>Sí, eliminar</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Modal Similitud Especie (Admin) ── *@
+@if (showSimilarAdminEspeciesConfirm)
+{
+    <div class="modal-overlay modal-overlay-z3" style="background: rgba(0,0,0,0.85);">
+        <div class="modal-panel modal-panel-sm" style="border: 1px solid var(--accent-primary);">
+            <div class="modal-header-row">
+                <h3>¿Quisiste decir?</h3>
+            </div>
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p class="text-light">Se encontraron las siguientes especies similares cargadas en el sistema:</p>
+                <ul style="color: var(--accent-primary); font-size: 1.1rem; font-weight: bold; margin-bottom: 20px;">
+                    @foreach (var s in similarAdminEspeciesList)
+                    {
+                        <li>@s</li>
+                    }
+                </ul>
+                <p class="text-secondary" style="font-size: 0.9rem;">¿Deseas continuar y guardar de todos modos?</p>
+            </div>
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CancelAdminEspecieSimilarity">Cancelar</button>
+                <button type="button" class="btn btn-primary" style="background: var(--accent-primary); border: none;" @onclick="BypassAdminEspecieSimilarity">Continuar y guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Modal Similitud Raza (Admin) ── *@
+@if (showSimilarAdminRazasConfirm)
+{
+    <div class="modal-overlay modal-overlay-z3" style="background: rgba(0,0,0,0.85);">
+        <div class="modal-panel modal-panel-sm" style="border: 1px solid var(--accent-primary);">
+            <div class="modal-header-row">
+                <h3>¿Quisiste decir?</h3>
+            </div>
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p class="text-light">Se encontraron las siguientes razas similares cargadas en el sistema:</p>
+                <ul style="color: var(--accent-primary); font-size: 1.1rem; font-weight: bold; margin-bottom: 20px;">
+                    @foreach (var r in similarAdminRazasList)
+                    {
+                        <li>@r</li>
+                    }
+                </ul>
+                <p class="text-secondary" style="font-size: 0.9rem;">¿Deseas continuar y guardar de todos modos?</p>
+            </div>
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CancelAdminRazaSimilarity">Cancelar</button>
+                <button type="button" class="btn btn-primary" style="background: var(--accent-primary); border: none;" @onclick="BypassAdminRazaSimilarity">Continuar y guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private PaginatedList<PacienteDto>? pacientesResponse;
     private List<PacienteDto>? filteredItems;
@@ -661,6 +1170,16 @@
     private RazaDto razaModel = new();
     private bool isSavingRaza;
     private string razaErrorMessage = string.Empty;
+
+    // ── Similarity Checks ──
+    private bool showSimilarEspeciesConfirm;
+    private List<string> similarEspeciesList = new();
+    private bool bypassEspecieSimilarity;
+
+    private bool showSimilarRazasConfirm;
+    private List<string> similarRazasList = new();
+    private bool bypassRazaSimilarity;
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -961,6 +1480,7 @@
                 PropietarioId = pac.PropietarioId,
                 FechaNacimiento = pac.FechaNacimiento,
                 Sexo = pac.Sexo,
+                FotoUrl = pac.FotoUrl,
                 Observaciones = pac.Observaciones,
                 Activo = pac.Activo
             };
@@ -1113,6 +1633,24 @@
         especieErrorMessage = string.Empty;
         try
         {
+            if (!bypassEspecieSimilarity && modalEspecies != null)
+            {
+                similarEspeciesList = modalEspecies
+                    .Where(e => BlazorFrontEnd.Helpers.SimilarityHelper.AreSimilar(especieModel.Nombre, e.Nombre))
+                    .Select(e => e.Nombre)
+                    .ToList();
+
+                if (similarEspeciesList.Any())
+                {
+                    showSimilarEspeciesConfirm = true;
+                    isSavingEspecie = false;
+                    return;
+                }
+            }
+
+            bypassEspecieSimilarity = false;
+            showSimilarEspeciesConfirm = false;
+
             var result = await CatalogoService.CreateEspecieAsync(especieModel);
             if (result)
             {
@@ -1145,6 +1683,19 @@
         }
     }
 
+    private void CancelEspecieSimilarity()
+    {
+        showSimilarEspeciesConfirm = false;
+        bypassEspecieSimilarity = false;
+    }
+
+    private async Task BypassEspecieSimilarity()
+    {
+        showSimilarEspeciesConfirm = false;
+        bypassEspecieSimilarity = true;
+        await HandleSaveEspecie();
+    }
+
     // ── Modal Raza Handlers ──
     private void OpenRazaModalFromPaciente()
     {
@@ -1166,6 +1717,24 @@
         razaErrorMessage = string.Empty;
         try
         {
+            if (!bypassRazaSimilarity && modalRazas != null)
+            {
+                similarRazasList = modalRazas
+                    .Where(r => BlazorFrontEnd.Helpers.SimilarityHelper.AreSimilar(razaModel.Nombre, r.Nombre))
+                    .Select(r => r.Nombre)
+                    .ToList();
+
+                if (similarRazasList.Any())
+                {
+                    showSimilarRazasConfirm = true;
+                    isSavingRaza = false;
+                    return;
+                }
+            }
+
+            bypassRazaSimilarity = false;
+            showSimilarRazasConfirm = false;
+
             var result = await CatalogoService.CreateRazaAsync(razaModel);
             if (result)
             {
@@ -1192,5 +1761,518 @@
         {
             isSavingRaza = false;
         }
+    }
+
+    private void CancelRazaSimilarity()
+    {
+        showSimilarRazasConfirm = false;
+        bypassRazaSimilarity = false;
+    }
+
+    private async Task BypassRazaSimilarity()
+    {
+        showSimilarRazasConfirm = false;
+        bypassRazaSimilarity = true;
+        await HandleSaveRaza();
+    }
+
+
+    private async Task OnModalFileSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file.Size > 1_000_000) // 1MB max
+            {
+                pacienteErrorMessage = "La imagen no puede superar 1MB";
+                return;
+            }
+
+            var buffer = new byte[file.Size];
+            using var stream = file.OpenReadStream(1_000_000);
+            int bytesRead = 0;
+            while (bytesRead < file.Size)
+            {
+                int read = await stream.ReadAsync(buffer, bytesRead, (int)file.Size - bytesRead);
+                if (read == 0) break;
+                bytesRead += read;
+            }
+            var base64 = $"data:{file.ContentType};base64,{Convert.ToBase64String(buffer)}";
+            pacienteModel.FotoUrl = base64;
+            pacienteErrorMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            pacienteErrorMessage = $"Error al cargar la imagen: {ex.Message}";
+        }
+    }
+
+    private void RemoveModalPhoto()
+    {
+        pacienteModel.FotoUrl = string.Empty;
+    }
+
+    // ══════════════════════════════════════════════════
+    //  GESTIÓN DE ESPECIES Y RAZAS (MODAL COMPLETO)
+    // ══════════════════════════════════════════════════
+    private bool showEspeciesRazasModal;
+    private bool isLoadingAdminEspecies;
+    private bool isLoadingAdminRazas;
+    private List<EspecieDto> adminEspeciesList = new();
+    private EspecieDto? selectedAdminEspecie;
+    private List<RazaDto> adminRazasList = new();
+    private string searchEspecieFilter = string.Empty;
+    private string searchRazaFilter = string.Empty;
+    private string especiesRazasGeneralMessage = string.Empty;
+
+    private IEnumerable<EspecieDto> FilteredAdminEspecies =>
+        string.IsNullOrWhiteSpace(searchEspecieFilter)
+            ? adminEspeciesList
+            : adminEspeciesList.Where(e => e.Nombre.Contains(searchEspecieFilter, StringComparison.OrdinalIgnoreCase)
+                                       || (!string.IsNullOrEmpty(e.Descripcion) && e.Descripcion.Contains(searchEspecieFilter, StringComparison.OrdinalIgnoreCase)));
+
+    private IEnumerable<RazaDto> FilteredAdminRazas =>
+        string.IsNullOrWhiteSpace(searchRazaFilter)
+            ? adminRazasList
+            : adminRazasList.Where(r => r.Nombre.Contains(searchRazaFilter, StringComparison.OrdinalIgnoreCase)
+                                     || (!string.IsNullOrEmpty(r.Descripcion) && r.Descripcion.Contains(searchRazaFilter, StringComparison.OrdinalIgnoreCase)));
+
+    // Modal Crear/Editar Especie
+    private bool showAdminEspecieFormModal;
+    private EspecieDto adminEspecieFormModel = new();
+    private bool isSavingAdminEspecie;
+    private string adminEspecieErrorMessage = string.Empty;
+
+    // Modal Crear/Editar Raza
+    private bool showAdminRazaFormModal;
+    private RazaDto adminRazaFormModel = new();
+    private bool isSavingAdminRaza;
+    private string adminRazaErrorMessage = string.Empty;
+
+    // Confirmación Eliminar Especie
+    private bool showAdminDeleteEspecieConfirm;
+    private EspecieDto? adminEspecieToDelete;
+    private bool isDeletingAdminEspecie;
+
+    // Confirmación Eliminar Raza
+    private bool showAdminDeleteRazaConfirm;
+    private RazaDto? adminRazaToDelete;
+    private bool isDeletingAdminRaza;
+
+    // Similitud Especie (Admin)
+    private bool showSimilarAdminEspeciesConfirm;
+    private List<string> similarAdminEspeciesList = new();
+    private bool bypassAdminEspecieSimilarity;
+
+    // Similitud Raza (Admin)
+    private bool showSimilarAdminRazasConfirm;
+    private List<string> similarAdminRazasList = new();
+    private bool bypassAdminRazaSimilarity;
+
+    private async Task OpenEspeciesRazasModal()
+    {
+        especiesRazasGeneralMessage = string.Empty;
+        searchEspecieFilter = string.Empty;
+        searchRazaFilter = string.Empty;
+        showEspeciesRazasModal = true;
+        await LoadAdminEspeciesAsync();
+    }
+
+    private void CloseEspeciesRazasModal()
+    {
+        showEspeciesRazasModal = false;
+        selectedAdminEspecie = null;
+        adminRazasList.Clear();
+    }
+
+    private async Task LoadAdminEspeciesAsync(int? selectEspecieId = null)
+    {
+        isLoadingAdminEspecies = true;
+        try
+        {
+            var esp = await CatalogoService.GetEspeciesActivasAsync();
+            adminEspeciesList = esp ?? new List<EspecieDto>();
+            especiesDisponibles = adminEspeciesList;
+
+            if (selectEspecieId.HasValue && selectEspecieId.Value > 0)
+            {
+                selectedAdminEspecie = adminEspeciesList.FirstOrDefault(e => e.Id == selectEspecieId.Value);
+            }
+            else if (selectedAdminEspecie != null)
+            {
+                selectedAdminEspecie = adminEspeciesList.FirstOrDefault(e => e.Id == selectedAdminEspecie.Id);
+            }
+
+            if (selectedAdminEspecie != null)
+            {
+                await LoadAdminRazasAsync(selectedAdminEspecie.Id);
+            }
+            else if (adminEspeciesList.Any())
+            {
+                await SelectAdminEspecie(adminEspeciesList.First());
+            }
+            else
+            {
+                adminRazasList.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            especiesRazasGeneralMessage = "Error al cargar las especies: " + ex.Message;
+        }
+        finally
+        {
+            isLoadingAdminEspecies = false;
+        }
+    }
+
+    private async Task SelectAdminEspecie(EspecieDto esp)
+    {
+        selectedAdminEspecie = esp;
+        searchRazaFilter = string.Empty;
+        await LoadAdminRazasAsync(esp.Id);
+    }
+
+    private async Task LoadAdminRazasAsync(int especieId)
+    {
+        isLoadingAdminRazas = true;
+        try
+        {
+            var razas = await CatalogoService.GetRazasPorEspecieAsync(especieId);
+            adminRazasList = razas ?? new List<RazaDto>();
+        }
+        catch (Exception ex)
+        {
+            adminRazasList = new List<RazaDto>();
+            especiesRazasGeneralMessage = "Error al cargar las razas: " + ex.Message;
+        }
+        finally
+        {
+            isLoadingAdminRazas = false;
+        }
+    }
+
+    // ── Crear / Editar Especie ──
+    private void OpenCreateEspecieModal()
+    {
+        adminEspecieFormModel = new EspecieDto { Activo = true };
+        adminEspecieErrorMessage = string.Empty;
+        isSavingAdminEspecie = false;
+        showAdminEspecieFormModal = true;
+    }
+
+    private void OpenEditEspecieModal(EspecieDto esp)
+    {
+        adminEspecieFormModel = new EspecieDto
+        {
+            Id = esp.Id,
+            Nombre = esp.Nombre,
+            Descripcion = esp.Descripcion,
+            Activo = esp.Activo
+        };
+        adminEspecieErrorMessage = string.Empty;
+        isSavingAdminEspecie = false;
+        showAdminEspecieFormModal = true;
+    }
+
+    private void CloseAdminEspecieFormModal()
+    {
+        showAdminEspecieFormModal = false;
+    }
+
+    private async Task HandleSaveAdminEspecie()
+    {
+        if (string.IsNullOrWhiteSpace(adminEspecieFormModel.Nombre))
+        {
+            adminEspecieErrorMessage = "El nombre de la especie es requerido.";
+            return;
+        }
+
+        isSavingAdminEspecie = true;
+        adminEspecieErrorMessage = string.Empty;
+        try
+        {
+            if (!bypassAdminEspecieSimilarity && adminEspeciesList != null)
+            {
+                similarAdminEspeciesList = adminEspeciesList
+                    .Where(e => e.Id != adminEspecieFormModel.Id && BlazorFrontEnd.Helpers.SimilarityHelper.AreSimilar(adminEspecieFormModel.Nombre, e.Nombre))
+                    .Select(e => e.Nombre)
+                    .ToList();
+
+                if (similarAdminEspeciesList.Any())
+                {
+                    showSimilarAdminEspeciesConfirm = true;
+                    isSavingAdminEspecie = false;
+                    return;
+                }
+            }
+
+            bypassAdminEspecieSimilarity = false;
+            showSimilarAdminEspeciesConfirm = false;
+
+            bool success;
+            if (adminEspecieFormModel.Id == 0)
+            {
+                success = await CatalogoService.CreateEspecieAsync(adminEspecieFormModel);
+            }
+            else
+            {
+                success = await CatalogoService.UpdateEspecieAsync(adminEspecieFormModel);
+            }
+
+            if (success)
+            {
+                showAdminEspecieFormModal = false;
+                await LoadAdminEspeciesAsync(adminEspecieFormModel.Id > 0 ? adminEspecieFormModel.Id : (int?)null);
+                await LoadEspeciesAsync();
+                especiesRazasGeneralMessage = adminEspecieFormModel.Id == 0 ? "Especie creada correctamente." : "Especie actualizada correctamente.";
+            }
+            else
+            {
+                adminEspecieErrorMessage = "Ocurrió un error al guardar la especie. Verifica que el nombre no esté duplicado.";
+            }
+        }
+        catch (Exception ex)
+        {
+            adminEspecieErrorMessage = "Error de conexión: " + ex.Message;
+        }
+        finally
+        {
+            isSavingAdminEspecie = false;
+        }
+    }
+
+    private void CancelAdminEspecieSimilarity()
+    {
+        showSimilarAdminEspeciesConfirm = false;
+        bypassAdminEspecieSimilarity = false;
+    }
+
+    private async Task BypassAdminEspecieSimilarity()
+    {
+        showSimilarAdminEspeciesConfirm = false;
+        bypassAdminEspecieSimilarity = true;
+        await HandleSaveAdminEspecie();
+    }
+
+    // ── Eliminar Especie ──
+    private void ConfirmDeleteEspecie(EspecieDto esp)
+    {
+        adminEspecieToDelete = esp;
+        showAdminDeleteEspecieConfirm = true;
+    }
+
+    private void CloseAdminDeleteEspecieConfirm()
+    {
+        showAdminDeleteEspecieConfirm = false;
+        adminEspecieToDelete = null;
+    }
+
+    private async Task ExecuteDeleteAdminEspecie()
+    {
+        if (adminEspecieToDelete == null) return;
+        isDeletingAdminEspecie = true;
+        try
+        {
+            var success = await CatalogoService.DeleteEspecieAsync(adminEspecieToDelete.Id);
+            if (success)
+            {
+                if (selectedAdminEspecie?.Id == adminEspecieToDelete.Id)
+                {
+                    selectedAdminEspecie = null;
+                }
+                CloseAdminDeleteEspecieConfirm();
+                await LoadAdminEspeciesAsync();
+                await LoadEspeciesAsync();
+                especiesRazasGeneralMessage = "Especie eliminada correctamente.";
+            }
+            else
+            {
+                especiesRazasGeneralMessage = "No se pudo eliminar la especie. Podría estar en uso.";
+                CloseAdminDeleteEspecieConfirm();
+            }
+        }
+        catch (Exception ex)
+        {
+            especiesRazasGeneralMessage = "Error al eliminar especie: " + ex.Message;
+            CloseAdminDeleteEspecieConfirm();
+        }
+        finally
+        {
+            isDeletingAdminEspecie = false;
+        }
+    }
+
+    // ── Crear / Editar Raza ──
+    private void OpenCreateRazaModal()
+    {
+        if (selectedAdminEspecie == null) return;
+        adminRazaFormModel = new RazaDto
+        {
+            EspecieId = selectedAdminEspecie.Id,
+            EspecieNombre = selectedAdminEspecie.Nombre,
+            Activo = true
+        };
+        adminRazaErrorMessage = string.Empty;
+        isSavingAdminRaza = false;
+        showAdminRazaFormModal = true;
+    }
+
+    private void OpenEditRazaModal(RazaDto raza)
+    {
+        adminRazaFormModel = new RazaDto
+        {
+            Id = raza.Id,
+            Nombre = raza.Nombre,
+            Descripcion = raza.Descripcion,
+            EspecieId = raza.EspecieId,
+            EspecieNombre = selectedAdminEspecie?.Nombre ?? "",
+            Activo = raza.Activo
+        };
+        adminRazaErrorMessage = string.Empty;
+        isSavingAdminRaza = false;
+        showAdminRazaFormModal = true;
+    }
+
+    private void CloseAdminRazaFormModal()
+    {
+        showAdminRazaFormModal = false;
+    }
+
+    private async Task HandleSaveAdminRaza()
+    {
+        if (string.IsNullOrWhiteSpace(adminRazaFormModel.Nombre))
+        {
+            adminRazaErrorMessage = "El nombre de la raza es requerido.";
+            return;
+        }
+
+        isSavingAdminRaza = true;
+        adminRazaErrorMessage = string.Empty;
+        try
+        {
+            if (!bypassAdminRazaSimilarity && adminRazasList != null)
+            {
+                similarAdminRazasList = adminRazasList
+                    .Where(r => r.Id != adminRazaFormModel.Id && BlazorFrontEnd.Helpers.SimilarityHelper.AreSimilar(adminRazaFormModel.Nombre, r.Nombre))
+                    .Select(r => r.Nombre)
+                    .ToList();
+
+                if (similarAdminRazasList.Any())
+                {
+                    showSimilarAdminRazasConfirm = true;
+                    isSavingAdminRaza = false;
+                    return;
+                }
+            }
+
+            bypassAdminRazaSimilarity = false;
+            showSimilarAdminRazasConfirm = false;
+
+            bool success;
+            if (adminRazaFormModel.Id == 0)
+            {
+                success = await CatalogoService.CreateRazaAsync(adminRazaFormModel);
+            }
+            else
+            {
+                success = await CatalogoService.UpdateRazaAsync(adminRazaFormModel);
+            }
+
+            if (success)
+            {
+                showAdminRazaFormModal = false;
+                if (selectedAdminEspecie != null)
+                {
+                    await LoadAdminRazasAsync(selectedAdminEspecie.Id);
+                }
+                especiesRazasGeneralMessage = adminRazaFormModel.Id == 0 ? "Raza creada correctamente." : "Raza actualizada correctamente.";
+            }
+            else
+            {
+                adminRazaErrorMessage = "Ocurrió un error al guardar la raza. Verifica los datos ingresados.";
+            }
+        }
+        catch (Exception ex)
+        {
+            adminRazaErrorMessage = "Error de conexión: " + ex.Message;
+        }
+        finally
+        {
+            isSavingAdminRaza = false;
+        }
+    }
+
+    private void CancelAdminRazaSimilarity()
+    {
+        showSimilarAdminRazasConfirm = false;
+        bypassAdminRazaSimilarity = false;
+    }
+
+    private async Task BypassAdminRazaSimilarity()
+    {
+        showSimilarAdminRazasConfirm = false;
+        bypassAdminRazaSimilarity = true;
+        await HandleSaveAdminRaza();
+    }
+
+    // ── Eliminar Raza ──
+    private void ConfirmDeleteRaza(RazaDto raza)
+    {
+        adminRazaToDelete = raza;
+        showAdminDeleteRazaConfirm = true;
+    }
+
+    private void CloseAdminDeleteRazaConfirm()
+    {
+        showAdminDeleteRazaConfirm = false;
+        adminRazaToDelete = null;
+    }
+
+    private async Task ExecuteDeleteAdminRaza()
+    {
+        if (adminRazaToDelete == null) return;
+        isDeletingAdminRaza = true;
+        try
+        {
+            var success = await CatalogoService.DeleteRazaAsync(adminRazaToDelete.Id);
+            if (success)
+            {
+                CloseAdminDeleteRazaConfirm();
+                if (selectedAdminEspecie != null)
+                {
+                    await LoadAdminRazasAsync(selectedAdminEspecie.Id);
+                }
+                especiesRazasGeneralMessage = "Raza eliminada correctamente.";
+            }
+            else
+            {
+                especiesRazasGeneralMessage = "No se pudo eliminar la raza. Podría estar en uso.";
+                CloseAdminDeleteRazaConfirm();
+            }
+        }
+        catch (Exception ex)
+        {
+            especiesRazasGeneralMessage = "Error al eliminar raza: " + ex.Message;
+            CloseAdminDeleteRazaConfirm();
+        }
+        finally
+        {
+            isDeletingAdminRaza = false;
+        }
+    }
+
+    private string GetEspecieEmoji(string? nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre)) return "🐾";
+        var n = nombre.ToLowerInvariant();
+        if (n.Contains("canin") || n.Contains("perr") || n.Contains("dog")) return "🐶";
+        if (n.Contains("felin") || n.Contains("gat") || n.Contains("cat")) return "🐱";
+        if (n.Contains("ave") || n.Contains("pajar") || n.Contains("loro") || n.Contains("bird")) return "🦜";
+        if (n.Contains("roedor") || n.Contains("hamster") || n.Contains("conejo") || n.Contains("cuy") || n.Contains("cobayo")) return "🐰";
+        if (n.Contains("reptil") || n.Contains("tortuga") || n.Contains("iguana") || n.Contains("serpiente")) return "🐢";
+        if (n.Contains("pez") || n.Contains("peces") || n.Contains("fish")) return "🐠";
+        if (n.Contains("equin") || n.Contains("caball") || n.Contains("horse")) return "🐴";
+        return "🐾";
     }
 }

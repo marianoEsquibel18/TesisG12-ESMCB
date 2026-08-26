@@ -6,9 +6,11 @@
 @inject HistorialClinicoService HistorialService
 @inject VacunacionService VacunacionService
 @inject TratamientoService TratamientoService
+@inject PersonalService PersonalService
 @inject NavigationManager Navigation
 @inject PropietarioService PropietarioService
-@inject PersonalService PersonalService
+@inject ProductoService ProductoService
+@inject IJSRuntime JS
 
 <PageTitle>Información del paciente: @(paciente?.Nombre ?? "Cargando...")</PageTitle>
 
@@ -22,15 +24,25 @@ else if (paciente == null)
 }
 else
 {
-    <div class="d-flex align-items-center" style="margin-bottom: var(--sp-lg);">
-        <button class="btn btn-link" style="color: var(--text-secondary); padding: 0; margin-right: 15px;" @onclick="GoBack">
+    <div class="d-flex align-items-center" style="margin-bottom: var(--sp-lg); gap: 15px;">
+        <button class="btn btn-link" style="color: var(--text-secondary); padding: 0;" @onclick="GoBack">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 24px; height: 24px;">
               <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
             </svg>
         </button>
+        @if (!string.IsNullOrEmpty(paciente.FotoUrl))
+        {
+            <img src="@paciente.FotoUrl" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent-primary);" />
+        }
+        else
+        {
+            <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid var(--border-glass); display: flex; align-items: center; justify-content: center; font-size: 1.8rem;">
+                🐾
+            </div>
+        }
         <div>
             <h2 style="font-weight: 700; margin: 0;">Información detallada del paciente</h2>
-            <p class="text-secondary" style="margin: 0;">Paciente: <strong class="text-primary">@paciente.Nombre</strong> (@paciente.EspecieNombre/ @paciente.RazaNombre)</p>
+            <p class="text-secondary" style="margin: 0;">Paciente: <strong class="text-primary">@paciente.Nombre</strong> (@paciente.EspecieNombre / @paciente.RazaNombre)</p>
         </div>
     </div>
 
@@ -112,6 +124,29 @@ else
                                     <p><strong>Síntomas:</strong> @c.Sintomas</p>
                                     <p><strong>Diagnóstico:</strong> <span class="text-light">@c.Diagnostico</span></p>
                                     <p><strong>Indicaciones:</strong> @c.Indicaciones</p>
+                                    
+                                    @{
+                                        List<Adjunto>? files = null;
+                                        try {
+                                            if (!string.IsNullOrEmpty(c.ArchivosAdjuntos))
+                                                files = System.Text.Json.JsonSerializer.Deserialize<List<Adjunto>>(c.ArchivosAdjuntos);
+                                        } catch {}
+                                    }
+                                    @if (files != null && files.Any())
+                                    {
+                                        <div class="mt-2 border-top pt-2" style="border-color: rgba(255,255,255,0.05) !important;">
+                                            <strong class="text-secondary small">Adjuntos:</strong>
+                                            <div class="d-flex flex-wrap gap-2 mt-1">
+                                                @foreach (var file in files)
+                                                {
+                                                    <button type="button" class="btn btn-sm btn-outline-info py-0 px-2 d-inline-flex align-items-center gap-1" style="font-size: 0.75rem; border-color: var(--border-glass);" @onclick="() => PreviewFile(file)">
+                                                        <i class="bi bi-paperclip"></i> @file.Nombre
+                                                    </button>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+
                                     <p style="font-size: 0.85em; margin-top:10px;">Peso: @c.Peso kg | Temp: @c.Temperatura °C</p>
                                     <div class="d-flex justify-content-end mt-2">
                                         <button class="btn btn-sm btn-outline-info" @onclick="() => EditarConsulta(c.Id)">
@@ -150,7 +185,9 @@ else
                                 <th>Fecha Aplic.</th>
                                 <th>Vacuna</th>
                                 <th>Próxima Dosis</th>
-                                <th>Lote / Vet</th>
+                                <th>Lote</th>
+                                <th>Veterinario</th>
+                                <th>Observaciones</th>
                                 <th class="text-end">Acciones</th>
                             </tr>
                         </thead>
@@ -161,14 +198,25 @@ else
                                     <td>@v.FechaAplicacion.ToString("dd/MM/yyyy")</td>
                                     <td><strong>@v.VacunaNombre</strong></td>
                                     <td>
-                                        @if(v.FechaProximaDosis.HasValue)
+                                        @if (v.FechaProximaDosis.HasValue)
                                         {
-                                            var css = v.ProximaDosisVencida ? "text-danger" : "text-info";
-                                            <span class="@css">@v.FechaProximaDosis.Value.ToString("dd/MM/yyyy")</span>
+                                            var isOverdue = v.FechaProximaDosis.Value.Date < DateTime.Today;
+                                            <span class="@(isOverdue ? "text-danger fw-bold" : "text-info")" style="font-size: 0.85rem;">
+                                                @v.FechaProximaDosis.Value.ToString("dd/MM/yyyy")
+                                                @if (isOverdue)
+                                                {
+                                                    <span class="badge bg-danger ms-1" style="font-size: 0.65rem;">Vencida</span>
+                                                }
+                                            </span>
                                         }
-                                        else { <span class="text-secondary">-</span> }
+                                        else
+                                        {
+                                            <span class="text-secondary">-</span>
+                                        }
                                     </td>
-                                    <td class="text-secondary" style="font-size:0.85rem;">@v.NroLote <br/> @v.Veterinario</td>
+                                    <td class="text-secondary" style="font-size:0.85rem;">@(string.IsNullOrEmpty(v.NroLote) ? "-" : v.NroLote)</td>
+                                    <td style="font-size:0.85rem;">@v.Veterinario</td>
+                                    <td class="text-secondary" style="font-size:0.85rem;">@(string.IsNullOrEmpty(v.Observaciones) ? "-" : v.Observaciones)</td>
                                     <td class="text-end">
                                         <button class="btn btn-sm btn-outline-info" @onclick="() => EditarVacuna(v.Id)" title="Editar registro de vacuna">
                                             Editar
@@ -217,7 +265,27 @@ else
                                 <tr style="border-bottom: 1px solid var(--border-glass);">
                                     <td>@t.Fecha.ToString("dd/MM/yyyy")</td>
                                     <td><strong class="text-light">@t.Diagnostico</strong></td>
-                                    <td class="text-secondary" style="max-width: 250px;">@t.Descripcion</td>
+                                    <td class="text-secondary" style="max-width: 250px;">
+                                        <div>@t.Descripcion</div>
+                                        @{
+                                            List<Adjunto>? tFiles = null;
+                                            try {
+                                                if (!string.IsNullOrEmpty(t.ArchivosAdjuntos))
+                                                    tFiles = System.Text.Json.JsonSerializer.Deserialize<List<Adjunto>>(t.ArchivosAdjuntos);
+                                            } catch {}
+                                        }
+                                        @if (tFiles != null && tFiles.Any())
+                                        {
+                                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                                @foreach (var file in tFiles)
+                                                {
+                                                    <button type="button" class="btn btn-sm btn-outline-info py-0 px-1 d-inline-flex align-items-center gap-1" style="font-size: 0.7rem; border-color: var(--border-glass); padding: 1px 4px;" @onclick="() => PreviewFile(file)" title="@file.Nombre">
+                                                        <i class="bi bi-paperclip"></i> <span class="text-truncate" style="max-width: 80px;">@file.Nombre</span>
+                                                    </button>
+                                                }
+                                            </div>
+                                        }
+                                    </td>
                                     <td class="text-secondary" style="max-width: 250px;">@t.Medicacion</td>
                                     <td class="text-secondary">@t.Veterinario</td>
                                     <td class="text-center">
@@ -331,6 +399,35 @@ else
                     <ValidationMessage For="@(() => consultaModel.Observaciones)" class="text-danger" />
                 </div>
 
+                <!-- Archivos Adjuntos (Clip Icon + File Selection + List) -->
+                <div class="mb-3">
+                    <label class="d-flex align-items-center gap-2" style="color: var(--text-secondary); font-size: 0.875rem;">
+                        <span>Archivos Adjuntos (Imágenes, Videos, PDFs)</span>
+                        <label for="modal-consulta-attachments" class="btn btn-sm btn-outline-info d-inline-flex align-items-center gap-1 py-1 px-2 m-0" style="cursor: pointer; font-size: 0.78rem; border-color: var(--border-glass); background: rgba(0, 163, 108, 0.05); color: var(--accent-primary);">
+                            <i class="bi bi-paperclip"></i> Adjuntar
+                        </label>
+                        <InputFile id="modal-consulta-attachments" OnChange="UploadModalConsultaFiles" multiple style="display: none;" />
+                    </label>
+                    
+                    @if (modalConsultaFilesList != null && modalConsultaFilesList.Any())
+                    {
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            @foreach (var file in modalConsultaFilesList)
+                            {
+                                <div class="d-flex align-items-center gap-2 p-1 px-2 rounded" style="background: rgba(0, 163, 108, 0.1); border: 1px solid var(--accent-primary); font-size: 0.8rem;">
+                                    <span class="text-truncate" style="max-width: 150px; color: var(--text-primary);" title="@file.Nombre">@file.Nombre</span>
+                                    <button type="button" class="btn p-0 text-primary border-0" style="box-shadow: none;" @onclick="() => PreviewFile(file)" title="Ver/Descargar">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button type="button" class="btn p-0 text-danger border-0" style="box-shadow: none;" @onclick="() => RemoveModalConsultaFile(file)" title="Eliminar">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
                 @if (!string.IsNullOrEmpty(consultaErrorMessage))
                 {
                     <div class="alert alert-danger p-2 mt-2" style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-danger); color: white;">@consultaErrorMessage</div>
@@ -365,16 +462,31 @@ else
                 <DataAnnotationsValidator />
 
                 <div class="mb-3">
-                    <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Vacuna Aplicada (*)</label>
-                    <InputSelect @bind-Value="vacunaModel.VacunaId" class="form-select bg-dark text-light border-secondary">
-                        <option value="0">Seleccione vacuna...</option>
-                        @foreach (var vac in catalogoVacunas)
+                    <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Vacuna del Inventario (*)</label>
+                    <select @bind="selectedProductoId" @bind:after="OnVacunaProductoSelected" class="form-select bg-dark text-light border-secondary">
+                        <option value="">-- Seleccione Vacuna --</option>
+                        @foreach (var prod in productosVacunas)
                         {
-                            <option value="@vac.Id">@vac.Nombre (@vac.Laboratorio)</option>
+                            <option value="@prod.Id">
+                                @prod.Nombre @(string.IsNullOrEmpty(prod.MarcaNombre) ? "" : $"({prod.MarcaNombre})") - Stock: @prod.StockActual
+                            </option>
                         }
-                    </InputSelect>
-                    <ValidationMessage For="@(() => vacunaModel.VacunaId)" class="text-danger" />
+                    </select>
                 </div>
+
+                @if (selectedProducto != null && selectedProducto.StocksDepositos != null && selectedProducto.StocksDepositos.Count(s => s.StockActual > 0) > 1)
+                {
+                    <div class="mb-3">
+                        <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Depósito de Origen (*)</label>
+                        <select @bind="selectedDepositoId" class="form-select bg-dark text-light border-secondary">
+                            <option value="">-- Seleccionar Depósito --</option>
+                            @foreach (var sd in selectedProducto.StocksDepositos.Where(s => s.StockActual > 0))
+                            {
+                                <option value="@sd.DepositoId">@sd.DepositoNombre (Disponible: @sd.StockActual)</option>
+                            }
+                        </select>
+                    </div>
+                }
 
                 <div class="mb-3">
                     <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Veterinario (*)</label>
@@ -489,6 +601,35 @@ else
                     <ValidationMessage For="@(() => tratamientoModel.Observaciones)" class="text-danger" />
                 </div>
 
+                <!-- Archivos Adjuntos (Clip Icon + File Selection + List) -->
+                <div class="mb-3">
+                    <label class="d-flex align-items-center gap-2" style="color: var(--text-secondary); font-size: 0.875rem;">
+                        <span>Archivos Adjuntos (Imágenes, Videos, PDFs)</span>
+                        <label for="modal-tratamiento-attachments" class="btn btn-sm btn-outline-info d-inline-flex align-items-center gap-1 py-1 px-2 m-0" style="cursor: pointer; font-size: 0.78rem; border-color: var(--border-glass); background: rgba(0, 163, 108, 0.05); color: var(--accent-primary);">
+                            <i class="bi bi-paperclip"></i> Adjuntar
+                        </label>
+                        <InputFile id="modal-tratamiento-attachments" OnChange="UploadModalTratamientoFiles" multiple style="display: none;" />
+                    </label>
+                    
+                    @if (modalTratamientoFilesList != null && modalTratamientoFilesList.Any())
+                    {
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            @foreach (var file in modalTratamientoFilesList)
+                            {
+                                <div class="d-flex align-items-center gap-2 p-1 px-2 rounded" style="background: rgba(0, 163, 108, 0.1); border: 1px solid var(--accent-primary); font-size: 0.8rem;">
+                                    <span class="text-truncate" style="max-width: 150px; color: var(--text-primary);" title="@file.Nombre">@file.Nombre</span>
+                                    <button type="button" class="btn p-0 text-primary border-0" style="box-shadow: none;" @onclick="() => PreviewFile(file)" title="Ver/Descargar">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button type="button" class="btn p-0 text-danger border-0" style="box-shadow: none;" @onclick="() => RemoveModalTratamientoFile(file)" title="Eliminar">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
                 <div class="mb-3 form-check" style="margin-top: 20px;">
                     <InputCheckbox @bind-Value="tratamientoModel.Finalizado" class="form-check-input bg-dark border-secondary" id="chkFinalizado" />
                     <label class="form-check-label text-light" for="chkFinalizado">Marcar como Finalizado / Alta médica</label>
@@ -531,6 +672,10 @@ else
 
     private List<VeterinarioDto> vets = new();
     private List<VacunaDto> catalogoVacunas = new();
+    private List<ProductoDto> productosVacunas = new();
+    private string selectedProductoId = "";
+    private int? selectedDepositoId;
+    private ProductoDto? selectedProducto => productosVacunas.FirstOrDefault(p => p.Id == selectedProductoId);
 
     // Consulta Modal States
     private bool showConsultaModal;
@@ -549,6 +694,9 @@ else
     private TratamientoDto tratamientoModel = new();
     private bool isSavingTratamiento;
     private string tratamientoErrorMessage = string.Empty;
+
+    private List<Adjunto> modalConsultaFilesList = new();
+    private List<Adjunto> modalTratamientoFilesList = new();
 
     protected override void OnParametersSet()
     {
@@ -574,8 +722,9 @@ else
             var prTask = PropietarioService.GetByIdAsync(paciente.PropietarioId);
             var vtTask = PersonalService.GetVeterinariosActivosAsync();
             var vaTask = VacunacionService.GetCatalogoVacunasAsync();
+            var prodTask = ProductoService.GetAllAsync(1, 1000);
 
-            await Task.WhenAll(clTask, vcTask, trTask, prTask, vtTask, vaTask);
+            await Task.WhenAll(clTask, vcTask, trTask, prTask, vtTask, vaTask, prodTask);
 
             consultas = clTask.Result ?? new();
             vacunas = vcTask.Result ?? new();
@@ -587,6 +736,16 @@ else
             if (vacs != null)
             {
                 catalogoVacunas = vacs.Where(v => v.Activo).ToList();
+            }
+
+            if (prodTask.Result?.Items != null)
+            {
+                productosVacunas = prodTask.Result.Items
+                    .Where(p => p.Activo && (
+                        (!string.IsNullOrEmpty(p.CategoriaNombre) && p.CategoriaNombre.Contains("Vacuna", StringComparison.OrdinalIgnoreCase)) ||
+                        p.Nombre.Contains("Vacuna", StringComparison.OrdinalIgnoreCase)
+                    ))
+                    .ToList();
             }
         }
 
@@ -613,6 +772,7 @@ else
             PacienteNombre = paciente?.Nombre ?? string.Empty,
             Fecha = DateTime.Today
         };
+        modalConsultaFilesList = new List<Adjunto>();
         consultaErrorMessage = string.Empty;
         isSavingConsulta = false;
         showConsultaModal = true;
@@ -643,6 +803,16 @@ else
                     Temperatura = existing.Temperatura,
                     Observaciones = existing.Observaciones
                 };
+                try
+                {
+                    modalConsultaFilesList = string.IsNullOrEmpty(existing.ArchivosAdjuntos)
+                        ? new List<Adjunto>()
+                        : System.Text.Json.JsonSerializer.Deserialize<List<Adjunto>>(existing.ArchivosAdjuntos) ?? new List<Adjunto>();
+                }
+                catch
+                {
+                    modalConsultaFilesList = new List<Adjunto>();
+                }
             }
             else
             {
@@ -712,6 +882,7 @@ else
         consultaErrorMessage = string.Empty;
         try
         {
+            consultaModel.ArchivosAdjuntos = System.Text.Json.JsonSerializer.Serialize(modalConsultaFilesList);
             bool success;
             if (string.IsNullOrEmpty(consultaModel.Id))
             {
@@ -752,9 +923,26 @@ else
             PacienteNombre = paciente?.Nombre ?? string.Empty,
             FechaAplicacion = DateTime.Today
         };
+        selectedProductoId = "";
+        selectedDepositoId = null;
         vacunaErrorMessage = string.Empty;
         isSavingVacuna = false;
         showVacunaModal = true;
+    }
+
+    private void OnVacunaProductoSelected()
+    {
+        if (selectedProducto != null)
+        {
+            if (selectedProducto.StocksDepositos != null && selectedProducto.StocksDepositos.Count(s => s.StockActual > 0) == 1)
+            {
+                selectedDepositoId = selectedProducto.StocksDepositos.First(s => s.StockActual > 0).DepositoId;
+            }
+            else
+            {
+                selectedDepositoId = null;
+            }
+        }
     }
 
     private async Task EditarVacuna(string registroId)
@@ -773,6 +961,8 @@ else
                     PacienteId = existing.PacienteId,
                     PacienteNombre = existing.PacienteNombre,
                     VacunaId = existing.VacunaId,
+                    ProductoId = existing.ProductoId,
+                    DepositoId = existing.DepositoId,
                     VacunaNombre = existing.VacunaNombre,
                     FechaAplicacion = existing.FechaAplicacion,
                     FechaProximaDosis = existing.FechaProximaDosis,
@@ -780,6 +970,8 @@ else
                     NroLote = existing.NroLote,
                     Observaciones = existing.Observaciones
                 };
+                selectedProductoId = existing.ProductoId ?? "";
+                selectedDepositoId = existing.DepositoId;
             }
             else
             {
@@ -799,15 +991,29 @@ else
 
     private async Task HandleSaveVacuna()
     {
-        if (vacunaModel.VacunaId == 0)
+        if (string.IsNullOrWhiteSpace(selectedProductoId) && vacunaModel.VacunaId == 0)
         {
-            vacunaErrorMessage = "Debe seleccionar una vacuna válida del catálogo.";
+            vacunaErrorMessage = "Debe seleccionar una vacuna del inventario.";
             return;
         }
         if (string.IsNullOrWhiteSpace(vacunaModel.Veterinario))
         {
             vacunaErrorMessage = "Debe seleccionar un veterinario.";
             return;
+        }
+
+        var selectedProd = productosVacunas.FirstOrDefault(p => p.Id == selectedProductoId);
+        if (selectedProd != null && string.IsNullOrEmpty(vacunaModel.Id) && selectedProd.StockActual <= 0)
+        {
+            vacunaErrorMessage = $"No hay stock disponible para la vacuna '{selectedProd.Nombre}'.";
+            return;
+        }
+
+        vacunaModel.ProductoId = selectedProductoId;
+        vacunaModel.DepositoId = selectedDepositoId;
+        if (selectedProd != null)
+        {
+            vacunaModel.VacunaNombre = selectedProd.Nombre;
         }
 
         isSavingVacuna = true;
@@ -828,11 +1034,24 @@ else
             {
                 showVacunaModal = false;
                 vacunas = await VacunacionService.GetByPacienteIdAsync(PacienteId) ?? new();
+                
+                // Actualizar stock local de productos de vacunas
+                var prodTask = await ProductoService.GetAllAsync(1, 1000);
+                if (prodTask?.Items != null)
+                {
+                    productosVacunas = prodTask.Items
+                        .Where(p => p.Activo && (
+                            (!string.IsNullOrEmpty(p.CategoriaNombre) && p.CategoriaNombre.Contains("Vacuna", StringComparison.OrdinalIgnoreCase)) ||
+                            p.Nombre.Contains("Vacuna", StringComparison.OrdinalIgnoreCase)
+                        ))
+                        .ToList();
+                }
+                
                 StateHasChanged();
             }
             else
             {
-                vacunaErrorMessage = "Error al intentar guardar el registro de vacunación.";
+                vacunaErrorMessage = "Error al intentar guardar el registro de vacunación. Verifique el stock disponible.";
             }
         }
         catch (Exception ex)
@@ -854,6 +1073,7 @@ else
             PacienteNombre = paciente?.Nombre ?? string.Empty,
             Fecha = DateTime.Today
         };
+        modalTratamientoFilesList = new List<Adjunto>();
         tratamientoErrorMessage = string.Empty;
         isSavingTratamiento = false;
         showTratamientoModal = true;
@@ -882,6 +1102,16 @@ else
                     Observaciones = existing.Observaciones,
                     Finalizado = existing.Finalizado
                 };
+                try
+                {
+                    modalTratamientoFilesList = string.IsNullOrEmpty(existing.ArchivosAdjuntos)
+                        ? new List<Adjunto>()
+                        : System.Text.Json.JsonSerializer.Deserialize<List<Adjunto>>(existing.ArchivosAdjuntos) ?? new List<Adjunto>();
+                }
+                catch
+                {
+                    modalTratamientoFilesList = new List<Adjunto>();
+                }
             }
             else
             {
@@ -921,6 +1151,7 @@ else
         tratamientoErrorMessage = string.Empty;
         try
         {
+            tratamientoModel.ArchivosAdjuntos = System.Text.Json.JsonSerializer.Serialize(modalTratamientoFilesList);
             bool success;
             if (string.IsNullOrEmpty(tratamientoModel.Id))
             {
@@ -967,5 +1198,79 @@ else
         if (string.IsNullOrEmpty(telefono)) return string.Empty;
         var clean = new string(telefono.Where(char.IsDigit).ToArray());
         return clean;
+    }
+
+    private async Task UploadModalConsultaFiles(InputFileChangeEventArgs e)
+    {
+        foreach (var file in e.GetMultipleFiles(10))
+        {
+            try
+            {
+                var maxAllowedSize = 5 * 1024 * 1024;
+                using var stream = file.OpenReadStream(maxAllowedSize);
+                using var ms = new System.IO.MemoryStream();
+                await stream.CopyToAsync(ms);
+                var base64 = Convert.ToBase64String(ms.ToArray());
+                
+                modalConsultaFilesList.Add(new Adjunto
+                {
+                    Nombre = file.Name,
+                    Base64 = base64,
+                    ContentType = file.ContentType
+                });
+            }
+            catch (Exception ex)
+            {
+                consultaErrorMessage = $"Error al cargar archivo {file.Name}: {ex.Message}";
+            }
+        }
+    }
+
+    private void RemoveModalConsultaFile(Adjunto file)
+    {
+        modalConsultaFilesList.Remove(file);
+    }
+
+    private async Task UploadModalTratamientoFiles(InputFileChangeEventArgs e)
+    {
+        foreach (var file in e.GetMultipleFiles(10))
+        {
+            try
+            {
+                var maxAllowedSize = 5 * 1024 * 1024;
+                using var stream = file.OpenReadStream(maxAllowedSize);
+                using var ms = new System.IO.MemoryStream();
+                await stream.CopyToAsync(ms);
+                var base64 = Convert.ToBase64String(ms.ToArray());
+                
+                modalTratamientoFilesList.Add(new Adjunto
+                {
+                    Nombre = file.Name,
+                    Base64 = base64,
+                    ContentType = file.ContentType
+                });
+            }
+            catch (Exception ex)
+            {
+                tratamientoErrorMessage = $"Error al cargar archivo {file.Name}: {ex.Message}";
+            }
+        }
+    }
+
+    private void RemoveModalTratamientoFile(Adjunto file)
+    {
+        modalTratamientoFilesList.Remove(file);
+    }
+
+    private async Task PreviewFile(Adjunto file)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("openBase64File", file.Base64, file.Nombre, file.ContentType);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al abrir archivo: {ex.Message}");
+        }
     }
 }

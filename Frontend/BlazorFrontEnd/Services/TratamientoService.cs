@@ -40,7 +40,8 @@ namespace BlazorFrontEnd.Services
                     Descripcion = modelo.Descripcion,
                     Veterinario = modelo.Veterinario,
                     Medicacion = modelo.Medicacion,
-                    Observaciones = modelo.Observaciones
+                    Observaciones = modelo.Observaciones,
+                    ArchivosAdjuntos = modelo.ArchivosAdjuntos
                 };
                 var response = await _httpClient.PostAsJsonAsync(BaseUrl, request);
                 if (!response.IsSuccessStatusCode)

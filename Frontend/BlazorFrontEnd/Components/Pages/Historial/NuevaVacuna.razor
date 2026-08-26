@@ -6,6 +6,7 @@
 @inject VacunacionService VacunacionService
 @inject PacienteService PacienteService
 @inject PersonalService PersonalService
+@inject ProductoService ProductoService
 @inject NavigationManager Navigation
 
 <PageTitle>@(isEdit ? "Editar Vacuna" : "Registrar Vacuna") - Historial Clínico</PageTitle>
@@ -19,15 +20,16 @@
         
         <div class="row mb-3">
             <div class="col-md-6">
-                <label>Vacuna Aplicada (*)</label>
-                <InputSelect @bind-Value="model.VacunaId" class="form-select bg-dark text-light border-secondary">
-                    <option value="0">Seleccione vacuna...</option>
-                    @foreach (var vac in catalogoVacunas)
+                <label>Vacuna del Inventario (*)</label>
+                <select @bind="selectedProductoId" @bind:after="OnVacunaProductoSelected" class="form-select bg-dark text-light border-secondary">
+                    <option value="">-- Seleccione Vacuna --</option>
+                    @foreach (var prod in productosVacunas)
                     {
-                        <option value="@vac.Id">@vac.Nombre (@vac.Laboratorio)</option>
+                        <option value="@prod.Id">
+                            @prod.Nombre @(string.IsNullOrEmpty(prod.MarcaNombre) ? "" : $"({prod.MarcaNombre})") - Stock: @prod.StockActual
+                        </option>
                     }
-                </InputSelect>
-                <ValidationMessage For="@(() => model.VacunaId)" class="text-danger" />
+                </select>
             </div>
             <div class="col-md-6">
                 <label>Veterinario (*)</label>
@@ -41,6 +43,20 @@
                 <ValidationMessage For="@(() => model.Veterinario)" class="text-danger" />
             </div>
         </div>
+
+        @if (selectedProducto != null && selectedProducto.StocksDepositos != null && selectedProducto.StocksDepositos.Count(s => s.StockActual > 0) > 1)
+        {
+            <div class="mb-3">
+                <label>Depósito de Origen (*)</label>
+                <select @bind="selectedDepositoId" class="form-select bg-dark text-light border-secondary">
+                    <option value="">-- Seleccionar Depósito --</option>
+                    @foreach (var sd in selectedProducto.StocksDepositos.Where(s => s.StockActual > 0))
+                    {
+                        <option value="@sd.DepositoId">@sd.DepositoNombre (Disponible: @sd.StockActual)</option>
+                    }
+                </select>
+            </div>
+        }
 
         <div class="row mb-3">
             <div class="col-md-6">
@@ -93,7 +109,11 @@
     private bool isSaving;
     private string errorMessage = string.Empty;
 
-    private List<VacunaDto> catalogoVacunas = new();
+    private List<ProductoDto> productosVacunas = new();
+    private string selectedProductoId = "";
+    private int? selectedDepositoId;
+    private ProductoDto? selectedProducto => productosVacunas.FirstOrDefault(p => p.Id == selectedProductoId);
+
     private List<VeterinarioDto> vets = new();
 
     protected override async Task OnInitializedAsync()
@@ -105,11 +125,22 @@
             model.PacienteNombre = p.Nombre;
         }
 
-        var vacs = await VacunacionService.GetCatalogoVacunasAsync();
-        if(vacs != null) catalogoVacunas = vacs.Where(v => v.Activo).ToList();
+        var prodTask = ProductoService.GetAllAsync(1, 1000);
+        var vResTask = PersonalService.GetVeterinariosActivosAsync();
 
-        var vRes = await PersonalService.GetVeterinariosActivosAsync();
-        if(vRes != null) vets = vRes;
+        await Task.WhenAll(prodTask, vResTask);
+
+        if (prodTask.Result?.Items != null)
+        {
+            productosVacunas = prodTask.Result.Items
+                .Where(pr => pr.Activo && (
+                    (!string.IsNullOrEmpty(pr.CategoriaNombre) && pr.CategoriaNombre.Contains("Vacuna", StringComparison.OrdinalIgnoreCase)) ||
+                    pr.Nombre.Contains("Vacuna", StringComparison.OrdinalIgnoreCase)
+                ))
+                .ToList();
+        }
+
+        if(vResTask.Result != null) vets = vResTask.Result;
 
         if (isEdit)
         {
@@ -117,6 +148,8 @@
             if (existing != null)
             {
                 model = existing;
+                selectedProductoId = existing.ProductoId ?? "";
+                selectedDepositoId = existing.DepositoId;
             }
             else
             {
@@ -125,12 +158,46 @@
         }
     }
 
+    private void OnVacunaProductoSelected()
+    {
+        if (selectedProducto != null)
+        {
+            if (selectedProducto.StocksDepositos != null && selectedProducto.StocksDepositos.Count(s => s.StockActual > 0) == 1)
+            {
+                selectedDepositoId = selectedProducto.StocksDepositos.First(s => s.StockActual > 0).DepositoId;
+            }
+            else
+            {
+                selectedDepositoId = null;
+            }
+        }
+    }
+
     private async Task HandleSave()
     {
-        if (model.VacunaId == 0)
+        if (string.IsNullOrWhiteSpace(selectedProductoId) && model.VacunaId == 0)
         {
-            errorMessage = "Debe seleccionar una vacuna válida del catálogo.";
+            errorMessage = "Debe seleccionar una vacuna del inventario.";
             return;
+        }
+        if (string.IsNullOrWhiteSpace(model.Veterinario))
+        {
+            errorMessage = "Debe seleccionar un veterinario.";
+            return;
+        }
+
+        var selectedProd = productosVacunas.FirstOrDefault(p => p.Id == selectedProductoId);
+        if (selectedProd != null && !isEdit && selectedProd.StockActual <= 0)
+        {
+            errorMessage = $"No hay stock disponible para la vacuna '{selectedProd.Nombre}'.";
+            return;
+        }
+
+        model.ProductoId = selectedProductoId;
+        model.DepositoId = selectedDepositoId;
+        if (selectedProd != null)
+        {
+            model.VacunaNombre = selectedProd.Nombre;
         }
 
         isSaving = true;
@@ -154,7 +221,7 @@
             }
             else
             {
-                errorMessage = isEdit ? "Error al intentar actualizar la vacuna." : "No se pudo guardar el registro de vacunación.";
+                errorMessage = isEdit ? "Error al intentar actualizar la vacuna." : "No se pudo guardar el registro de vacunación. Verifique el stock disponible.";
                 isSaving = false;
             }
         }

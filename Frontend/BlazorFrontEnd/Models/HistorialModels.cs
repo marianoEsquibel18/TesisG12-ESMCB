@@ -26,6 +26,7 @@ namespace BlazorFrontEnd.Models
         public decimal? Peso { get; set; }
         public decimal? Temperatura { get; set; }
         public string Observaciones { get; set; } = string.Empty;
+        public string? ArchivosAdjuntos { get; set; } = "[]";
     }
 
     public class TratamientoDto
@@ -45,6 +46,7 @@ namespace BlazorFrontEnd.Models
         public string Veterinario { get; set; } = string.Empty;
         public string Observaciones { get; set; } = string.Empty;
         public bool Finalizado { get; set; }
+        public string? ArchivosAdjuntos { get; set; } = "[]";
     }
 
     public class RegistroVacunacionDto
@@ -55,8 +57,9 @@ namespace BlazorFrontEnd.Models
         public string PacienteId { get; set; } = string.Empty;
         public string PacienteNombre { get; set; } = string.Empty;
         
-        [Required(ErrorMessage = "Seleccione una vacuna aplicable")]
         public int VacunaId { get; set; }
+        public string? ProductoId { get; set; }
+        public int? DepositoId { get; set; }
         public string VacunaNombre { get; set; } = string.Empty;
         
         public DateTime FechaAplicacion { get; set; } = DateTime.Today;

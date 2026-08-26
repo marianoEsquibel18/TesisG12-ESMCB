@@ -25,5 +25,7 @@ namespace Infrastructure.Repositories.Sql
             await Repository.Include(u => u.Rol).Include(u => u.Sucursal).Where(u => u.Activo).ToListAsync();
         public async Task<IEnumerable<Usuario>> GetByRolIdAsync(int rolId) =>
             await Repository.Include(u => u.Rol).Include(u => u.Sucursal).Where(u => u.RolId == rolId).ToListAsync();
+        public async Task<IEnumerable<Usuario>> GetAllWithNavigationAsync() =>
+            await Repository.Include(u => u.Rol).Include(u => u.Sucursal).ToListAsync();
     }
 }

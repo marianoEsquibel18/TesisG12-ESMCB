@@ -71,7 +71,8 @@ namespace Controllers
                 request.Indicaciones ?? "",
                 request.Peso,
                 request.Temperatura,
-                request.Observaciones ?? "");
+                request.Observaciones ?? "",
+                archivosAdjuntos: request.ArchivosAdjuntos);
 
             if (!entity.IsValid)
                 return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
@@ -92,7 +93,7 @@ namespace Controllers
             if (entity == null) return NotFound($"No se encontró la entrada con Id {request.Id}");
 
             entity.Actualizar(request.Motivo, request.Sintomas ?? "", request.Diagnostico ?? "",
-                request.Indicaciones ?? "", request.Peso, request.Temperatura, request.Observaciones ?? "");
+                request.Indicaciones ?? "", request.Peso, request.Temperatura, request.Observaciones ?? "", archivosAdjuntos: request.ArchivosAdjuntos);
 
             if (!entity.IsValid)
                 return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
@@ -127,7 +128,8 @@ namespace Controllers
             Veterinario = h.Veterinario,
             Peso = h.Peso,
             Temperatura = h.Temperatura,
-            Observaciones = h.Observaciones
+            Observaciones = h.Observaciones,
+            ArchivosAdjuntos = h.ArchivosAdjuntos
         };
     }
 
@@ -143,6 +145,7 @@ namespace Controllers
         public decimal? Peso { get; set; }
         public decimal? Temperatura { get; set; }
         public string Observaciones { get; set; }
+        public string? ArchivosAdjuntos { get; set; }
     }
 
     public class UpdateHistorialClinicoRequest
@@ -155,5 +158,6 @@ namespace Controllers
         public decimal? Peso { get; set; }
         public decimal? Temperatura { get; set; }
         public string Observaciones { get; set; }
+        public string? ArchivosAdjuntos { get; set; }
     }
 }

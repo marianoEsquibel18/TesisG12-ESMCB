@@ -1,0 +1,631 @@
+@page "/servicios"
+@using BlazorFrontEnd.Models
+@using BlazorFrontEnd.Services
+@inject CatalogoServiciosService ServiciosService
+@inject ProductoService ProductoService
+@inject NavigationManager Navigation
+
+<PageTitle>Servicios</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center" style="margin-bottom: var(--sp-lg);">
+    <div>
+        <h2 style="font-weight: 700; margin: 0;">Catálogo de Servicios</h2>
+        <p class="text-secondary" style="margin: 0;">Gestión de servicios clínicos y veterinarios ofrecidos</p>
+    </div>
+    <AuthorizeView Roles="Admin,Veterinario,Recepcionista">
+        <Authorized>
+            <button @onclick="OpenCreateModal" class="btn-primary-glass" style="display: flex; align-items: center; gap: 8px; border: none; cursor: pointer;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Nuevo Servicio
+            </button>
+        </Authorized>
+    </AuthorizeView>
+</div>
+
+<div class="glass-card">
+    <div style="margin-bottom: var(--sp-md);">
+        <h4 style="margin: 0 0 12px 0;">Lista de Servicios</h4>
+
+        <!-- Filtros -->
+        <div class="d-flex flex-wrap align-items-end gap-3" style="margin-bottom: 12px;">
+            <div style="flex: 1; min-width: 240px;">
+                <label class="text-secondary" style="font-size: 0.78rem; margin-bottom: 4px; display: block;">Buscar por nombre, descripción o producto utilizado</label>
+                <input type="text" @bind-value="searchTerm" @bind-value:event="oninput" @bind-value:after="ApplyFilters" class="form-control form-control-sm"
+                       placeholder="Buscar servicio..."
+                       style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: var(--text-primary);" />
+            </div>
+            <div style="min-width: 150px;">
+                <label class="text-secondary" style="font-size: 0.78rem; margin-bottom: 4px; display: block;">Estado</label>
+                <select @bind="filtroEstado" @bind:after="ApplyFilters" class="form-select form-select-sm"
+                        style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                    <option value="Activo">Activos</option>
+                    <option value="Inactivo">Inactivos</option>
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            @if (!string.IsNullOrEmpty(searchTerm) || filtroEstado != "Activo")
+            {
+                <button class="btn btn-sm btn-outline-secondary" style="height: 31px; border-color: var(--border-glass); color: var(--text-secondary);" @onclick="ClearFilters">
+                    Limpiar filtros
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <p class="text-secondary">Cargando servicios...</p>
+    }
+    else if (filteredItems == null || !filteredItems.Any())
+    {
+        <p class="text-secondary">No se encontraron servicios registrados con los filtros aplicados.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-dark table-hover" style="background: transparent;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border-glass);">
+                        <th>Nombre</th>
+                        <th>Precio</th>
+                        <th>Productos Utilizados</th>
+                        <th>Descripción</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in filteredItems)
+                    {
+                        <tr style="border-bottom: 1px solid var(--border-glass);">
+                            <td class="align-middle">
+                                <strong>@s.Nombre</strong>
+                            </td>
+                            <td class="align-middle">
+                                @if (s.Precio > 0)
+                                {
+                                    <span style="font-weight: 600; color: var(--accent-primary);">$ @s.Precio.ToString("N2")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary" style="font-size: 0.85rem;">Sin costo</span>
+                                }
+                            </td>
+                            <td class="align-middle" style="max-width: 320px;">
+                                @if (!string.IsNullOrWhiteSpace(s.ProductosUtilizados))
+                                {
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach (var prod in s.ProductosUtilizados.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                                        {
+                                            <span class="badge bg-light text-dark border" style="font-size: 0.75rem; font-weight: normal; padding: 3px 6px;">
+                                                @prod
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary" style="font-size: 0.82rem;">Ninguno</span>
+                                }
+                            </td>
+                            <td class="align-middle text-truncate" style="max-width: 250px;">
+                                @if (!string.IsNullOrWhiteSpace(s.Descripcion))
+                                {
+                                    <span>@s.Descripcion</span>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary" style="font-size: 0.82rem;">-</span>
+                                }
+                            </td>
+                            <td class="align-middle text-center">
+                                @if (s.Activo)
+                                {
+                                    <span class="badge bg-success">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">Inactivo</span>
+                                }
+                            </td>
+                            <td class="align-middle text-end">
+                                <AuthorizeView Roles="Admin,Veterinario,Recepcionista">
+                                    <Authorized>
+                                        <button type="button" class="btn btn-sm btn-outline-info" style="border-color: var(--border-glass); color: var(--text-primary);" @onclick="() => OpenEditModal(s)">Editar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" style="margin-left: 5px;" @onclick="() => ConfirmDelete(s)">Eliminar</button>
+                                    </Authorized>
+                                    <NotAuthorized>
+                                        <span class="badge bg-secondary">Solo Lectura</span>
+                                    </NotAuthorized>
+                                </AuthorizeView>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(generalMessage))
+{
+    <div class="alert alert-info mt-3 d-flex justify-content-between align-items-center" style="font-size: 0.9rem;">
+        <span>@generalMessage</span>
+        <button type="button" class="btn-close" style="font-size: 0.75rem;" @onclick='() => generalMessage = string.Empty'></button>
+    </div>
+}
+
+@* ═══════ MODAL CREAR / EDITAR SERVICIO ═══════ *@
+@if (showServicioModal)
+{
+    <div class="modal-overlay modal-overlay-z1" @onclick="CloseServicioModal" @onclick:stopPropagation="false">
+        <div class="modal-panel" style="max-width: 650px;" @onclick:stopPropagation="true">
+            <div class="modal-header-row">
+                <h3>@(formModel.Id == 0 ? "Nuevo Servicio" : "Editar Servicio")</h3>
+                <button class="modal-close-btn" @onclick="CloseServicioModal" title="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <EditForm Model="formModel" OnValidSubmit="HandleSaveServicio" FormName="modalServicioForm">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <!-- Nombre (Obligatorio) -->
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Nombre del Servicio (*)</label>
+                        <InputText @bind-Value="formModel.Nombre" class="form-control bg-dark text-light border-secondary" placeholder="Ej: Consulta General, Vacunación, Cirugía Menor..." />
+                        <ValidationMessage For="@(() => formModel.Nombre)" class="text-danger" />
+                    </div>
+
+                    <!-- Precio (Opcional) -->
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Precio ($)</label>
+                        <InputNumber @bind-Value="formModel.Precio" class="form-control bg-dark text-light border-secondary" placeholder="0.00" min="0" step="0.01" />
+                        <ValidationMessage For="@(() => formModel.Precio)" class="text-danger" />
+                    </div>
+                </div>
+
+                <!-- Productos Utilizados (Buscador y Selección de Inventario) -->
+                <div class="mb-3">
+                    <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Productos Utilizados (Opcional)</label>
+                    <p class="text-secondary" style="font-size: 0.78rem; margin: 0 0 6px 0;">Busca insumos o productos del inventario que se emplean en este servicio:</p>
+
+                    <div style="position: relative;">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text" style="background: var(--bg-input); border-color: var(--border-color); color: var(--text-secondary);">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 14px; height: 14px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                                </svg>
+                            </span>
+                            <input type="text" @bind-value="productoSearchInput" @bind-value:event="oninput" @onfocus="() => showProductDropdown = true"
+                                   class="form-control bg-dark text-light border-secondary"
+                                   placeholder="Escribe para buscar producto en inventario..." />
+                            @if (!string.IsNullOrWhiteSpace(productoSearchInput))
+                            {
+                                <button type="button" class="btn btn-outline-secondary" @onclick="() => productoSearchInput = string.Empty">✕</button>
+                            }
+                        </div>
+
+                        <!-- Dropdown flotante con resultados -->
+                        @if (showProductDropdown && FilteredInventoryProducts.Any())
+                        {
+                            <div class="shadow rounded border"
+                                 style="position: absolute; top: 100%; left: 0; right: 0; z-index: 1050; background: var(--bg-panel); max-height: 180px; overflow-y: auto; margin-top: 2px;">
+                                @foreach (var prod in FilteredInventoryProducts.Take(10))
+                                {
+                                    <div class="p-2 border-bottom d-flex justify-content-between align-items-center"
+                                         style="cursor: pointer; transition: background 0.15s ease;"
+                                         @onclick="() => AddProductoToServicio(prod.Nombre)"
+                                         onmouseover="this.style.backgroundColor='#f0f0f0'"
+                                         onmouseout="this.style.backgroundColor='transparent'">
+                                        <div>
+                                            <div class="fw-bold" style="font-size: 0.85rem; color: var(--text-primary);">@prod.Nombre</div>
+                                            <small class="text-secondary" style="font-size: 0.75rem;">@prod.CategoriaNombre | Stock: @prod.StockActual</small>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-success" style="font-size: 0.75rem; padding: 2px 8px;">+ Añadir</button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Lista de productos seleccionados (Badges con botón para quitar) -->
+                    @if (selectedProductosList.Any())
+                    {
+                        <div class="d-flex flex-wrap gap-2 mt-2 p-2 rounded" style="background: rgba(0, 163, 108, 0.05); border: 1px dashed var(--border-light);">
+                            @foreach (var prod in selectedProductosList)
+                            {
+                                <span class="badge bg-light text-dark border d-flex align-items-center gap-2 px-2 py-1" style="font-size: 0.82rem;">
+                                    <span>@prod</span>
+                                    <button type="button" class="btn-close" style="font-size: 0.65rem;" title="Quitar" @onclick="() => RemoveProductoFromServicio(prod)"></button>
+                                </span>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- Descripción (Opcional) -->
+                <div class="mb-3">
+                    <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Descripción (Opcional)</label>
+                    <InputTextArea @bind-Value="formModel.Descripcion" class="form-control bg-dark text-light border-secondary" rows="3" placeholder="Detalles u observaciones del servicio..." />
+                </div>
+
+                @if (formModel.Id > 0)
+                {
+                    <div class="form-check form-switch mb-3">
+                        <InputCheckbox @bind-Value="formModel.Activo" class="form-check-input" id="modalServicioActivoSw" />
+                        <label class="form-check-label" for="modalServicioActivoSw" style="color: var(--text-secondary);">Servicio Activo (Disponible para turnos)</label>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(formErrorMessage))
+                {
+                    <div class="alert alert-danger mt-2" style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--accent-danger); color: white;">
+                        @formErrorMessage
+                    </div>
+                }
+
+                <div class="d-flex justify-content-end mt-4" style="gap: 10px;">
+                    <button type="button" class="btn btn-outline-secondary text-light" @onclick="CloseServicioModal">Cancelar</button>
+                    <button type="submit" class="btn-primary-glass" disabled="@isSaving">
+                        @if (isSaving) { <span>Guardando...</span> } else { <span>@(formModel.Id == 0 ? "Guardar Servicio" : "Guardar Cambios")</span> }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@* ═══════ MODAL CONFIRMAR ELIMINAR ═══════ *@
+@if (showDeleteConfirmationModal)
+{
+    <div class="modal-overlay modal-overlay-z2" style="background: rgba(0,0,0,0.85);">
+        <div class="modal-panel modal-panel-sm" style="border: 1px solid var(--accent-danger);">
+            <div class="modal-header-row">
+                <h3 class="text-danger">Eliminar Servicio</h3>
+                <button class="modal-close-btn" @onclick="CloseDeleteConfirmationModal">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p class="text-light">
+                    ¿Estás seguro de que deseas eliminar el servicio <strong style="color: var(--accent-primary);">@servicioToDelete?.Nombre</strong>?
+                </p>
+                <p class="text-secondary" style="font-size: 0.85rem;">
+                    Esta acción desactivará el servicio del catálogo y no estará disponible para nuevos turnos.
+                </p>
+            </div>
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CloseDeleteConfirmationModal">Cancelar</button>
+                <button type="button" class="btn btn-danger" style="background: var(--accent-danger); border: none;" disabled="@isDeleting" @onclick="ExecuteDelete">
+                    @if (isDeleting) { <span>Eliminando...</span> } else { <span>Sí, eliminar</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ═══════ MODAL SIMILITUD DE SERVICIOS ═══════ *@
+@if (showSimilarServiciosConfirm)
+{
+    <div class="modal-overlay modal-overlay-z3" style="background: rgba(0,0,0,0.85);">
+        <div class="modal-panel modal-panel-sm" style="border: 1px solid var(--accent-primary);">
+            <div class="modal-header-row">
+                <h3>¿Quisiste decir?</h3>
+            </div>
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p class="text-light">Se encontraron los siguientes servicios similares ya registrados:</p>
+                <ul style="color: var(--accent-primary); font-size: 1.1rem; font-weight: bold; margin-bottom: 20px;">
+                    @foreach (var s in similarServiciosList)
+                    {
+                        <li>@s</li>
+                    }
+                </ul>
+                <p class="text-secondary" style="font-size: 0.9rem;">¿Deseas continuar y guardar de todos modos?</p>
+            </div>
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CancelServicioSimilarity">Cancelar</button>
+                <button type="button" class="btn btn-primary" style="background: var(--accent-primary); border: none;" @onclick="BypassServicioSimilarity">Continuar y guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ServicioDto> allServicios = new();
+    private List<ServicioDto>? filteredItems;
+    private List<ProductoDto> inventoryProducts = new();
+
+    private bool isLoading = true;
+    private string searchTerm = string.Empty;
+    private string filtroEstado = "Activo";
+    private string generalMessage = string.Empty;
+
+    // ── Form Modal State ──
+    private bool showServicioModal;
+    private ServicioDto formModel = new();
+    private bool isSaving;
+    private string formErrorMessage = string.Empty;
+
+    // ── Product Search inside Modal ──
+    private string productoSearchInput = string.Empty;
+    private bool showProductDropdown;
+    private List<string> selectedProductosList = new();
+
+    private IEnumerable<ProductoDto> FilteredInventoryProducts =>
+        string.IsNullOrWhiteSpace(productoSearchInput)
+            ? inventoryProducts.Where(p => !selectedProductosList.Contains(p.Nombre, StringComparer.OrdinalIgnoreCase))
+            : inventoryProducts.Where(p => !selectedProductosList.Contains(p.Nombre, StringComparer.OrdinalIgnoreCase) &&
+                                           (p.Nombre.Contains(productoSearchInput, StringComparison.OrdinalIgnoreCase) ||
+                                            (p.CodigoBarras != null && p.CodigoBarras.Contains(productoSearchInput, StringComparison.OrdinalIgnoreCase))));
+
+    // ── Delete Modal State ──
+    private bool showDeleteConfirmationModal;
+    private ServicioDto? servicioToDelete;
+    private bool isDeleting;
+
+    // ── Similarity Check ──
+    private bool showSimilarServiciosConfirm;
+    private List<string> similarServiciosList = new();
+    private bool bypassServicioSimilarity;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInventoryProductsAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var res = await ServiciosService.GetServiciosAsync(1, 1000);
+            allServicios = res?.Items ?? new List<ServicioDto>();
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            generalMessage = "Error al cargar los servicios: " + ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadInventoryProductsAsync()
+    {
+        try
+        {
+            var pRes = await ProductoService.GetAllAsync(1, 1000);
+            inventoryProducts = pRes?.Items ?? new List<ProductoDto>();
+        }
+        catch
+        {
+            inventoryProducts = new List<ProductoDto>();
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        IEnumerable<ServicioDto> items = allServicios;
+
+        if (filtroEstado == "Activo")
+            items = items.Where(s => s.Activo);
+        else if (filtroEstado == "Inactivo")
+            items = items.Where(s => !s.Activo);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim();
+            items = items.Where(s =>
+                (s.Nombre != null && s.Nombre.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(s.Descripcion) && s.Descripcion.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(s.ProductosUtilizados) && s.ProductosUtilizados.Contains(term, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+
+        filteredItems = items.ToList();
+    }
+
+    private void ClearFilters()
+    {
+        searchTerm = string.Empty;
+        filtroEstado = "Activo";
+        ApplyFilters();
+    }
+
+    // ── Form Modal Handlers ──
+    private void OpenCreateModal()
+    {
+        formModel = new ServicioDto { Activo = true, DuracionMinutos = 30, Precio = 0 };
+        selectedProductosList = new List<string>();
+        productoSearchInput = string.Empty;
+        showProductDropdown = false;
+        formErrorMessage = string.Empty;
+        isSaving = false;
+        showServicioModal = true;
+    }
+
+    private void OpenEditModal(ServicioDto s)
+    {
+        formModel = new ServicioDto
+        {
+            Id = s.Id,
+            Nombre = s.Nombre,
+            Descripcion = s.Descripcion,
+            Precio = s.Precio,
+            DuracionMinutos = s.DuracionMinutos > 0 ? s.DuracionMinutos : 30,
+            ProductosUtilizados = s.ProductosUtilizados,
+            Activo = s.Activo
+        };
+
+        if (!string.IsNullOrWhiteSpace(s.ProductosUtilizados))
+        {
+            selectedProductosList = s.ProductosUtilizados
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+        }
+        else
+        {
+            selectedProductosList = new List<string>();
+        }
+
+        productoSearchInput = string.Empty;
+        showProductDropdown = false;
+        formErrorMessage = string.Empty;
+        isSaving = false;
+        showServicioModal = true;
+    }
+
+    private void CloseServicioModal()
+    {
+        showServicioModal = false;
+        showProductDropdown = false;
+    }
+
+    private void AddProductoToServicio(string productoNombre)
+    {
+        if (!string.IsNullOrWhiteSpace(productoNombre) && !selectedProductosList.Contains(productoNombre, StringComparer.OrdinalIgnoreCase))
+        {
+            selectedProductosList.Add(productoNombre);
+        }
+        productoSearchInput = string.Empty;
+        showProductDropdown = false;
+    }
+
+    private void RemoveProductoFromServicio(string productoNombre)
+    {
+        selectedProductosList.RemoveAll(p => p.Equals(productoNombre, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task HandleSaveServicio()
+    {
+        if (string.IsNullOrWhiteSpace(formModel.Nombre))
+        {
+            formErrorMessage = "El nombre del servicio es obligatorio.";
+            return;
+        }
+
+        isSaving = true;
+        formErrorMessage = string.Empty;
+
+        try
+        {
+            // Similarities check
+            if (!bypassServicioSimilarity && allServicios != null)
+            {
+                similarServiciosList = allServicios
+                    .Where(s => s.Id != formModel.Id && BlazorFrontEnd.Helpers.SimilarityHelper.AreSimilar(formModel.Nombre, s.Nombre))
+                    .Select(s => s.Nombre)
+                    .ToList();
+
+                if (similarServiciosList.Any())
+                {
+                    showSimilarServiciosConfirm = true;
+                    isSaving = false;
+                    return;
+                }
+            }
+
+            bypassServicioSimilarity = false;
+            showSimilarServiciosConfirm = false;
+
+            // Sync productos utilizados
+            formModel.ProductosUtilizados = string.Join(", ", selectedProductosList);
+
+            bool success;
+            if (formModel.Id == 0)
+            {
+                success = await ServiciosService.CreateAsync(formModel);
+            }
+            else
+            {
+                success = await ServiciosService.UpdateAsync(formModel.Id, formModel);
+            }
+
+            if (success)
+            {
+                showServicioModal = false;
+                await LoadDataAsync();
+                generalMessage = formModel.Id == 0 ? "Servicio creado correctamente." : "Servicio actualizado correctamente.";
+            }
+            else
+            {
+                formErrorMessage = "Ocurrió un error al guardar el servicio. Verifica los datos ingresados.";
+            }
+        }
+        catch (Exception ex)
+        {
+            formErrorMessage = "Error de conexión: " + ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void CancelServicioSimilarity()
+    {
+        showSimilarServiciosConfirm = false;
+        bypassServicioSimilarity = false;
+    }
+
+    private async Task BypassServicioSimilarity()
+    {
+        showSimilarServiciosConfirm = false;
+        bypassServicioSimilarity = true;
+        await HandleSaveServicio();
+    }
+
+    // ── Delete Handlers ──
+    private void ConfirmDelete(ServicioDto s)
+    {
+        servicioToDelete = s;
+        showDeleteConfirmationModal = true;
+    }
+
+    private void CloseDeleteConfirmationModal()
+    {
+        showDeleteConfirmationModal = false;
+        servicioToDelete = null;
+    }
+
+    private async Task ExecuteDelete()
+    {
+        if (servicioToDelete == null) return;
+        isDeleting = true;
+        try
+        {
+            var success = await ServiciosService.DeleteAsync(servicioToDelete.Id);
+            if (success)
+            {
+                CloseDeleteConfirmationModal();
+                await LoadDataAsync();
+                generalMessage = "Servicio eliminado correctamente.";
+            }
+            else
+            {
+                generalMessage = "No se pudo eliminar el servicio. Podría estar en uso.";
+                CloseDeleteConfirmationModal();
+            }
+        }
+        catch (Exception ex)
+        {
+            generalMessage = "Error al eliminar servicio: " + ex.Message;
+            CloseDeleteConfirmationModal();
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+}

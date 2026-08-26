@@ -53,6 +53,7 @@ namespace Controllers
                 PropietarioId = p.PropietarioId,
                 PropietarioNombre = p.Propietario != null ? $"{p.Propietario.Nombre} {p.Propietario.Apellido}" : "",
                 EdadEnAnios = p.FechaNacimiento.HasValue ? (int?)Math.Floor((DateTime.Now - p.FechaNacimiento.Value).TotalDays / 365.25) : null,
+                p.FotoUrl,
                 p.Activo
             });
             return Ok(PaginacionHelper.Paginar(dtos, page, pageSize, sortBy, sortDir));
@@ -95,7 +96,8 @@ namespace Controllers
         public async Task<IActionResult> ProductosPaginados(
             [FromQuery] int page = 1, [FromQuery] int pageSize = 15,
             [FromQuery] string sortBy = "Nombre", [FromQuery] string sortDir = "asc",
-            [FromQuery] bool soloActivos = true, [FromQuery] string searchTerm = "")
+            [FromQuery] bool soloActivos = true, [FromQuery] string searchTerm = "",
+            [FromQuery] int? sucursalId = null)
         {
             var entities = (await productoRepo.GetProductosExpandidosAsync()).AsEnumerable();
             if (soloActivos) entities = entities.Where(p => p.Activo);
@@ -111,11 +113,31 @@ namespace Controllers
 
             var list = entities.ToList();
             var dtos = new List<object>();
+            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+
             foreach (var p in list)
             {
-                var stocks = (await productoDepositoRepo.GetByProductoIdAsync(p.Id))
-                    .Select(s => new { s.Id, s.ProductoId, s.DepositoId, DepositoNombre = s.Deposito?.Nombre ?? "", s.StockActual, s.StockMinimo, StockBajo = s.StockBajo })
-                    .ToList();
+                var allStocks = (await productoDepositoRepo.GetByProductoIdAsync(p.Id)).ToList();
+                var filteredStocks = allStocks;
+                if (targetSucursalId.HasValue)
+                {
+                    filteredStocks = filteredStocks.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).ToList();
+                }
+
+                int currentStock = targetSucursalId.HasValue ? filteredStocks.Sum(s => s.StockActual) : p.StockActual;
+                bool stockBajo = currentStock <= p.StockMinimo;
+
+                var stockDtos = filteredStocks.Select(s => new
+                {
+                    s.Id,
+                    s.ProductoId,
+                    s.DepositoId,
+                    DepositoNombre = s.Deposito?.Nombre ?? "",
+                    s.StockActual,
+                    s.StockMinimo,
+                    StockBajo = s.StockBajo
+                }).ToList();
+
                 dtos.Add(new
                 {
                     p.Id, p.Nombre, p.Descripcion, p.CodigoBarras,
@@ -124,9 +146,11 @@ namespace Controllers
                     p.ProveedorId, ProveedorNombre = p.Proveedor != null ? p.Proveedor.RazonSocial : "",
                     p.DepositoId, DepositoNombre = p.Deposito != null ? p.Deposito.Nombre : "",
                     p.PrecioCompra, p.PrecioVenta,
-                    p.StockActual, p.StockMinimo, p.Activo,
-                    StockBajo = p.StockActual <= p.StockMinimo,
-                    StocksDepositos = stocks
+                    StockActual = currentStock,
+                    p.StockMinimo,
+                    p.Activo,
+                    StockBajo = stockBajo,
+                    StocksDepositos = stockDtos
                 });
             }
             return Ok(PaginacionHelper.Paginar(dtos, page, pageSize, sortBy, sortDir));
@@ -143,6 +167,10 @@ namespace Controllers
             [FromQuery] string? veterinarioId = null, [FromQuery] string? searchTerm = null)
         {
             var entities = (await turnoRepo.GetTurnosExpandidosAsync()).AsEnumerable();
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                entities = entities.Where(t => t.SucursalId == UserSucursalId.Value);
+            }
             if (desde.HasValue) entities = entities.Where(t => t.FechaHora >= desde.Value);
             if (hasta.HasValue) entities = entities.Where(t => t.FechaHora <= hasta.Value);
             
@@ -184,6 +212,10 @@ namespace Controllers
             [FromQuery] DateTime? desde = null, [FromQuery] DateTime? hasta = null)
         {
             var entities = (await ventaRepo.FindAllAsync()).AsEnumerable();
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                entities = entities.Where(v => v.SucursalId == UserSucursalId.Value);
+            }
             if (desde.HasValue) entities = entities.Where(v => v.Fecha >= desde.Value);
             if (hasta.HasValue) entities = entities.Where(v => v.Fecha <= hasta.Value);
 
@@ -226,7 +258,11 @@ namespace Controllers
             [FromQuery] int page = 1, [FromQuery] int pageSize = 10,
             [FromQuery] string sortBy = "Apellido", [FromQuery] string sortDir = "asc")
         {
-            var entities = await veterinarioRepo.FindAllAsync();
+            var entities = (await veterinarioRepo.FindAllAsync()).AsEnumerable();
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                entities = entities.Where(v => v.SucursalId == UserSucursalId.Value);
+            }
             var allHorarios = (await horarioRepo.GetActivosAsync()).ToList();
 
             var dtos = entities.Select(v => {
@@ -295,7 +331,7 @@ namespace Controllers
             var dtos = entities.Select(s => new
             {
                 s.Id, s.Nombre, s.Descripcion, s.Precio,
-                s.DuracionMinutos, s.Activo
+                s.DuracionMinutos, s.ProductosUtilizados, s.Activo
             });
             return Ok(PaginacionHelper.Paginar(dtos, page, pageSize, sortBy, sortDir));
         }

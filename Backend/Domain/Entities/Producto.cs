@@ -50,13 +50,18 @@ namespace Domain.Entities
         }
 
         public void Actualizar(string nombre, string descripcion, decimal precioCompra,
-            decimal precioVenta, int stockMinimo)
+            decimal precioVenta, int stockMinimo, int? categoriaId = null, int? marcaId = null,
+            string? proveedorId = null, int? depositoId = null)
         {
             Nombre = nombre;
             Descripcion = descripcion;
             PrecioCompra = precioCompra;
             PrecioVenta = precioVenta;
             StockMinimo = stockMinimo;
+            if (categoriaId.HasValue && categoriaId.Value > 0) CategoriaId = categoriaId.Value;
+            MarcaId = marcaId;
+            ProveedorId = !string.IsNullOrWhiteSpace(proveedorId) ? proveedorId : null;
+            DepositoId = depositoId;
         }
 
         public void AgregarStock(int cantidad)

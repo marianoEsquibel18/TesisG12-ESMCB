@@ -12,25 +12,28 @@ namespace Domain.Entities
         public string Descripcion { get; private set; }
         public int DuracionMinutos { get; private set; }
         public decimal Precio { get; private set; }
+        public string ProductosUtilizados { get; private set; }
         public bool Activo { get; private set; }
 
         protected Servicio() { }
 
-        public Servicio(string nombre, string descripcion, int duracionMinutos, decimal precio) : this()
+        public Servicio(string nombre, string descripcion, int duracionMinutos, decimal precio, string productosUtilizados = "") : this()
         {
             Nombre = nombre;
-            Descripcion = descripcion;
-            DuracionMinutos = duracionMinutos;
+            Descripcion = descripcion ?? "";
+            DuracionMinutos = duracionMinutos > 0 ? duracionMinutos : 30;
             Precio = precio;
+            ProductosUtilizados = productosUtilizados ?? "";
             Activo = true;
         }
 
-        public void Actualizar(string nombre, string descripcion, int duracionMinutos, decimal precio)
+        public void Actualizar(string nombre, string descripcion, int duracionMinutos, decimal precio, string productosUtilizados = "")
         {
             Nombre = nombre;
-            Descripcion = descripcion;
-            DuracionMinutos = duracionMinutos;
+            Descripcion = descripcion ?? "";
+            DuracionMinutos = duracionMinutos > 0 ? duracionMinutos : 30;
             Precio = precio;
+            ProductosUtilizados = productosUtilizados ?? "";
         }
 
         public void Desactivar() => Activo = false;

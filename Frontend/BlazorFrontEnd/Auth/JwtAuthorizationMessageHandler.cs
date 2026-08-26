@@ -26,6 +26,16 @@ namespace BlazorFrontEnd.Auth
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             }
 
+            if (_tokenStorage.ActiveSucursalId.HasValue)
+            {
+                request.Headers.Add("X-Sucursal-Id", _tokenStorage.ActiveSucursalId.Value.ToString());
+            }
+
+            if (!string.IsNullOrWhiteSpace(_tokenStorage.SimulatedRole))
+            {
+                request.Headers.Add("X-Impersonate-Role", _tokenStorage.SimulatedRole);
+            }
+
             return await base.SendAsync(request, cancellationToken);
         }
     }

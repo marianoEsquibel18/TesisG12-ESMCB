@@ -14,5 +14,6 @@ namespace Application.DataTransferObjects
         public decimal? Peso { get; set; }
         public decimal? Temperatura { get; set; }
         public string Observaciones { get; set; }
+        public string? ArchivosAdjuntos { get; set; } = "[]";
     }
 }

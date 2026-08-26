@@ -16,6 +16,7 @@ namespace Domain.Entities
         public string Veterinario { get; private set; }
         public string Observaciones { get; private set; }
         public bool Finalizado { get; private set; }
+        public string? ArchivosAdjuntos { get; private set; } = "[]";
 
         // Navegación
         public virtual Paciente Paciente { get; private set; }
@@ -29,7 +30,8 @@ namespace Domain.Entities
             string descripcion,
             string veterinario,
             string medicacion = "",
-            string observaciones = "") : this()
+            string observaciones = "",
+            string? archivosAdjuntos = "[]") : this()
         {
             Id = Guid.NewGuid().ToString();
             PacienteId = pacienteId;
@@ -40,14 +42,19 @@ namespace Domain.Entities
             Veterinario = veterinario;
             Observaciones = observaciones;
             Finalizado = false;
+            ArchivosAdjuntos = archivosAdjuntos ?? "[]";
         }
 
-        public void Actualizar(string diagnostico, string descripcion, string medicacion, string observaciones)
+        public void Actualizar(string diagnostico, string descripcion, string medicacion, string observaciones, string? archivosAdjuntos = null)
         {
             Diagnostico = diagnostico;
             Descripcion = descripcion;
             Medicacion = medicacion;
             Observaciones = observaciones;
+            if (archivosAdjuntos != null)
+            {
+                ArchivosAdjuntos = archivosAdjuntos;
+            }
         }
 
         public void Finalizar()

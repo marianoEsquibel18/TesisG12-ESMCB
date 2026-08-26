@@ -6,6 +6,7 @@
 @inject PacienteService PacienteService 
 @inject PropietarioService PropietarioService
 @inject ProductoService ProductoService
+@inject CatalogoServiciosService ServiciosService
 @inject MetodoPagoService PagoService
 @inject CatalogoInventarioService CatalogoService
 @inject NavigationManager Navigation
@@ -19,44 +20,103 @@
             <button class="btn btn-outline-secondary me-3" @onclick="GoBack">
                  ← Volver a Comercio
             </button>
-            <h3 class="m-0" style="font-weight: 700;">Registrar Salida de Productos</h3>
+            <h3 class="m-0" style="font-weight: 700;">Registrar Venta</h3>
         </div>
 
         <div class="glass-card mb-3">
-            <h5 class="mb-3">Buscador de Productos</h5>
+            <h5 class="mb-3">Buscador de productos / servicios</h5>
             <div class="input-group">
-                <input type="text" class="form-control" placeholder="Escanear Código de Barras o Escribir nombre..." @bind-value="searchTerm" @bind-value:event="oninput" @onkeyup="OnSearch" />
-                <button class="btn btn-outline-info" type="button" @onclick="BuscarProductos">Buscar</button>
+                <input type="text" class="form-control" placeholder="Escanear Código de Barras o buscar producto / servicio..." @bind-value="searchTerm" @bind-value:event="oninput" @onkeyup="OnSearch" />
+                <button class="btn btn-outline-info" type="button" @onclick="BuscarProductosYServicios">Buscar</button>
             </div>
 
             @if(isSearching)
             {
                <div class="mt-2 text-secondary small">Cargando resultados...</div> 
             }
-            else if (searchResponse?.Items != null && searchResponse.Items.Any())
+            else if ((searchResponse?.Items != null && searchResponse.Items.Any()) || (matchingServicios != null && matchingServicios.Any()))
             {
-                <div class="list-group mt-3" style="max-height: 400px; overflow-y: auto;">
-                    @foreach(var prod in searchResponse.Items)
+                <div class="list-group mt-3" style="max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Servicios Encontrados -->
+                    @if (matchingServicios != null && matchingServicios.Any())
                     {
-                        var agotado = prod.StockActual <= 0;
-                        <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" disabled="@agotado" @onclick="() => AgregarAlCarrito(prod)" style="border-color: var(--border-glass) !important;">
-                            <div>
-                                <strong>@prod.Nombre</strong>
-                                <br/> <small class="text-secondary">Cod: @prod.CodigoBarras - Stock Total: @prod.StockActual</small>
-                                @if (prod.StocksDepositos != null && prod.StocksDepositos.Any())
-                                {
-                                    <br/>
-                                    <small class="text-secondary" style="font-size: 0.72rem;">
-                                        @string.Join(" | ", prod.StocksDepositos.Select(sd => $"{sd.DepositoNombre}: {sd.StockActual}"))
-                                    </small>
-                                }
+                        @foreach(var serv in matchingServicios)
+                        {
+                            <div class="list-group-item d-flex justify-content-between align-items-center"
+                                 style="border-left: 5px solid #10b981 !important; border-color: var(--border-glass) !important; background: rgba(16, 185, 129, 0.05);">
+                                <div style="flex: 1; margin-right: 12px;">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <span class="badge bg-success" style="font-size: 0.7rem; letter-spacing: 0.5px;">SERVICIO</span>
+                                        <strong style="font-size: 0.95rem;">@serv.Nombre</strong>
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(serv.Descripcion))
+                                    {
+                                        <small class="text-secondary d-block">@serv.Descripcion</small>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(serv.ProductosUtilizados))
+                                    {
+                                        <div class="mt-1" style="font-size: 0.76rem; color: #34d399;">
+                                            <span>📦 Insumos vinculados: </span>
+                                            <strong>@serv.ProductosUtilizados</strong>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="text-end d-flex flex-column align-items-end gap-1">
+                                    <span class="d-block" style="color: #10b981; font-weight: bold; font-size: 1.05rem;">
+                                        @(serv.Precio > 0 ? $"${serv.Precio:N2}" : "Sin costo")
+                                    </span>
+                                    <button type="button" class="btn btn-sm btn-outline-success" @onclick="() => AgregarServicioAlCarrito(serv)" style="font-size: 0.8rem; padding: 3px 10px;">
+                                        + Añadir al carrito
+                                    </button>
+                                </div>
                             </div>
-                            <div class="text-end">
-                                <span class="d-block" style="color: var(--accent-primary); font-weight: bold;">$@prod.PrecioVenta.ToString("N2")</span>
-                                @if(agotado) { <span class="badge bg-danger">Agotado</span> }
-                            </div>
-                        </button>
+                        }
                     }
+
+                    <!-- Productos Encontrados -->
+                    @if (searchResponse?.Items != null && searchResponse.Items.Any())
+                    {
+                        @foreach(var prod in searchResponse.Items)
+                        {
+                            var agotado = prod.StockActual <= 0;
+                            <div class="list-group-item d-flex justify-content-between align-items-center"
+                                 style="border-left: 5px solid #3b82f6 !important; border-color: var(--border-glass) !important; background: rgba(59, 130, 246, 0.05); @(agotado ? "opacity: 0.6;" : "")">
+                                <div style="flex: 1; margin-right: 12px;">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <span class="badge bg-primary" style="font-size: 0.7rem; letter-spacing: 0.5px;">PRODUCTO</span>
+                                        <strong style="font-size: 0.95rem;">@prod.Nombre</strong>
+                                    </div>
+                                    <small class="text-secondary">Cod: @prod.CodigoBarras - Stock Total: @prod.StockActual</small>
+                                    @if (prod.StocksDepositos != null && prod.StocksDepositos.Any())
+                                    {
+                                        <br/>
+                                        <small class="text-secondary" style="font-size: 0.72rem;">
+                                            @string.Join(" | ", prod.StocksDepositos.Select(sd => $"{sd.DepositoNombre}: {sd.StockActual}"))
+                                        </small>
+                                    }
+                                </div>
+                                <div class="text-end d-flex flex-column align-items-end gap-1">
+                                    <span class="d-block" style="color: #60a5fa; font-weight: bold; font-size: 1.05rem;">$@prod.PrecioVenta.ToString("N2")</span>
+                                    @if(agotado)
+                                    {
+                                        <span class="badge bg-danger">Agotado</span>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => AgregarAlCarrito(prod)" style="font-size: 0.8rem; padding: 3px 10px;">
+                                            + Añadir al carrito
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            }
+            else if (!string.IsNullOrWhiteSpace(searchTerm) && !isSearching)
+            {
+                <div class="mt-3 text-secondary small text-center p-3">
+                    No se encontraron productos ni servicios con el término "<strong>@searchTerm</strong>".
                 </div>
             }
         </div>
@@ -67,8 +127,23 @@
         <div class="glass-card" style="height: 100%; display: flex; flex-direction: column;">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4 class="m-0">Carrito Actual</h4>
-                <button class="btn btn-sm btn-outline-danger" @onclick="VaciarCarrito">Vaciar</button>
+                @if (carrito.Any())
+                {
+                    <button class="btn btn-sm btn-outline-danger" @onclick="VaciarCarrito">Vaciar</button>
+                }
             </div>
+
+            <!-- Alerta informativa si se agregaron insumos por servicio -->
+            @if (!string.IsNullOrEmpty(serviceAlertMessage))
+            {
+                <div class="alert alert-warning alert-dismissible fade show p-2 mb-2" role="alert" style="font-size: 0.82rem; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fde68a;">
+                    <div class="d-flex align-items-start gap-2">
+                        <span style="font-size: 1rem;">⚠️</span>
+                        <div style="flex: 1;">@serviceAlertMessage</div>
+                        <button type="button" class="btn-close" style="font-size: 0.65rem; padding: 6px;" @onclick="() => serviceAlertMessage = string.Empty"></button>
+                    </div>
+                </div>
+            }
 
             <!-- Listado de items -->
             <div class="flex-grow-1 border border-secondary rounded p-2 mb-3" style="overflow-y: auto; background: rgba(0,0,0,0.2); min-height: 250px;">
@@ -76,23 +151,31 @@
                 {
                     <div class="text-center text-secondary mt-5">
                         <p>El carrito está vacío.</p>
-                        <small>Busque o escanee productos para agregarlos al carrito.</small>
+                        <small>Busque o escanee productos/servicios para agregarlos al carrito.</small>
                     </div>
                 }
                 else
                 {
-                    <ul class="list-group list-group-flush">
+                    <ul class="list-group list-group-flush" style="display: flex; flex-direction: column; gap: 6px;">
                     @foreach(var item in carrito)
                     {
-                        var prodInfo = productosEnCarrito.GetValueOrDefault(item.ProductoId);
-                        <li class="list-group-item bg-transparent border-bottom px-1 py-2" style="border-color: var(--border-glass) !important;">
-                            <div class="d-flex justify-content-between">
-                                <strong>@item.Descripcion</strong>
-                                <button class="btn btn-link text-danger p-0" @onclick="() => RemoverDelCarrito(item)">X</button>
+                        var isService = item.EsServicio || string.IsNullOrEmpty(item.ProductoId);
+                        var prodInfo = !isService && !string.IsNullOrEmpty(item.ProductoId) ? productosEnCarrito.GetValueOrDefault(item.ProductoId) : null;
+                        
+                        <li class="list-group-item bg-transparent px-2 py-2 rounded"
+                            style="border-left: 4px solid @(isService ? "#10b981" : "#3b82f6") !important; border: 1px solid var(--border-glass); background: rgba(255,255,255,0.03);">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="badge @(isService ? "bg-success" : "bg-primary") me-1" style="font-size: 0.65rem;">
+                                        @(isService ? "Servicio" : "Producto")
+                                    </span>
+                                    <strong style="font-size: 0.9rem;">@item.Descripcion</strong>
+                                </div>
+                                <button class="btn btn-link text-danger p-0" title="Eliminar del carrito" @onclick="() => RemoverDelCarrito(item)">✕</button>
                             </div>
 
-                            @* Selector de depósito *@
-                            @if (prodInfo?.StocksDepositos != null && prodInfo.StocksDepositos.Any())
+                            @* Selector de depósito solo para productos físicos *@
+                            @if (!isService && prodInfo?.StocksDepositos != null && prodInfo.StocksDepositos.Any())
                             {
                                 <div class="mt-1">
                                     <select value="@(item.DepositoId ?? 0)" @onchange="(e) => OnDepositoChanged(item, e)" class="form-select form-select-sm bg-dark text-light border-secondary" style="font-size: 0.78rem; padding: 2px 8px; height: auto;">
@@ -105,15 +188,17 @@
                                 </div>
                             }
 
-                            <div class="d-flex justify-content-between align-items-center mt-1">
+                            <div class="d-flex justify-content-between align-items-center mt-2">
                                 <div class="d-flex align-items-center">
                                     <button class="btn btn-sm btn-outline-secondary py-0 px-2" @onclick="() => DisminuirCantidad(item)">-</button>
-                                    <span class="mx-2 fw-bold">@item.Cantidad</span>
+                                    <span class="mx-2 fw-bold" style="font-size: 0.9rem;">@item.Cantidad</span>
                                     <button class="btn btn-sm btn-outline-secondary py-0 px-2" @onclick="() => AumentarCantidad(item)">+</button>
                                 </div>
                                 <div>
                                     <span class="text-secondary small me-2">$@item.PrecioUnitario.ToString("N2") c/u</span>
-                                    <strong style="color: var(--accent-primary);">$@((item.Cantidad * item.PrecioUnitario).ToString("N2"))</strong>
+                                    <strong style="color: @(isService ? "#10b981" : "var(--accent-primary)"); font-size: 0.95rem;">
+                                        $@((item.Cantidad * item.PrecioUnitario).ToString("N2"))
+                                    </strong>
                                 </div>
                             </div>
                         </li>
@@ -146,7 +231,7 @@
                 }
 
                 <button class="btn-primary-glass w-100 btn-lg" disabled="@procesando" @onclick="ProcesarVenta">
-                    @if(procesando) { <span>Procesando...</span> } else { <span>Registrar salida de productos</span> }
+                    @if(procesando) { <span>Procesando...</span> } else { <span>Registrar venta</span> }
                 </button>
             </div>
         </div>
@@ -158,6 +243,9 @@
     private System.Timers.Timer? debounceTimer;
     private bool isSearching;
     private PaginatedList<ProductoDto>? searchResponse;
+    private List<ServicioDto> allActiveServicios = new();
+    private List<ServicioDto> matchingServicios = new();
+    private List<ProductoDto> allInventoryProducts = new();
 
     private List<CreateDetalleVentaRequest> carrito = new();
     private Dictionary<string, ProductoDto> productosEnCarrito = new();
@@ -169,6 +257,7 @@
 
     private bool procesando;
     private string msgError = "";
+    private string serviceAlertMessage = "";
 
     private decimal TotalCarrito => carrito.Sum(x => x.Cantidad * x.PrecioUnitario);
     private bool PuedeCobrar => carrito.Any() && ventaRequest.MetodoPagoId > 0 && !procesando
@@ -178,18 +267,25 @@
     {
         var pagosTask = PagoService.GetAllActivosAsync();
         var depTask = CatalogoService.GetDepositosAsync();
+        var servTask = ServiciosService.GetServiciosActivosAsync();
+        var prodTask = ProductoService.GetAllAsync(1, 1000);
         
-        await Task.WhenAll(pagosTask, depTask);
+        await Task.WhenAll(pagosTask, depTask, servTask, prodTask);
 
         if(pagosTask.Result != null) metodosPago = pagosTask.Result;
         if(depTask.Result != null) depositos = depTask.Result;
+        if(servTask.Result != null) allActiveServicios = servTask.Result;
+        if(prodTask.Result?.Items != null) allInventoryProducts = prodTask.Result.Items;
     }
 
     /// <summary>
-    /// Returns true if the item either has no depot stocks (old product) or has a depot selected
+    /// Returns true if the item is a service or either has no depot stocks (old product) or has a depot selected
     /// </summary>
     private bool DepositoValido(CreateDetalleVentaRequest item)
     {
+        if (item.EsServicio || string.IsNullOrEmpty(item.ProductoId))
+            return true; // Los servicios no requieren depósito
+
         var prod = productosEnCarrito.GetValueOrDefault(item.ProductoId);
         if (prod?.StocksDepositos == null || !prod.StocksDepositos.Any())
             return true; // No depot-based stock, allow global
@@ -202,28 +298,41 @@
         debounceTimer = new System.Timers.Timer(400);
         debounceTimer.Elapsed += async (s, e) =>
         {
-            await InvokeAsync(BuscarProductos);
+            await InvokeAsync(BuscarProductosYServicios);
             await InvokeAsync(StateHasChanged);
         };
         debounceTimer.AutoReset = false;
         debounceTimer.Start();
     }
 
-    private async Task BuscarProductos()
+    private async Task BuscarProductosYServicios()
     {
         if(string.IsNullOrWhiteSpace(searchTerm)) {
             searchResponse = null;
+            matchingServicios.Clear();
             return; 
         }
 
         isSearching = true;
+        
+        // 1. Buscar productos en API
         searchResponse = await ProductoService.GetAllAsync(1, 10, searchTerm);
+
+        // 2. Buscar servicios activos en memoria
+        var term = searchTerm.Trim();
+        matchingServicios = allActiveServicios
+            .Where(s => (s.Nombre != null && s.Nombre.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                        (!string.IsNullOrEmpty(s.Descripcion) && s.Descripcion.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                        (!string.IsNullOrEmpty(s.ProductosUtilizados) && s.ProductosUtilizados.Contains(term, StringComparison.OrdinalIgnoreCase)))
+            .Take(10)
+            .ToList();
+
         isSearching = false;
     }
 
     private void AgregarAlCarrito(ProductoDto p)
     {
-        var existente = carrito.FirstOrDefault(x => x.ProductoId == p.Id);
+        var existente = carrito.FirstOrDefault(x => !x.EsServicio && x.ProductoId == p.Id);
         if(existente != null)
         {
             // Check stock limit
@@ -242,9 +351,61 @@
             carrito.Add(new CreateDetalleVentaRequest {
                 ProductoId = p.Id, Descripcion = p.Nombre, 
                 PrecioUnitario = p.PrecioVenta, Cantidad = 1,
-                DepositoId = autoDepositoId
+                DepositoId = autoDepositoId,
+                EsServicio = false
             });
             productosEnCarrito[p.Id] = p;
+        }
+    }
+
+    private void AgregarServicioAlCarrito(ServicioDto s)
+    {
+        // 1. Agregar el servicio al carrito
+        var existenteServicio = carrito.FirstOrDefault(x => x.EsServicio && x.Descripcion == s.Nombre);
+        if (existenteServicio != null)
+        {
+            existenteServicio.Cantidad++;
+        }
+        else
+        {
+            carrito.Add(new CreateDetalleVentaRequest
+            {
+                ProductoId = null,
+                Descripcion = s.Nombre,
+                PrecioUnitario = s.Precio,
+                Cantidad = 1,
+                DepositoId = null,
+                EsServicio = true
+            });
+        }
+
+        // 2. Si el servicio tiene productos utilizados, agregarlos al carrito
+        if (!string.IsNullOrWhiteSpace(s.ProductosUtilizados))
+        {
+            var productNames = s.ProductosUtilizados
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            var productosAgregados = new List<string>();
+
+            foreach (var pName in productNames)
+            {
+                // Buscar producto en el inventario por coincidencia exacta o contenida
+                var prod = allInventoryProducts.FirstOrDefault(p =>
+                    p.Nombre.Equals(pName, StringComparison.OrdinalIgnoreCase)) ??
+                    allInventoryProducts.FirstOrDefault(p =>
+                    p.Nombre.Contains(pName, StringComparison.OrdinalIgnoreCase));
+
+                if (prod != null)
+                {
+                    AgregarAlCarrito(prod);
+                    productosAgregados.Add(prod.Nombre);
+                }
+            }
+
+            if (productosAgregados.Any())
+            {
+                serviceAlertMessage = $"El servicio \"{s.Nombre}\" incluye insumos vinculados ({string.Join(", ", productosAgregados)}). Se han agregado automáticamente al carrito para descontar su stock. Por favor revise los ítems, depósitos y precios antes de cobrar.";
+            }
         }
     }
 
@@ -254,11 +415,14 @@
         {
             item.DepositoId = depId;
             // Reset quantity to 1 if current quantity exceeds depot stock
-            var prod = productosEnCarrito.GetValueOrDefault(item.ProductoId);
-            if (prod != null)
+            if (!string.IsNullOrEmpty(item.ProductoId))
             {
-                var sdStock = prod.StocksDepositos?.FirstOrDefault(sd => sd.DepositoId == depId)?.StockActual ?? 0;
-                if (item.Cantidad > sdStock && sdStock > 0) item.Cantidad = sdStock;
+                var prod = productosEnCarrito.GetValueOrDefault(item.ProductoId);
+                if (prod != null)
+                {
+                    var sdStock = prod.StocksDepositos?.FirstOrDefault(sd => sd.DepositoId == depId)?.StockActual ?? 0;
+                    if (item.Cantidad > sdStock && sdStock > 0) item.Cantidad = sdStock;
+                }
             }
         }
         else
@@ -279,14 +443,20 @@
     private void RemoverDelCarrito(CreateDetalleVentaRequest item)
     {
         carrito.Remove(item);
-        if (!carrito.Any(c => c.ProductoId == item.ProductoId))
+        if (!string.IsNullOrEmpty(item.ProductoId) && !carrito.Any(c => c.ProductoId == item.ProductoId))
             productosEnCarrito.Remove(item.ProductoId);
     }
 
-    private void VaciarCarrito() { carrito.Clear(); productosEnCarrito.Clear(); }
+    private void VaciarCarrito() { carrito.Clear(); productosEnCarrito.Clear(); serviceAlertMessage = string.Empty; }
 
     private void AumentarCantidad(CreateDetalleVentaRequest item)
     {
+        if (item.EsServicio || string.IsNullOrEmpty(item.ProductoId))
+        {
+            item.Cantidad++;
+            return;
+        }
+
         var prod = productosEnCarrito.GetValueOrDefault(item.ProductoId);
         if (prod != null)
         {
@@ -308,19 +478,19 @@
     {
         msgError = "";
         
-        // 1. Validar que haya al menos un producto en la lista
+        // 1. Validar que haya al menos un producto o servicio en la lista
         if (!carrito.Any())
         {
-            msgError = "Debe ingresar al menos un producto a la lista.";
+            msgError = "Debe ingresar al menos un producto o servicio al carrito.";
             return;
         }
 
-        // 2. Validar que todos los items tengan depósito si corresponde
+        // 2. Validar que todos los productos físicos tengan depósito seleccionado si corresponde
         foreach (var item in carrito)
         {
             if (!DepositoValido(item))
             {
-                msgError = $"Debe seleccionar de qué depósito está retirando {item.Descripcion}";
+                msgError = $"Debe seleccionar de qué depósito está retirando el producto '{item.Descripcion}'";
                 return;
             }
         }
@@ -352,7 +522,7 @@
         }
         catch(Exception)
         {
-            msgError = "Falla de red procesando el ticket.";
+            msgError = "Falla de red procesando la venta.";
         }
         finally
         {

@@ -46,8 +46,16 @@ namespace BlazorFrontEnd.Services
         {
             // The mapping must match UpdateProductoRequest
             var req = new {
-                Id = id, p.Nombre, p.Descripcion,
-                p.PrecioCompra, p.PrecioVenta, p.StockMinimo
+                Id = id,
+                p.Nombre,
+                p.Descripcion,
+                p.CategoriaId,
+                p.MarcaId,
+                ProveedorId = string.IsNullOrEmpty(p.ProveedorId) ? null : p.ProveedorId,
+                p.DepositoId,
+                p.PrecioCompra,
+                p.PrecioVenta,
+                p.StockMinimo
             };
 
             var response = await _httpClient.PutAsJsonAsync(BaseUrl, req);

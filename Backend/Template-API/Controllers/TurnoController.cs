@@ -209,7 +209,8 @@ namespace Controllers
 
             var entity = new Domain.Entities.Turno(
                 request.PacienteId, request.VeterinarioId, request.ServicioId,
-                request.FechaHora, duracion, request.Motivo ?? "", request.Observaciones ?? "");
+                request.FechaHora, duracion, request.Motivo ?? "", request.Observaciones ?? "",
+                archivosAdjuntos: request.ArchivosAdjuntos);
 
             entity.AsignarSucursal(veterinario.SucursalId);
 
@@ -303,7 +304,7 @@ namespace Controllers
                 }
             }
 
-            entity.Actualizar(request.PacienteId, request.VeterinarioId, request.ServicioId, request.FechaHora, duracion, request.Motivo ?? "", request.Observaciones ?? "");
+            entity.Actualizar(request.PacienteId, request.VeterinarioId, request.ServicioId, request.FechaHora, duracion, request.Motivo ?? "", request.Observaciones ?? "", archivosAdjuntos: request.ArchivosAdjuntos);
             entity.AsignarSucursal(veterinario.SucursalId);
             _turnoRepository.Update(id, entity);
             return NoContent();
@@ -463,7 +464,8 @@ namespace Controllers
                     veterinario: veterinarioNombre,
                     observaciones: !string.IsNullOrWhiteSpace(observaciones) 
                         ? observaciones 
-                        : $"Generado automáticamente al completar turno del {entity.FechaHora:dd/MM/yyyy HH:mm}. Servicio: {servicioNombre}");
+                        : $"Generado automáticamente al completar turno del {entity.FechaHora:dd/MM/yyyy HH:mm}. Servicio: {servicioNombre}",
+                    archivosAdjuntos: entity.ArchivosAdjuntos);
 
                 if (historial.IsValid)
                 {
@@ -537,7 +539,8 @@ namespace Controllers
             Observaciones = t.Observaciones,
             SucursalId = t.SucursalId,
             SucursalNombre = t.Sucursal?.Nombre ?? "",
-            FechaCreacion = t.FechaCreacion
+            FechaCreacion = t.FechaCreacion,
+            ArchivosAdjuntos = t.ArchivosAdjuntos
         };
     }
 
@@ -550,6 +553,7 @@ namespace Controllers
         public int DuracionMinutos { get; set; }
         public string Motivo { get; set; }
         public string Observaciones { get; set; }
+        public string? ArchivosAdjuntos { get; set; }
     }
 
     public class ReprogramarTurnoRequest

@@ -14,11 +14,12 @@ namespace BlazorFrontEnd.Services
             _httpClient = httpClient;
         }
 
-        public async Task<List<UsuarioDto>?> GetAllUsersAsync()
+        public async Task<List<UsuarioDto>?> GetAllUsersAsync(bool incluirInactivos = false)
         {
             try
             {
-                return await _httpClient.GetUnwrappedAsync<List<UsuarioDto>>($"{BaseUrl}/usuarios");
+                var url = incluirInactivos ? $"{BaseUrl}/usuarios?incluirInactivos=true" : $"{BaseUrl}/usuarios";
+                return await _httpClient.GetUnwrappedAsync<List<UsuarioDto>>(url);
             }
             catch (Exception ex)
             {
@@ -54,6 +55,17 @@ namespace BlazorFrontEnd.Services
         public async Task<bool> DeleteUserAsync(string id)
         {
             var response = await _httpClient.DeleteAsync($"{BaseUrl}/usuarios/{id}");
+            return response.IsSuccessStatusCode;
+        }
+
+        public async Task<bool> RestoreUserAsync(string id)
+        {
+            var response = await _httpClient.PutAsync($"{BaseUrl}/usuarios/{id}/restaurar", null);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[UsuarioService.Restore FAIL] Status: {(int)response.StatusCode} {response.StatusCode} - Body: {body}");
+            }
             return response.IsSuccessStatusCode;
         }
 

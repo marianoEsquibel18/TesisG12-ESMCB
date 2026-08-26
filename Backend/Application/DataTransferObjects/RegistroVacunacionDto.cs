@@ -6,6 +6,8 @@ namespace Application.DataTransferObjects
         public string PacienteId { get; set; }
         public string PacienteNombre { get; set; }
         public int VacunaId { get; set; }
+        public string ProductoId { get; set; }
+        public int? DepositoId { get; set; }
         public string VacunaNombre { get; set; }
         public DateTime FechaAplicacion { get; set; }
         public DateTime? FechaProximaDosis { get; set; }

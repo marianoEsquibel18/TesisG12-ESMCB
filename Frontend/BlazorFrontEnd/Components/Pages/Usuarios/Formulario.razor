@@ -1,12 +1,15 @@
 @page "/usuarios/nuevo"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Gerente")]
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
 @inject UsuarioService UsuarioService
 @inject SucursalService SucursalService
 @inject NavigationManager Navigation
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @inject BlazorFrontEnd.Auth.TokenStorageService TokenStorage
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Registrar Nuevo Usuario</PageTitle>
 
@@ -56,14 +59,23 @@
 
             <div class="mb-3">
                 <label>Sucursal Asignada</label>
-                <select class="form-select bg-dark text-light border-secondary" @bind="SelectedSucursalId">
-                    <option value="">Global / Sin sucursal (Administrador)</option>
-                    @foreach(var s in sucursales)
-                    {
-                        <option value="@s.Id">@s.Nombre</option>
-                    }
-                </select>
-                <small class="text-secondary mb-2 d-block">Los administradores pueden no tener sucursal asignada (acceso global). Los demás cargos requieren sucursal.</small>
+                @if (IsGerente && currentUserSucursalId.HasValue)
+                {
+                    var sucursalNombre = sucursales.FirstOrDefault(s => s.Id == currentUserSucursalId.Value)?.Nombre ?? $"Sucursal #{currentUserSucursalId}";
+                    <input type="text" class="form-control bg-dark text-light border-secondary" value="@sucursalNombre" disabled />
+                    <small class="text-secondary mb-2 d-block">Como Gerente, los usuarios creados se asignan automáticamente a tu sucursal.</small>
+                }
+                else
+                {
+                    <select class="form-select bg-dark text-light border-secondary" @bind="SelectedSucursalId">
+                        <option value="">Global / Sin sucursal (Administrador)</option>
+                        @foreach(var s in sucursales)
+                        {
+                            <option value="@s.Id">@s.Nombre</option>
+                        }
+                    </select>
+                    <small class="text-secondary mb-2 d-block">Los administradores pueden no tener sucursal asignada (acceso global). Los demás cargos requieren sucursal.</small>
+                }
             </div>
 
             <div class="mb-3">
@@ -74,7 +86,12 @@
 
             <div class="mb-4">
                 <label>Contraseña Provisoria (*)</label>
-                <InputText @bind-Value="model.Password" class="form-control bg-dark text-light border-secondary" type="password" />
+                <div class="input-group">
+                    <InputText @bind-Value="model.Password" class="form-control bg-dark text-light border-secondary" type="@passwordType" style="border-right: none !important; border-radius: var(--radius-sm) 0 0 var(--radius-sm) !important;" />
+                    <button type="button" @onclick="TogglePasswordVisibility" style="background: #212529; border: 1px solid #6c757d; border-left: none; color: #f8f9fa; border-radius: 0 var(--radius-sm) var(--radius-sm) 0 !important; display: flex; align-items: center; justify-content: center; padding: 0 15px; cursor: pointer;">
+                        <i class="@passwordIconClass" style="font-size: 1.1rem; color: #f8f9fa !important;"></i>
+                    </button>
+                </div>
                 <ValidationMessage For="@(() => model.Password)" class="text-danger" />
                 <small class="text-secondary">Debe contener al menos 6 caracteres.</small>
             </div>
@@ -101,6 +118,26 @@
     private bool isLoading = true;
     private bool isSaving = false;
     private string errorMessage = string.Empty;
+    private string passwordType = "password";
+    private string passwordIconClass = "bi bi-eye-slash";
+
+    private string currentUserRole = "Usuario";
+    private int? currentUserSucursalId = null;
+    private bool IsGerente => currentUserRole.Equals("Gerente", StringComparison.OrdinalIgnoreCase);
+
+    private void TogglePasswordVisibility()
+    {
+        if (passwordType == "password")
+        {
+            passwordType = "text";
+            passwordIconClass = "bi bi-eye";
+        }
+        else
+        {
+            passwordType = "password";
+            passwordIconClass = "bi bi-eye-slash";
+        }
+    }
 
     private string SelectedSucursalId
     {
@@ -115,10 +152,35 @@
             await SyncTokenAsync();
             isLoading = true;
             StateHasChanged();
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            currentUserRole = user.FindFirst(ClaimTypes.Role)?.Value ?? user.FindFirst("role")?.Value ?? "Usuario";
+            var sucClaim = user.FindFirst("sucursalId")?.Value;
+            currentUserSucursalId = int.TryParse(sucClaim, out var sId) ? sId : null;
+
             var r = await UsuarioService.GetRolesAsync();
-            if(r != null) roles = r;
+            if (r != null)
+            {
+                if (IsGerente)
+                {
+                    roles = r.Where(x => x.Nombre.Equals("Veterinario", StringComparison.OrdinalIgnoreCase) ||
+                                         x.Nombre.Equals("Recepcionista", StringComparison.OrdinalIgnoreCase)).ToList();
+                }
+                else
+                {
+                    roles = r;
+                }
+            }
+
             var s = await SucursalService.GetAllAsync(soloActivos: true);
-            if(s != null) sucursales = s;
+            if (s != null) sucursales = s;
+
+            if (IsGerente && currentUserSucursalId.HasValue)
+            {
+                model.SucursalId = currentUserSucursalId.Value;
+            }
+
             isLoading = false;
             StateHasChanged();
         }
@@ -137,9 +199,10 @@
 
     private async Task HandleSave()
     {
-        if(model.RolId == 0) {
+        if (model.RolId == 0)
+        {
             errorMessage = "Debe asignar un Rol válido al usuario para continuar.";
-            return; 
+            return;
         }
 
         var selectedRol = roles.FirstOrDefault(r => r.Id == model.RolId);
@@ -155,15 +218,18 @@
         try
         {
             var res = await UsuarioService.RegisterUserAsync(model);
-            if(res) {
+            if (res)
+            {
                 Navigation.NavigateTo("/usuarios");
-            } else {
-                errorMessage = "Hubo un error al registrar el usuario. El alias o email podrían estar ya en uso o no cuenta con los permisos de Administrador para realizar esta acción.";
+            }
+            else
+            {
+                errorMessage = "Hubo un error al registrar el usuario. El alias o email podrían estar ya en uso o no cuenta con los permisos necesarios.";
             }
         }
-        catch(Exception)
+        catch (Exception)
         {
-            errorMessage = "Excepción interna comunicándose con AuthController.";
+            errorMessage = "Excepción interna comunicándose con el servidor.";
         }
         finally
         {

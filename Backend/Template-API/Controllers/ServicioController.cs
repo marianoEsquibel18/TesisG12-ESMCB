@@ -24,7 +24,8 @@ namespace Controllers
             var dtos = entities.Select(s => new ServicioDto
             {
                 Id = s.Id, Nombre = s.Nombre, Descripcion = s.Descripcion,
-                DuracionMinutos = s.DuracionMinutos, Precio = s.Precio, Activo = s.Activo
+                DuracionMinutos = s.DuracionMinutos, Precio = s.Precio,
+                ProductosUtilizados = s.ProductosUtilizados ?? "", Activo = s.Activo
             }).ToList();
 
             return Ok(new QueryResult<ServicioDto>(dtos, dtos.Count, 1, 10));
@@ -41,7 +42,8 @@ namespace Controllers
             return Ok(new ServicioDto
             {
                 Id = entity.Id, Nombre = entity.Nombre, Descripcion = entity.Descripcion,
-                DuracionMinutos = entity.DuracionMinutos, Precio = entity.Precio, Activo = entity.Activo
+                DuracionMinutos = entity.DuracionMinutos, Precio = entity.Precio,
+                ProductosUtilizados = entity.ProductosUtilizados ?? "", Activo = entity.Activo
             });
         }
 
@@ -51,8 +53,9 @@ namespace Controllers
         {
             if (request is null) return BadRequest("El request no puede ser nulo");
 
+            var duracion = request.DuracionMinutos > 0 ? request.DuracionMinutos : 30;
             var entity = new Domain.Entities.Servicio(
-                request.Nombre, request.Descripcion ?? "", request.DuracionMinutos, request.Precio);
+                request.Nombre, request.Descripcion ?? "", duracion, request.Precio, request.ProductosUtilizados ?? "");
 
             if (!entity.IsValid)
                 return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
@@ -69,7 +72,8 @@ namespace Controllers
             var entity = await _repository.FindOneAsync(request.Id);
             if (entity == null) return NotFound($"No se encontró el servicio con Id {request.Id}");
 
-            entity.Actualizar(request.Nombre, request.Descripcion ?? "", request.DuracionMinutos, request.Precio);
+            var duracion = request.DuracionMinutos > 0 ? request.DuracionMinutos : (entity.DuracionMinutos > 0 ? entity.DuracionMinutos : 30);
+            entity.Actualizar(request.Nombre, request.Descripcion ?? "", duracion, request.Precio, request.ProductosUtilizados ?? "");
 
             if (!entity.IsValid)
                 return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
@@ -98,6 +102,7 @@ namespace Controllers
         public string Descripcion { get; set; }
         public int DuracionMinutos { get; set; }
         public decimal Precio { get; set; }
+        public string ProductosUtilizados { get; set; }
     }
 
     public class UpdateServicioRequest
@@ -107,5 +112,6 @@ namespace Controllers
         public string Descripcion { get; set; }
         public int DuracionMinutos { get; set; }
         public decimal Precio { get; set; }
+        public string ProductosUtilizados { get; set; }
     }
 }

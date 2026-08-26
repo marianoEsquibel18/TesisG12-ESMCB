@@ -38,6 +38,8 @@ namespace BlazorFrontEnd.Services
                 {
                     PacienteId = modelo.PacienteId,
                     VacunaId = modelo.VacunaId,
+                    ProductoId = modelo.ProductoId,
+                    DepositoId = modelo.DepositoId,
                     FechaAplicacion = modelo.FechaAplicacion,
                     FechaProximaDosis = modelo.FechaProximaDosis,
                     Veterinario = modelo.Veterinario,

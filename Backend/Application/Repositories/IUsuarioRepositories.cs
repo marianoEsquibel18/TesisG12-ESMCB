@@ -15,5 +15,6 @@ namespace Application.Repositories
         Task<Usuario> GetByEmailAsync(string email);
         Task<IEnumerable<Usuario>> GetActivosAsync();
         Task<IEnumerable<Usuario>> GetByRolIdAsync(int rolId);
+        Task<IEnumerable<Usuario>> GetAllWithNavigationAsync();
     }
 }

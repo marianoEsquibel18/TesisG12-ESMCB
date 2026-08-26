@@ -32,7 +32,12 @@ namespace Infrastructure.Repositories.Sql
 
         public async Task<IEnumerable<Propietario>> GetPropietariosConMascotasAsync()
         {
-            return await Repository.Include(p => p.Mascotas).ToListAsync();
+            return await Repository
+                .Include(p => p.Mascotas)
+                    .ThenInclude(m => m.Especie)
+                .Include(p => p.Mascotas)
+                    .ThenInclude(m => m.Raza)
+                .ToListAsync();
         }
     }
 }

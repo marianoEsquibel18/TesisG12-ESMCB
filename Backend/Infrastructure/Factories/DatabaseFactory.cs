@@ -58,6 +58,34 @@ namespace Infrastructure.Factories
             var context = services.BuildServiceProvider().GetRequiredService<Repositories.Sql.StoreDbContext>();
             context.Database.EnsureCreated();
 
+            try
+            {
+                context.Database.ExecuteSqlRaw("ALTER TABLE Servicios ADD COLUMN ProductosUtilizados TEXT;");
+            }
+            catch { /* Ya existe la columna */ }
+
+            try
+            {
+                context.Database.ExecuteSqlRaw("ALTER TABLE RegistrosVacunacion ADD COLUMN ProductoId TEXT;");
+            }
+            catch { /* Ya existe la columna */ }
+
+            try
+            {
+                context.Database.ExecuteSqlRaw("ALTER TABLE RegistrosVacunacion ADD COLUMN DepositoId INTEGER;");
+            }
+            catch { /* Ya existe la columna */ }
+
+            try
+            {
+                if (!context.Categorias.Any(c => c.Nombre.ToLower() == "vacunas" || c.Nombre.ToLower() == "vacuna"))
+                {
+                    context.Categorias.Add(new Domain.Entities.Categoria("Vacunas", "Vacunas y biológicos veterinarios"));
+                    context.SaveChanges();
+                }
+            }
+            catch { }
+
             RegisterSqlRepositories(services);
 
             return services;

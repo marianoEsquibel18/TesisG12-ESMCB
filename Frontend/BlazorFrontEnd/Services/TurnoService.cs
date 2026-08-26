@@ -67,7 +67,8 @@ namespace BlazorFrontEnd.Services
                 FechaHora = turno.FechaHora,
                 DuracionMinutos = turno.DuracionMinutos,
                 Motivo = turno.Motivo,
-                Observaciones = turno.Observaciones
+                Observaciones = turno.Observaciones,
+                ArchivosAdjuntos = turno.ArchivosAdjuntos
             });
             if (response.IsSuccessStatusCode)
                 return (true, string.Empty);

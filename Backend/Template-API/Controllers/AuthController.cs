@@ -53,12 +53,29 @@ namespace Controllers
         }
 
         /// <summary>
-        /// Registrar nuevo usuario (solo Admin)
+        /// Registrar nuevo usuario (Admin y Gerente)
         /// </summary>
         [HttpPost("api/v1/auth/register")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Gerente")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
+            var rol = await _rolRepo.FindOneAsync(request.RolId);
+            if (rol == null) return BadRequest($"No existe el rol con Id {request.RolId}");
+
+            // Restricción para rol Gerente
+            if (!IsAdmin)
+            {
+                if (rol.Nombre != "Veterinario" && rol.Nombre != "Recepcionista")
+                {
+                    return BadRequest("El rol Gerente solo tiene permisos para registrar usuarios con rol Veterinario o Recepcionista.");
+                }
+
+                if (UserSucursalId.HasValue)
+                {
+                    request.SucursalId = UserSucursalId.Value;
+                }
+            }
+
             var existingByUsername = await _usuarioRepo.GetByNombreUsuarioAsync(request.NombreUsuario);
             if (existingByUsername != null)
                 return BadRequest($"Ya existe un usuario con el nombre '{request.NombreUsuario}'");
@@ -66,9 +83,6 @@ namespace Controllers
             var existingByEmail = await _usuarioRepo.GetByEmailAsync(request.Email);
             if (existingByEmail != null)
                 return BadRequest($"Ya existe un usuario con el email '{request.Email}'");
-
-            var rol = await _rolRepo.FindOneAsync(request.RolId);
-            if (rol == null) return BadRequest($"No existe el rol con Id {request.RolId}");
 
             var usuario = new Usuario(request.NombreUsuario, request.Email,
                 request.NombreCompleto, request.Password, request.RolId, request.SucursalId);
@@ -314,14 +328,22 @@ namespace Controllers
         }
 
         // ═══════════════════════════════════════════
-        // GESTIÓN DE USUARIOS (Admin)
+        // GESTIÓN DE USUARIOS (Admin, Gerente)
         // ═══════════════════════════════════════════
 
         [HttpGet("api/v1/auth/usuarios")]
         [Authorize(Roles = "Admin,Gerente")]
-        public async Task<IActionResult> GetAllUsers()
+        public async Task<IActionResult> GetAllUsers([FromQuery] bool incluirInactivos = false)
         {
-            var usuarios = await _usuarioRepo.GetActivosAsync();
+            var usuarios = incluirInactivos
+                ? await _usuarioRepo.GetAllWithNavigationAsync()
+                : await _usuarioRepo.GetActivosAsync();
+
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                usuarios = usuarios.Where(u => u.SucursalId == UserSucursalId.Value);
+            }
+
             return Ok(usuarios.Select(MapToDto).ToList());
         }
 
@@ -336,14 +358,72 @@ namespace Controllers
         }
 
         [HttpDelete("api/v1/auth/usuarios/{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Gerente")]
         public async Task<IActionResult> DeleteUser(string id)
         {
             var usuario = await _usuarioRepo.FindOneAsync(id);
             if (usuario == null) return NotFound();
+
+            if (usuario.NombreUsuario.Equals("admin", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest("No se puede revocar el acceso al Super-Administrador del sistema.");
+            }
+
+            if (!IsAdmin)
+            {
+                var rolNombre = usuario.Rol?.Nombre;
+                if (string.IsNullOrEmpty(rolNombre) && usuario.RolId > 0)
+                {
+                    var rol = await _rolRepo.FindOneAsync(usuario.RolId);
+                    rolNombre = rol?.Nombre;
+                }
+
+                if (rolNombre != "Veterinario" && rolNombre != "Recepcionista")
+                {
+                    return BadRequest("El rol Gerente solo puede revocar el acceso a usuarios con rol Veterinario o Recepcionista.");
+                }
+
+                if (UserSucursalId.HasValue && usuario.SucursalId.HasValue && usuario.SucursalId.Value != UserSucursalId.Value)
+                {
+                    return BadRequest("No tiene permisos para revocar el acceso a un usuario de otra sucursal.");
+                }
+            }
+
             usuario.Desactivar();
             _usuarioRepo.Update(id, usuario);
             return NoContent();
+        }
+
+        [HttpPut("api/v1/auth/usuarios/{id}/restaurar")]
+        [Authorize(Roles = "Admin,Gerente")]
+        public async Task<IActionResult> RestoreUser(string id)
+        {
+            var usuario = await _usuarioRepo.FindOneAsync(id);
+            if (usuario == null) return NotFound();
+
+            if (!IsAdmin)
+            {
+                var rolNombre = usuario.Rol?.Nombre;
+                if (string.IsNullOrEmpty(rolNombre) && usuario.RolId > 0)
+                {
+                    var rol = await _rolRepo.FindOneAsync(usuario.RolId);
+                    rolNombre = rol?.Nombre;
+                }
+
+                if (rolNombre != "Veterinario" && rolNombre != "Recepcionista")
+                {
+                    return BadRequest("El rol Gerente solo puede restaurar usuarios con rol Veterinario o Recepcionista.");
+                }
+
+                if (UserSucursalId.HasValue && usuario.SucursalId.HasValue && usuario.SucursalId.Value != UserSucursalId.Value)
+                {
+                    return BadRequest("No tiene permisos para restaurar un usuario de otra sucursal.");
+                }
+            }
+
+            usuario.Activar();
+            _usuarioRepo.Update(id, usuario);
+            return Ok(MapToDto(usuario));
         }
 
         // ═══════════════════════════════════════════
@@ -369,6 +449,10 @@ namespace Controllers
             if (usuario.SucursalId.HasValue)
             {
                 claimsList.Add(new Claim("sucursalId", usuario.SucursalId.Value.ToString()));
+                if (usuario.Sucursal != null && !string.IsNullOrWhiteSpace(usuario.Sucursal.Nombre))
+                {
+                    claimsList.Add(new Claim("sucursalNombre", usuario.Sucursal.Nombre));
+                }
             }
 
             var claims = claimsList.ToArray();

@@ -15,29 +15,36 @@ namespace Controllers
         ICategoriaRepository categoriaRepo,
         IMovimientoStockRepository movimientoRepo,
         IProductoDepositoRepository productoDepositoRepo,
-        IDepositoRepository depositoRepo) : BaseController
+        IDepositoRepository depositoRepo,
+        IMarcaRepository marcaRepo,
+        IProveedorRepository proveedorRepo) : BaseController
     {
         private readonly IProductoRepository _productoRepo = productoRepo ?? throw new ArgumentNullException(nameof(productoRepo));
         private readonly ICategoriaRepository _categoriaRepo = categoriaRepo ?? throw new ArgumentNullException(nameof(categoriaRepo));
         private readonly IMovimientoStockRepository _movimientoRepo = movimientoRepo ?? throw new ArgumentNullException(nameof(movimientoRepo));
         private readonly IProductoDepositoRepository _pdRepo = productoDepositoRepo ?? throw new ArgumentNullException(nameof(productoDepositoRepo));
         private readonly IDepositoRepository _depositoRepo = depositoRepo ?? throw new ArgumentNullException(nameof(depositoRepo));
+        private readonly IMarcaRepository _marcaRepo = marcaRepo ?? throw new ArgumentNullException(nameof(marcaRepo));
+        private readonly IProveedorRepository _proveedorRepo = proveedorRepo ?? throw new ArgumentNullException(nameof(proveedorRepo));
 
         [HttpGet("api/v1/[Controller]")]
-        public async Task<IActionResult> GetAll(bool soloActivos = true)
+        public async Task<IActionResult> GetAll(bool soloActivos = true, [FromQuery] int? sucursalId = null)
         {
             var entities = soloActivos ? await _productoRepo.GetActivosAsync() : await _productoRepo.FindAllAsync();
             var dtos = new List<ProductoDto>();
+            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+
             foreach (var p in entities)
             {
                 var dto = MapToDto(p);
                 // Cargar stocks por depósito
-                var stocks = await _pdRepo.GetByProductoIdAsync(p.Id);
+                var stocks = (await _pdRepo.GetByProductoIdAsync(p.Id)).ToList();
                 
-                if (!IsAdmin && UserSucursalId.HasValue)
+                if (targetSucursalId.HasValue)
                 {
-                    stocks = stocks.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).ToList();
+                    stocks = stocks.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).ToList();
                     dto.StockActual = stocks.Sum(s => s.StockActual);
+                    dto.StockBajo = dto.StockActual <= dto.StockMinimo;
                 }
 
                 dto.StocksDepositos = stocks.Select(s => new ProductoDepositoStockDto
@@ -56,17 +63,19 @@ namespace Controllers
         }
 
         [HttpGet("api/v1/[Controller]/{id}")]
-        public async Task<IActionResult> GetById(string id)
+        public async Task<IActionResult> GetById(string id, [FromQuery] int? sucursalId = null)
         {
             var entity = await _productoRepo.FindOneAsync(id);
             if (entity == null) return NotFound();
             var dto = MapToDto(entity);
-            var stocks = await _pdRepo.GetByProductoIdAsync(id);
+            var stocks = (await _pdRepo.GetByProductoIdAsync(id)).ToList();
+            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
             
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
-                stocks = stocks.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).ToList();
+                stocks = stocks.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).ToList();
                 dto.StockActual = stocks.Sum(s => s.StockActual);
+                dto.StockBajo = dto.StockActual <= dto.StockMinimo;
             }
 
             dto.StocksDepositos = stocks.Select(s => new ProductoDepositoStockDto
@@ -79,19 +88,22 @@ namespace Controllers
         }
 
         [HttpGet("api/v1/[Controller]/search")]
-        public async Task<IActionResult> Search([FromQuery] string nombre)
+        public async Task<IActionResult> Search([FromQuery] string nombre, [FromQuery] int? sucursalId = null)
         {
             if (string.IsNullOrWhiteSpace(nombre)) return BadRequest("Debe proporcionar un término de búsqueda");
             var entities = await _productoRepo.SearchByNombreAsync(nombre);
             var dtos = new List<ProductoDto>();
+            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+
             foreach (var p in entities)
             {
                 var dto = MapToDto(p);
-                var stocks = await _pdRepo.GetByProductoIdAsync(p.Id);
-                if (!IsAdmin && UserSucursalId.HasValue)
+                var stocks = (await _pdRepo.GetByProductoIdAsync(p.Id)).ToList();
+                if (targetSucursalId.HasValue)
                 {
-                    stocks = stocks.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).ToList();
+                    stocks = stocks.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).ToList();
                     dto.StockActual = stocks.Sum(s => s.StockActual);
+                    dto.StockBajo = dto.StockActual <= dto.StockMinimo;
                 }
                 dto.StocksDepositos = stocks.Select(s => new ProductoDepositoStockDto
                 {
@@ -105,18 +117,21 @@ namespace Controllers
         }
 
         [HttpGet("api/v1/[Controller]/byCategoria/{categoriaId}")]
-        public async Task<IActionResult> GetByCategoria(int categoriaId)
+        public async Task<IActionResult> GetByCategoria(int categoriaId, [FromQuery] int? sucursalId = null)
         {
             var entities = await _productoRepo.GetByCategoriaIdAsync(categoriaId);
             var dtos = new List<ProductoDto>();
+            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+
             foreach (var p in entities)
             {
                 var dto = MapToDto(p);
-                var stocks = await _pdRepo.GetByProductoIdAsync(p.Id);
-                if (!IsAdmin && UserSucursalId.HasValue)
+                var stocks = (await _pdRepo.GetByProductoIdAsync(p.Id)).ToList();
+                if (targetSucursalId.HasValue)
                 {
-                    stocks = stocks.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).ToList();
+                    stocks = stocks.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).ToList();
                     dto.StockActual = stocks.Sum(s => s.StockActual);
+                    dto.StockBajo = dto.StockActual <= dto.StockMinimo;
                 }
                 dto.StocksDepositos = stocks.Select(s => new ProductoDepositoStockDto
                 {
@@ -130,16 +145,19 @@ namespace Controllers
         }
 
         [HttpGet("api/v1/[Controller]/byCodigoBarras/{codigo}")]
-        public async Task<IActionResult> GetByCodigoBarras(string codigo)
+        public async Task<IActionResult> GetByCodigoBarras(string codigo, [FromQuery] int? sucursalId = null)
         {
             var entity = await _productoRepo.GetByCodigoBarrasAsync(codigo);
             if (entity == null) return NotFound();
             var dto = MapToDto(entity);
-            var stocks = await _pdRepo.GetByProductoIdAsync(entity.Id);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            var stocks = (await _pdRepo.GetByProductoIdAsync(entity.Id)).ToList();
+            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+
+            if (targetSucursalId.HasValue)
             {
-                stocks = stocks.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).ToList();
+                stocks = stocks.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).ToList();
                 dto.StockActual = stocks.Sum(s => s.StockActual);
+                dto.StockBajo = dto.StockActual <= dto.StockMinimo;
             }
             dto.StocksDepositos = stocks.Select(s => new ProductoDepositoStockDto
             {
@@ -154,35 +172,48 @@ namespace Controllers
         /// Obtiene productos con stock bajo (stock actual <= stock mínimo)
         /// </summary>
         [HttpGet("api/v1/[Controller]/stockBajo")]
-        public async Task<IActionResult> GetStockBajo()
+        public async Task<IActionResult> GetStockBajo([FromQuery] int? sucursalId = null)
         {
-            var entities = await _productoRepo.GetStockBajoAsync();
+            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
             var dtos = new List<ProductoDto>();
-            foreach (var p in entities)
-            {
-                var dto = MapToDto(p);
-                var stocks = await _pdRepo.GetByProductoIdAsync(p.Id);
-                if (!IsAdmin && UserSucursalId.HasValue)
-                {
-                    stocks = stocks.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).ToList();
-                    dto.StockActual = stocks.Sum(s => s.StockActual);
-                }
-                dto.StocksDepositos = stocks.Select(s => new ProductoDepositoStockDto
-                {
-                    Id = s.Id, ProductoId = s.ProductoId, DepositoId = s.DepositoId,
-                    DepositoNombre = s.Deposito?.Nombre ?? "",
-                    StockActual = s.StockActual, StockMinimo = s.StockMinimo, StockBajo = s.StockBajo
-                }).ToList();
 
-                if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
+            {
+                var entities = await _productoRepo.GetActivosAsync();
+                foreach (var p in entities)
                 {
-                    if (dto.StockActual <= dto.StockMinimo)
+                    var stocks = (await _pdRepo.GetByProductoIdAsync(p.Id))
+                        .Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).ToList();
+                    var branchStock = stocks.Sum(s => s.StockActual);
+
+                    if (branchStock <= p.StockMinimo)
                     {
+                        var dto = MapToDto(p);
+                        dto.StockActual = branchStock;
+                        dto.StockBajo = true;
+                        dto.StocksDepositos = stocks.Select(s => new ProductoDepositoStockDto
+                        {
+                            Id = s.Id, ProductoId = s.ProductoId, DepositoId = s.DepositoId,
+                            DepositoNombre = s.Deposito?.Nombre ?? "",
+                            StockActual = s.StockActual, StockMinimo = s.StockMinimo, StockBajo = s.StockBajo
+                        }).ToList();
                         dtos.Add(dto);
                     }
                 }
-                else
+            }
+            else
+            {
+                var entities = await _productoRepo.GetStockBajoAsync();
+                foreach (var p in entities)
                 {
+                    var dto = MapToDto(p);
+                    var stocks = (await _pdRepo.GetByProductoIdAsync(p.Id)).ToList();
+                    dto.StocksDepositos = stocks.Select(s => new ProductoDepositoStockDto
+                    {
+                        Id = s.Id, ProductoId = s.ProductoId, DepositoId = s.DepositoId,
+                        DepositoNombre = s.Deposito?.Nombre ?? "",
+                        StockActual = s.StockActual, StockMinimo = s.StockMinimo, StockBajo = s.StockBajo
+                    }).ToList();
                     dtos.Add(dto);
                 }
             }
@@ -193,12 +224,14 @@ namespace Controllers
         /// Obtiene el stock desglosado por depósito de un producto
         /// </summary>
         [HttpGet("api/v1/[Controller]/{id}/stockDepositos")]
-        public async Task<IActionResult> GetStockDepositos(string id)
+        public async Task<IActionResult> GetStockDepositos(string id, [FromQuery] int? sucursalId = null)
         {
-            var stocks = await _pdRepo.GetByProductoIdAsync(id);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            var stocks = (await _pdRepo.GetByProductoIdAsync(id)).ToList();
+            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+
+            if (targetSucursalId.HasValue)
             {
-                stocks = stocks.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).ToList();
+                stocks = stocks.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).ToList();
             }
             var dtos = stocks.Select(s => new ProductoDepositoStockDto
             {
@@ -217,19 +250,39 @@ namespace Controllers
             var categoria = await _categoriaRepo.FindOneAsync(r.CategoriaId);
             if (categoria == null) return BadRequest($"No existe la categoría con Id {r.CategoriaId}");
 
+            int? selectedDepositoId = r.DepositoId;
+            if (selectedDepositoId.HasValue && selectedDepositoId.Value > 0)
+            {
+                var dep = await _depositoRepo.FindOneAsync(selectedDepositoId.Value);
+                if (dep == null) return BadRequest($"No existe el depósito con Id {selectedDepositoId.Value}");
+                if (!IsAdmin && UserSucursalId.HasValue && dep.SucursalId != UserSucursalId.Value)
+                {
+                    return StatusCode(403, "No tiene permisos para asignar un depósito de otra sucursal");
+                }
+            }
+            else if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                var sucursalDeps = (await _depositoRepo.GetActivosAsync())
+                    .Where(d => d.SucursalId == UserSucursalId.Value).ToList();
+                if (sucursalDeps.Any())
+                {
+                    selectedDepositoId = sucursalDeps.First().Id;
+                }
+            }
+
             var entity = new Domain.Entities.Producto(
                 r.Nombre, r.Descripcion ?? "", r.CodigoBarras ?? "",
                 r.CategoriaId, r.PrecioCompra, r.PrecioVenta,
                 r.StockActual, r.StockMinimo,
-                r.MarcaId, r.ProveedorId, r.DepositoId);
+                r.MarcaId, r.ProveedorId, selectedDepositoId);
 
             if (!entity.IsValid) return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
             var id = (string)await _productoRepo.AddAsync(entity);
 
             // Si se especificó depósito, crear el registro de stock por depósito
-            if (r.DepositoId.HasValue && r.DepositoId.Value > 0)
+            if (selectedDepositoId.HasValue && selectedDepositoId.Value > 0)
             {
-                var pd = new ProductoDeposito(id, r.DepositoId.Value, r.StockActual, r.StockMinimo);
+                var pd = new ProductoDeposito(id, selectedDepositoId.Value, r.StockActual, r.StockMinimo);
                 await _pdRepo.AddAsync(pd);
             }
 
@@ -241,7 +294,34 @@ namespace Controllers
         {
             var entity = await _productoRepo.FindOneAsync(r.Id);
             if (entity == null) return NotFound();
-            entity.Actualizar(r.Nombre, r.Descripcion ?? "", r.PrecioCompra, r.PrecioVenta, r.StockMinimo);
+
+            if (r.CategoriaId > 0)
+            {
+                var cat = await _categoriaRepo.FindOneAsync(r.CategoriaId);
+                if (cat == null) return BadRequest($"No existe la categoría con Id {r.CategoriaId}");
+            }
+            if (r.MarcaId.HasValue && r.MarcaId.Value > 0)
+            {
+                var marca = await _marcaRepo.FindOneAsync(r.MarcaId.Value);
+                if (marca == null) return BadRequest($"No existe la marca con Id {r.MarcaId.Value}");
+            }
+            if (!string.IsNullOrWhiteSpace(r.ProveedorId))
+            {
+                var prov = await _proveedorRepo.FindOneAsync(r.ProveedorId);
+                if (prov == null) return BadRequest($"No existe el proveedor con Id {r.ProveedorId}");
+            }
+            if (r.DepositoId.HasValue && r.DepositoId.Value > 0)
+            {
+                var dep = await _depositoRepo.FindOneAsync(r.DepositoId.Value);
+                if (dep == null) return BadRequest($"No existe el depósito con Id {r.DepositoId.Value}");
+            }
+
+            entity.Actualizar(r.Nombre, r.Descripcion ?? "", r.PrecioCompra, r.PrecioVenta, r.StockMinimo,
+                r.CategoriaId > 0 ? r.CategoriaId : null,
+                r.MarcaId,
+                r.ProveedorId,
+                r.DepositoId);
+
             if (!entity.IsValid) return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
             _productoRepo.Update(r.Id, entity);
             return NoContent();
@@ -257,21 +337,32 @@ namespace Controllers
             if (entity == null) return NotFound($"No se encontró el producto con Id {id}");
             if (r.Cantidad <= 0) return BadRequest("La cantidad debe ser mayor a 0");
 
-            if (r.DepositoId.HasValue && r.DepositoId.Value > 0)
+            int? targetDepId = r.DepositoId;
+            if ((!targetDepId.HasValue || targetDepId.Value <= 0) && !IsAdmin && UserSucursalId.HasValue)
             {
-                var dep = await _depositoRepo.FindOneAsync(r.DepositoId.Value);
-                if (dep == null) return BadRequest($"No existe el depósito con Id {r.DepositoId.Value}");
+                var sucursalDeps = (await _depositoRepo.GetActivosAsync())
+                    .Where(d => d.SucursalId == UserSucursalId.Value).ToList();
+                if (sucursalDeps.Any())
+                {
+                    targetDepId = sucursalDeps.First().Id;
+                }
+            }
+
+            if (targetDepId.HasValue && targetDepId.Value > 0)
+            {
+                var dep = await _depositoRepo.FindOneAsync(targetDepId.Value);
+                if (dep == null) return BadRequest($"No existe el depósito con Id {targetDepId.Value}");
                 if (!IsAdmin && UserSucursalId.HasValue && dep.SucursalId != UserSucursalId.Value)
                 {
                     return StatusCode(403, "No tiene permisos para modificar el stock de un depósito de otra sucursal");
                 }
 
                 // Stock por depósito
-                var pd = await _pdRepo.GetByProductoYDepositoAsync(id, r.DepositoId.Value);
+                var pd = await _pdRepo.GetByProductoYDepositoAsync(id, targetDepId.Value);
                 if (pd == null)
                 {
                     // Crear registro de stock para este depósito
-                    pd = new ProductoDeposito(id, r.DepositoId.Value, r.Cantidad, 0);
+                    pd = new ProductoDeposito(id, targetDepId.Value, r.Cantidad, entity.StockMinimo);
                     await _pdRepo.AddAsync(pd);
                 }
                 else
@@ -297,7 +388,15 @@ namespace Controllers
                 id, TipoMovimiento.Entrada, r.Cantidad, r.Motivo ?? "Entrada de stock", r.Referencia ?? "");
             await _movimientoRepo.AddAsync(movimiento);
 
-            return Ok(new { StockActual = entity.StockActual });
+            int returnStock = entity.StockActual;
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                var branchStocks = (await _pdRepo.GetByProductoIdAsync(id))
+                    .Where(s => s.Deposito?.SucursalId == UserSucursalId.Value);
+                returnStock = branchStocks.Sum(s => s.StockActual);
+            }
+
+            return Ok(new { StockActual = returnStock });
         }
 
         /// <summary>
@@ -310,17 +409,28 @@ namespace Controllers
             if (entity == null) return NotFound($"No se encontró el producto con Id {id}");
             if (r.Cantidad <= 0) return BadRequest("La cantidad debe ser mayor a 0");
 
-            if (r.DepositoId.HasValue && r.DepositoId.Value > 0)
+            int? targetDepId = r.DepositoId;
+            if ((!targetDepId.HasValue || targetDepId.Value <= 0) && !IsAdmin && UserSucursalId.HasValue)
             {
-                var dep = await _depositoRepo.FindOneAsync(r.DepositoId.Value);
-                if (dep == null) return BadRequest($"No existe el depósito con Id {r.DepositoId.Value}");
+                var sucursalDeps = (await _depositoRepo.GetActivosAsync())
+                    .Where(d => d.SucursalId == UserSucursalId.Value).ToList();
+                if (sucursalDeps.Any())
+                {
+                    targetDepId = sucursalDeps.First().Id;
+                }
+            }
+
+            if (targetDepId.HasValue && targetDepId.Value > 0)
+            {
+                var dep = await _depositoRepo.FindOneAsync(targetDepId.Value);
+                if (dep == null) return BadRequest($"No existe el depósito con Id {targetDepId.Value}");
                 if (!IsAdmin && UserSucursalId.HasValue && dep.SucursalId != UserSucursalId.Value)
                 {
                     return StatusCode(403, "No tiene permisos para descontar stock de un depósito de otra sucursal");
                 }
 
                 // Stock por depósito
-                var pd = await _pdRepo.GetByProductoYDepositoAsync(id, r.DepositoId.Value);
+                var pd = await _pdRepo.GetByProductoYDepositoAsync(id, targetDepId.Value);
                 if (pd == null)
                     return BadRequest("No hay stock registrado para este producto en el depósito seleccionado");
 
@@ -347,7 +457,15 @@ namespace Controllers
                 id, TipoMovimiento.Salida, r.Cantidad, r.Motivo ?? "Salida de stock", r.Referencia ?? "");
             await _movimientoRepo.AddAsync(movimiento);
 
-            return Ok(new { StockActual = entity.StockActual });
+            int returnStock = entity.StockActual;
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                var branchStocks = (await _pdRepo.GetByProductoIdAsync(id))
+                    .Where(s => s.Deposito?.SucursalId == UserSucursalId.Value);
+                returnStock = branchStocks.Sum(s => s.StockActual);
+            }
+
+            return Ok(new { StockActual = returnStock });
         }
 
         /// <summary>
@@ -403,9 +521,16 @@ namespace Controllers
 
     public class UpdateProductoRequest
     {
-        public string Id { get; set; } public string Nombre { get; set; }
-        public string Descripcion { get; set; } public decimal PrecioCompra { get; set; }
-        public decimal PrecioVenta { get; set; } public int StockMinimo { get; set; }
+        public string Id { get; set; }
+        public string Nombre { get; set; }
+        public string Descripcion { get; set; }
+        public int CategoriaId { get; set; }
+        public int? MarcaId { get; set; }
+        public string ProveedorId { get; set; }
+        public int? DepositoId { get; set; }
+        public decimal PrecioCompra { get; set; }
+        public decimal PrecioVenta { get; set; }
+        public int StockMinimo { get; set; }
     }
 
     public class MovimientoStockRequest

@@ -30,6 +30,7 @@ namespace BlazorFrontEnd.Models
         public string Motivo { get; set; } = string.Empty;
         public string Observaciones { get; set; } = string.Empty;
         public DateTime FechaCreacion { get; set; }
+        public string? ArchivosAdjuntos { get; set; } = "[]";
     }
 
     public class TipoHorarioDto
@@ -74,6 +75,8 @@ namespace BlazorFrontEnd.Models
         public string Email { get; set; } = string.Empty;
         public string Especialidad { get; set; } = string.Empty;
         public bool Activo { get; set; }
+        public int? SucursalId { get; set; }
+        public string? SucursalNombre { get; set; }
         public List<HorarioDto> Horarios { get; set; } = new();
         public string DisponibilidadActual { get; set; } = "No Disponible";
     }
@@ -81,10 +84,21 @@ namespace BlazorFrontEnd.Models
     public class ServicioDto
     {
         public int Id { get; set; }
+        
+        [Required(ErrorMessage = "El nombre del servicio es requerido")]
         public string Nombre { get; set; } = string.Empty;
+        
         public string Descripcion { get; set; } = string.Empty;
-        public int DuracionMinutos { get; set; }
+        public int DuracionMinutos { get; set; } = 30;
         public decimal Precio { get; set; }
-        public bool Activo { get; set; }
+        public string ProductosUtilizados { get; set; } = string.Empty;
+        public bool Activo { get; set; } = true;
+    }
+
+    public class Adjunto
+    {
+        public string Nombre { get; set; } = string.Empty;
+        public string Base64 { get; set; } = string.Empty;
+        public string ContentType { get; set; } = string.Empty;
     }
 }

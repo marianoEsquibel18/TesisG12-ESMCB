@@ -78,6 +78,8 @@ namespace BlazorFrontEnd.Models
         public string Nombre { get; set; } = string.Empty;
         public string Ubicacion { get; set; } = string.Empty;
         public bool Activo { get; set; }
+        public int? SucursalId { get; set; }
+        public string? SucursalNombre { get; set; }
     }
 
     public class MovimientoStockRequest
