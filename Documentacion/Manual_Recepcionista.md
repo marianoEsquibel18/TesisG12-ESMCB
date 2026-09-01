@@ -95,7 +95,7 @@ Además se muestra:
 
 ### 4.3 Editar paciente
 
-1. En el listado, hacé clic en el ícono de **edición** (✏️) del paciente deseado.
+1. En el listado, hacé clic en el ícono de **edición** del paciente deseado.
 2. Modificá los campos necesarios.
 3. Hacé clic en **"Guardar"**.
 
@@ -128,7 +128,7 @@ Además se muestra:
 
 ### 5.3 Editar propietario
 
-1. Hacé clic en el ícono de **edición** (✏️).
+1. Hacé clic en el ícono de **edición**.
 2. Se pueden modificar todos los campos excepto el DNI.
 3. Hacé clic en **"Guardar"**.
 

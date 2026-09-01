@@ -86,7 +86,8 @@ Backend/
 | **MetodoPago** | `int` | `MetodosPago` | Efectivo, Tarjeta, Transferencia |
 | **Factura** | `string` (GUID) | `Facturas` | Factura fiscal A/B/C asociada a venta |
 | **Usuario** | `string` (GUID) | `Usuarios` | Cuenta del sistema (con hash SHA512) |
-| **Rol** | `int` | `Roles` | Admin, Veterinario, Recepcionista |
+| **Rol** | `int` | `Roles` | Admin, Gerente, Veterinario, Recepcionista |
+| **Sucursal** | `int` | `Sucursales` | Filial o sucursal física de la veterinaria |
 | **ConfiguracionSistema** | `int` | `Configuraciones` | Pares clave/valor del sistema |
 
 ### 3.2 Relaciones clave (Foreign Keys)
@@ -114,6 +115,11 @@ Propietario 1──N Venta (PropietarioId, nullable)
 MetodoPago  1──N Venta (MetodoPagoId)
 Venta       1──1 Factura (VentaId)
 Rol         1──N Usuario (RolId)
+Sucursal    1──N Venta (SucursalId)
+Sucursal    1──N Veterinario (SucursalId)
+Sucursal    1──N Usuario (SucursalId, nullable)
+Sucursal    1──N Turno (SucursalId)
+Sucursal    1──N Deposito (SucursalId)
 ```
 
 ### 3.3 Enums
@@ -263,7 +269,16 @@ Todos los endpoints usan prefijo `api/v1/`. La respuesta JSON sigue el patrón:
 | PUT | `/api/v1/Veterinario` | Actualizar |
 | DELETE | `/api/v1/Veterinario/{id}` | Soft-delete |
 
-### 4.11 Catálogos Clínicos
+### 4.11 Sucursales (`SucursalController`)
+| Método | Endpoint | Descripción |
+|---|---|---|
+| GET | `/api/v1/Sucursal` | Obtener todas las sucursales (?soloActivos) |
+| GET | `/api/v1/Sucursal/{id}` | Obtener sucursal por ID |
+| POST | `/api/v1/Sucursal` | Crear nueva sucursal (Admin) |
+| PUT | `/api/v1/Sucursal` | Actualizar sucursal (Admin) |
+| DELETE | `/api/v1/Sucursal/{id}` | Desactivar sucursal (Admin) |
+
+### 4.12 Catálogos Clínicos
 **Especies**: `GET/POST/PUT/DELETE /api/v1/Especie`
 - `GET /api/v1/Especie` incluye count de pacientes por especie
 - Las razas se filtran por especie: `GET /api/v1/Raza?especieId=X`
@@ -271,7 +286,7 @@ Todos los endpoints usan prefijo `api/v1/`. La respuesta JSON sigue el patrón:
 **Razas**: `GET/POST/PUT/DELETE /api/v1/Raza`
 **Servicios**: `GET/POST/PUT/DELETE /api/v1/Servicio`
 
-### 4.12 Dashboard y Reportes
+### 4.13 Dashboard y Reportes
 **Dashboard** (`EstadisticasController`):
 - `GET /api/v1/Estadisticas/kpis` — KPIs principales (ingresos, turnos, pacientes, stock)
 - `GET /api/v1/Estadisticas/alertas` — Alertas de stock bajo
@@ -281,7 +296,8 @@ Todos los endpoints usan prefijo `api/v1/`. La respuesta JSON sigue el patrón:
 - `GET /api/v1/Reporte/ventas` — Resumen comercial (30 días)
 - `GET /api/v1/Reporte/stock` — Valorización de inventario
 - `GET /api/v1/Reporte/turnos` — Rendimiento operativo
-- `GET /api/v1/Reporte/clinica` — Censo poblacional
+- `GET /api/v1/Reporte/clinico` — Censo poblacional
+- `GET /api/v1/Reporte/tratamientos` — Historial de tratamientos (filtros por paciente, dueño y veterinario)
 
 **Exportación CSV** (`ExportController`):
 - `GET /api/v1/Export/ventas` — CSV de ventas
@@ -292,7 +308,7 @@ Todos los endpoints usan prefijo `api/v1/`. La respuesta JSON sigue el patrón:
 - `GET /api/v1/Export/propietarios` — Padrón de dueños
 - `GET /api/v1/Export/historial/{pacienteId}` — Historial individual
 
-### 4.13 Otros Controllers
+### 4.14 Otros Controllers
 | Controller | Función |
 |---|---|
 | `SeedController` | `POST /api/v1/Seed/all` — Carga datos de prueba completos |
@@ -476,14 +492,14 @@ Definido en `wwwroot/app.css`. Paleta según documentación página 209:
 6. **Sincronización**: `MainLayout.OnAfterRenderAsync(firstRender)` lee `localStorage` y sincroniza a `TokenStorageService` (porque el handler no puede usar JS Interop).
 7. **Logout**: Limpia `localStorage`, limpia `TokenStorageService`, navega a `/login`.
 
-**Roles**: `Admin`, `Veterinario`, `Recepcionista`. Solo `Admin` ve el menú "Administrar Usuarios".
+**Roles**: `Admin`, `Gerente`, `Veterinario`, `Recepcionista`. Solo `Admin` ve el menú completo "Administrar Usuarios" (con permisos de creación/edición/desactivación). El rol `Gerente` tiene acceso de solo lectura al listado de usuarios y al log de auditoría (logs de operaciones).
 
 ---
 
 ## 8. Gotchas y Problemas Conocidos
 
 ### 8.1 Tipos de ID inconsistentes
-- Entidades con `int` Id: Especie, Raza, Servicio, Categoria, Marca, Deposito, MetodoPago, Rol, Vacuna, ConfiguracionSistema.
+- Entidades con `int` Id: Especie, Raza, Servicio, Categoria, Marca, Deposito, MetodoPago, Rol, Vacuna, Sucursal, ConfiguracionSistema.
 - Entidades con `string` (GUID) Id: Paciente, Propietario, Veterinario, Turno, Venta, DetalleVenta, Producto, Proveedor, MovimientoStock, Factura, HistorialClinico, Tratamiento, RegistroVacunacion, Usuario.
 - **Cuidado**: Los DTOs del frontend deben matchear exactamente. Si el backend devuelve un `int` y el DTO del frontend dice `string`, el deserializador JSON falla con error tipo `"The JSON value could not be converted to System.String"`.
 

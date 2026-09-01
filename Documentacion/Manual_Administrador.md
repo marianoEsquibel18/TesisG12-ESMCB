@@ -26,7 +26,7 @@ Bienvenido/a al sistema de gestión de **Veterinaria Ñandubay**. Como **Adminis
 | **Veterinarios** | Gestión de profesionales veterinarios |
 | **Administrar Usuarios** | Crear, editar y gestionar usuarios del sistema |
 
-> **Nota:** El administrador es el único rol que tiene acceso al módulo de *Administrar Usuarios*.
+> **Nota:** El Administrador es el único rol con capacidad de crear, editar y gestionar los permisos de los usuarios del sistema. El Gerente puede ver el listado de usuarios y el log de auditoría de acciones.
 
 ---
 
@@ -34,7 +34,7 @@ Bienvenido/a al sistema de gestión de **Veterinaria Ñandubay**. Como **Adminis
 
 ### 2.1 Iniciar Sesión
 
-1. Abrí el navegador web (**Google Chrome** o **Microsoft Edge**).
+1. Abrí el navegador web (Google Chrome o Microsoft Edge).
 2. Ingresá la dirección del sistema.
 3. Completá tu **usuario** y **contraseña**.
 4. Hacé clic en **"Ingresar"**.
@@ -73,7 +73,7 @@ Gestión completa de pacientes:
 4. Hacé clic en **"Guardar"**.
 
 ### 4.3 Editar / Ver detalle
-- Usá los íconos de edición (✏️) para modificar datos.
+- Usá los íconos de edición para modificar datos.
 - Hacé clic en el nombre para ver el detalle completo.
 
 ---
@@ -210,9 +210,9 @@ Gestión completa del inventario:
 
 ---
 
-## 13. Administrar Usuarios ⚙️
+## 13. Administrar Usuarios
 
-> **Exclusivo del Administrador.** Este módulo no es visible para otros roles.
+> **Exclusivo del Administrador.** Este módulo no es visible para otros roles operativos de forma completa.
 
 ### 13.1 Acceder
 - En el menú lateral (sección inferior, separada visualmente), hacé clic en **"Administrar Usuarios"**.
@@ -221,7 +221,7 @@ Gestión completa del inventario:
 - Se muestra una tabla con todos los usuarios del sistema:
   - **Nombre de usuario**
   - **Nombre completo**
-  - **Rol** (Admin, Veterinario, Recepcionista)
+  - **Rol** (Admin, Gerente, Veterinario, Recepcionista)
   - **Estado** (Activo/Inactivo)
   - **Último login**
 
@@ -233,13 +233,14 @@ Gestión completa del inventario:
    - **Contraseña** (obligatorio, mínimo 6 caracteres)
    - **Rol** (obligatorio): Seleccioná entre:
      - **Admin:** Acceso total.
+     - **Gerente:** Acceso a reportes, personal e inventario (sin operaciones clínicas ni POS).
      - **Veterinario:** Acceso clínico + reportes.
      - **Recepcionista:** Acceso operativo (sin clínica ni reportes).
    - **Activo:** Indica si el usuario puede iniciar sesión.
 3. Hacé clic en **"Guardar"**.
 
 ### 13.4 Editar usuario
-1. Hacé clic en el ícono de edición (✏️) del usuario.
+1. Hacé clic en el ícono de edición del usuario.
 2. Podés modificar: nombre completo, rol, estado activo.
 3. Para cambiar la contraseña, completá el campo de nueva contraseña.
 4. Hacé clic en **"Guardar"**.
@@ -252,19 +253,19 @@ Gestión completa del inventario:
 
 ### 13.6 Roles y Permisos
 
-| Funcionalidad | Admin | Veterinario | Recepcionista |
-|---------------|:-----:|:-----------:|:-------------:|
-| Dashboard | ✅ | ✅ | ✅ |
-| Mascotas (Pacientes) | ✅ | ✅ | ✅ |
-| Dueños (Clientes) | ✅ | ✅ | ✅ |
-| Agenda | ✅ | ✅ | ✅ |
-| Historial Clínico | ✅ | ✅ | ❌ |
-| Vacunas | ✅ | ✅ | ❌ |
-| Inventario | ✅ | ✅ | ✅ |
-| Ventas (POS) | ✅ | ✅ | ✅ |
-| Reportes | ✅ | ✅ | ❌ |
-| Veterinarios | ✅ | ✅ | ✅ |
-| Administrar Usuarios | ✅ | ❌ | ❌ |
+| Funcionalidad | Admin | Gerente | Veterinario | Recepcionista |
+|---------------|:-----:|:-------:|:-----------:|:-------------:|
+| Dashboard | Sí | Sí | Sí | Sí |
+| Mascotas (Pacientes) | Sí | Solo lectura | Sí | Sí |
+| Dueños (Clientes) | Sí | Solo lectura | Sí | Sí |
+| Agenda | Sí | Solo lectura (supervisión) | Sí | Sí |
+| Historial Clínico | Sí | No | Sí | No |
+| Vacunas | Sí | No | Sí | No |
+| Inventario | Sí | Sí | Sí | Sí |
+| Ventas (POS) | Sí | Solo lectura (reportes) | Sí | Sí |
+| Reportes | Sí | Sí | Sí | No |
+| Veterinarios | Sí | Sí | Sí | Sí |
+| Administrar Usuarios | Sí | Solo lectura (logs) | No | No |
 
 ---
 
@@ -304,7 +305,7 @@ Sí. Las eliminaciones son "soft delete" (desactivaciones). Los registros perman
 Consultá con el equipo de IT. La versión se puede verificar en la documentación técnica.
 
 **¿Puedo exportar reportes?**  
-Actualmente los reportes se visualizan en pantalla. Para exportar, usá la función de impresión del navegador (Ctrl+P).
+Actualmente los reportes se visualizan en pantalla. Para exportar, usá la función de impresión del navegador (Ctrl+P) o la exportación a CSV disponible para los roles autorizados.
 
 ---
 
@@ -318,5 +319,5 @@ Actualmente los reportes se visualizan en pantalla. Para exportar, usá la funci
 | **POS** | Punto de Venta (Point of Sale) |
 | **Soft Delete** | Desactivación lógica de un registro sin eliminación física |
 | **Stock mínimo** | Umbral de alerta para reposición de inventario |
-| **Rol** | Nivel de acceso del usuario (Admin, Veterinario, Recepcionista) |
+| **Rol** | Nivel de acceso del usuario (Admin, Gerente, Veterinario, Recepcionista) |
 | **JWT** | Token de autenticación que valida la sesión del usuario |

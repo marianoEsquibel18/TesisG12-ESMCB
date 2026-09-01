@@ -31,7 +31,7 @@ Bienvenido/a al sistema de gestión de **Veterinaria Ñandubay**. Como **Veterin
 
 ### 2.1 Iniciar Sesión
 
-1. Abrí el navegador web (**Google Chrome** o **Microsoft Edge**).
+1. Abrí el navegador web (Google Chrome o Microsoft Edge).
 2. Ingresá la dirección del sistema.
 3. Completá tu **usuario** y **contraseña**.
 4. Hacé clic en **"Ingresar"**.
@@ -62,7 +62,7 @@ El dashboard muestra un resumen rápido del estado de la clínica:
 
 ## 4. Mascotas (Pacientes)
 
-Funciona igual que para el recepcionista (ver sección equivalente). Podés:
+Funciona igual que para el recepcionista. Podés:
 
 - Ver el listado y filtrar pacientes.
 - Registrar nuevos pacientes.
