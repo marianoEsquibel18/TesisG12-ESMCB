@@ -151,6 +151,15 @@ namespace Domain.Tests
             t.Finalizar();
             Assert.True(t.Finalizado);
         }
+
+        [Fact]
+        public void Actualizar_Tratamiento_ActualizaVeterinario()
+        {
+            var t = new Tratamiento("pac1", DateTime.Today, "Infección", "Antibiótico", "Dr. Test");
+            t.Actualizar("Infección tratada", "Continuar reposo", "Amoxicilina", "Sin complicaciones", veterinario: "Dr. Nuevo");
+            Assert.Equal("Dr. Nuevo", t.Veterinario);
+            Assert.Equal("Infección tratada", t.Diagnostico);
+        }
     }
 
     public class VentaTests

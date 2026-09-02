@@ -105,11 +105,11 @@
                 
                 if (response.Usuario != null && response.Usuario.RolNombre == "Recepcionista")
                 {
-                    Navigation.NavigateTo("/agenda", forceLoad: true);
+                    Navigation.NavigateTo("/accesos-rapidos");
                 }
                 else
                 {
-                    Navigation.NavigateTo("/dashboard", forceLoad: true);
+                    Navigation.NavigateTo("/dashboard");
                 }
             }
             else

@@ -31,7 +31,12 @@ namespace BlazorFrontEnd.Services
 
         public async Task<bool> CreateAsync(ProductoDto p)
         {
-            // The mapping must match the backend's CreateProductoRequest
+            var res = await CreateWithResultAsync(p);
+            return res.Success;
+        }
+
+        public async Task<(bool Success, string? ErrorMessage)> CreateWithResultAsync(ProductoDto p)
+        {
             var req = new {
                 p.Nombre, p.Descripcion, p.CodigoBarras, p.CategoriaId,
                 p.MarcaId, ProveedorId = string.IsNullOrEmpty(p.ProveedorId) ? null : p.ProveedorId,
@@ -39,16 +44,24 @@ namespace BlazorFrontEnd.Services
             };
 
             var response = await _httpClient.PostAsJsonAsync(BaseUrl, req);
-            return response.IsSuccessStatusCode;
+            if (response.IsSuccessStatusCode) return (true, null);
+            var err = await response.Content.ReadAsStringAsync();
+            return (false, err);
         }
 
         public async Task<bool> UpdateAsync(string id, ProductoDto p)
         {
-            // The mapping must match UpdateProductoRequest
+            var res = await UpdateWithResultAsync(id, p);
+            return res.Success;
+        }
+
+        public async Task<(bool Success, string? ErrorMessage)> UpdateWithResultAsync(string id, ProductoDto p)
+        {
             var req = new {
                 Id = id,
                 p.Nombre,
                 p.Descripcion,
+                p.CodigoBarras,
                 p.CategoriaId,
                 p.MarcaId,
                 ProveedorId = string.IsNullOrEmpty(p.ProveedorId) ? null : p.ProveedorId,
@@ -59,7 +72,9 @@ namespace BlazorFrontEnd.Services
             };
 
             var response = await _httpClient.PutAsJsonAsync(BaseUrl, req);
-            return response.IsSuccessStatusCode;
+            if (response.IsSuccessStatusCode) return (true, null);
+            var err = await response.Content.ReadAsStringAsync();
+            return (false, err);
         }
 
         public async Task<bool> DeleteAsync(string id)

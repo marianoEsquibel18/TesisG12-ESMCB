@@ -17,5 +17,6 @@ namespace Application.DataTransferObjects
         public string Observaciones { get; set; }
         public DateTime FechaRegistro { get; set; }
         public bool Activo { get; set; }
+        public int ContadorInasistencias { get; set; }
     }
 }

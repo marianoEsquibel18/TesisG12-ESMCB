@@ -19,12 +19,16 @@
             <p class="text-secondary" style="margin: 0;">Inventario general con control de stock</p>
         </div>
     </div>
-    <button class="btn-primary-glass" @onclick="OpenProductModalForCreate" style="display: flex; align-items: center; gap: 8px;">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px;">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-        Nuevo Producto
-    </button>
+    <AuthorizeView Roles="Admin,Gerente,Recepcionista">
+        <Authorized>
+            <button class="btn-primary-glass" @onclick="OpenProductModalForCreate" style="display: flex; align-items: center; gap: 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px;">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Nuevo Producto
+            </button>
+        </Authorized>
+    </AuthorizeView>
 </div>
 
 <div class="glass-card">
@@ -174,9 +178,16 @@
                                 else { <span style="color: var(--accent-danger);">Inactivo</span> }
                             </td>
                             <td class="text-end" style="white-space: nowrap;">
-                                <button class="btn btn-sm btn-outline-info" style="border-color: var(--border-glass); color: var(--text-primary);" @onclick="() => OpenProductModalForEdit(p.Id)">Editar</button>
-                                <button class="btn btn-sm btn-outline-success" style="margin-left: 4px;" @onclick="() => ShowStockModal(p)">Stock</button>
-                                <button class="btn btn-sm btn-outline-danger" style="margin-left: 4px;" @onclick="() => ConfirmDelete(p.Id)">Eliminar</button>
+                                <AuthorizeView Roles="Admin,Gerente,Recepcionista">
+                                    <Authorized>
+                                        <button class="btn btn-sm btn-outline-info" style="border-color: var(--border-glass); color: var(--text-primary);" @onclick="() => OpenProductModalForEdit(p.Id)">Editar</button>
+                                        <button class="btn btn-sm btn-outline-success" style="margin-left: 4px;" @onclick="() => ShowStockModal(p)">Stock</button>
+                                        <button class="btn btn-sm btn-outline-danger" style="margin-left: 4px;" @onclick="() => ConfirmDelete(p.Id)">Eliminar</button>
+                                    </Authorized>
+                                    <NotAuthorized>
+                                        <span class="badge bg-secondary">Solo Lectura</span>
+                                    </NotAuthorized>
+                                </AuthorizeView>
                             </td>
                         </tr>
                     }
@@ -185,10 +196,10 @@
         </div>
 
         <div class="d-flex justify-content-between align-items-center mt-3">
-            <span class="text-secondary">Pagina @productosResponse.PageIndex de @productosResponse.TotalPages (@productosResponse.TotalCount registros)</span>
+            <span class="text-secondary">Pagina @(productosResponse?.PageIndex ?? 1) de @(productosResponse?.TotalPages ?? 1) (@(productosResponse?.TotalCount ?? 0) registros)</span>
             <div>
-                <button class="btn btn-sm btn-outline-secondary" disabled="@(!productosResponse.HasPreviousPage)" @onclick="PreviousPage">Anterior</button>
-                <button class="btn btn-sm btn-outline-secondary" disabled="@(!productosResponse.HasNextPage)" @onclick="NextPage">Siguiente</button>
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(productosResponse == null || !productosResponse.HasPreviousPage)" @onclick="PreviousPage">Anterior</button>
+                <button class="btn btn-sm btn-outline-secondary" disabled="@(productosResponse == null || !productosResponse.HasNextPage)" @onclick="NextPage">Siguiente</button>
             </div>
         </div>
     }
@@ -295,7 +306,7 @@
                     </div>
                     <div class="col-md-4 mb-3">
                         <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Código de Barras (*)</label>
-                        <InputText @bind-Value="productModel.CodigoBarras" class="form-control bg-dark text-light border-secondary" placeholder="Ej: 7790001234" disabled="@(!string.IsNullOrEmpty(productModel.Id))" />
+                        <InputText @bind-Value="productModel.CodigoBarras" class="form-control bg-dark text-light border-secondary" placeholder="Ej: 7790001234" />
                         <ValidationMessage For="@(() => productModel.CodigoBarras)" class="text-danger" />
                     </div>
                 </div>
@@ -437,6 +448,33 @@
             <div class="d-flex justify-content-end" style="gap: 10px;">
                 <button type="button" class="btn btn-outline-secondary text-light" @onclick="CancelProductSimilarity">Cancelar</button>
                 <button type="button" class="btn btn-primary" style="background: var(--accent-primary); border: none;" @onclick="BypassProductSimilarity">Continuar y guardar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Modal de Confirmación de Eliminación ── *@
+@if (showDeleteModal)
+{
+    <div class="modal-overlay modal-overlay-z1" @onclick="CloseDeleteModal" @onclick:stopPropagation="false">
+        <div class="modal-panel modal-panel-sm" @onclick:stopPropagation="true">
+            <div class="modal-header-row">
+                <h3>Confirmar Eliminación</h3>
+                <button class="modal-close-btn" @onclick="CloseDeleteModal" title="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p>¿Está seguro de que desea eliminar el producto <strong>@productoToDelete?.Nombre</strong>?</p>
+                <small class="text-secondary">Esta acción dará de baja el producto en el catálogo de inventario.</small>
+            </div>
+
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CloseDeleteModal">Cancelar</button>
+                <button type="button" class="btn btn-danger" style="background: var(--accent-danger); border: none;" @onclick="ExecuteDelete">Eliminar</button>
             </div>
         </div>
     </div>
@@ -619,11 +657,43 @@
         }
     }
 
-    private async Task ConfirmDelete(string id)
+    // Delete confirmation modal state
+    private bool showDeleteModal;
+    private ProductoDto? productoToDelete;
+
+    private void ConfirmDelete(string id)
     {
-        var result = await ProductoService.DeleteAsync(id);
-        if (result) await LoadDataAsync();
-        else errorMessage = "No se pudo eliminar el producto.";
+        productoToDelete = filteredItems?.FirstOrDefault(p => p.Id == id) ?? productosResponse?.Items?.FirstOrDefault(p => p.Id == id);
+        if (productoToDelete != null)
+        {
+            showDeleteModal = true;
+        }
+    }
+
+    private void CloseDeleteModal()
+    {
+        showDeleteModal = false;
+        productoToDelete = null;
+    }
+
+    private async Task ExecuteDelete()
+    {
+        if (productoToDelete != null)
+        {
+            var result = await ProductoService.DeleteAsync(productoToDelete.Id);
+            showDeleteModal = false;
+            productoToDelete = null;
+            if (result)
+            {
+                await LoadDataAsync();
+                var prodRes = await ProductoService.GetAllAsync(1, 1000);
+                if (prodRes?.Items != null) todosLosProductos = prodRes.Items;
+            }
+            else
+            {
+                errorMessage = "No se pudo eliminar el producto.";
+            }
+        }
     }
 
     // ── Stock Modal ──
@@ -692,12 +762,26 @@
     }
 
     // ── Product Modal Handlers ──
-    private void OpenProductModalForCreate()
+    private async Task OpenProductModalForCreate()
     {
         productModel = new ProductoDto { Activo = true };
         productErrorMessage = string.Empty;
         isSavingProduct = false;
         showProductModal = true;
+
+        try
+        {
+            var catTask = CatalogoService.GetCategoriasAsync(soloActivas: true);
+            var marTask = CatalogoService.GetMarcasAsync(soloActivas: true);
+            var depTask = CatalogoService.GetDepositosAsync(soloActivos: true);
+            var proTask = CatalogoService.GetProveedoresAsync(soloActivos: true);
+            await Task.WhenAll(catTask, marTask, depTask, proTask);
+            categorias = catTask.Result ?? new();
+            marcas = marTask.Result ?? new();
+            depositos = depTask.Result ?? new();
+            proveedores = proTask.Result ?? new();
+        }
+        catch { }
     }
 
     private async Task OpenProductModalForEdit(string id)
@@ -707,9 +791,29 @@
         showProductModal = true;
         try
         {
-            var p = await ProductoService.GetByIdAsync(id);
+            var pTask = ProductoService.GetByIdAsync(id);
+            var catTask = CatalogoService.GetCategoriasAsync(soloActivas: true);
+            var marTask = CatalogoService.GetMarcasAsync(soloActivas: true);
+            var depTask = CatalogoService.GetDepositosAsync(soloActivos: true);
+            var proTask = CatalogoService.GetProveedoresAsync(soloActivos: true);
+            await Task.WhenAll(pTask, catTask, marTask, depTask, proTask);
+
+            categorias = catTask.Result ?? new();
+            marcas = marTask.Result ?? new();
+            depositos = depTask.Result ?? new();
+            proveedores = proTask.Result ?? new();
+
+            var p = pTask.Result;
             if (p != null)
             {
+                if (p.CategoriaId > 0 && !categorias.Any(c => c.Id == p.CategoriaId))
+                {
+                    categorias.Add(new CategoriaDto { Id = p.CategoriaId, Nombre = !string.IsNullOrEmpty(p.CategoriaNombre) ? p.CategoriaNombre : $"Categoría #{p.CategoriaId} (Inactiva)", Activo = false });
+                }
+                if (p.MarcaId.HasValue && p.MarcaId.Value > 0 && !marcas.Any(m => m.Id == p.MarcaId.Value))
+                {
+                    marcas.Add(new MarcaDto { Id = p.MarcaId.Value, Nombre = !string.IsNullOrEmpty(p.MarcaNombre) ? p.MarcaNombre : $"Marca #{p.MarcaId.Value} (Inactiva)", Activo = false });
+                }
                 productModel = p;
             }
             else
@@ -745,6 +849,11 @@
             productErrorMessage = "Debe asignar una categoría.";
             return;
         }
+        if (productModel.PrecioVenta < productModel.PrecioCompra)
+        {
+            productErrorMessage = "El precio de venta no puede ser menor al precio de compra.";
+            return;
+        }
 
         isSavingProduct = true;
         productErrorMessage = string.Empty;
@@ -768,17 +877,17 @@
             bypassProductSimilarity = false;
             showSimilarProductsConfirm = false;
 
-            bool success;
+            (bool Success, string? ErrorMessage) result;
             if (string.IsNullOrEmpty(productModel.Id))
             {
-                success = await ProductoService.CreateAsync(productModel);
+                result = await ProductoService.CreateWithResultAsync(productModel);
             }
             else
             {
-                success = await ProductoService.UpdateAsync(productModel.Id, productModel);
+                result = await ProductoService.UpdateWithResultAsync(productModel.Id, productModel);
             }
 
-            if (success)
+            if (result.Success)
             {
                 showProductModal = false;
                 await LoadDataAsync();
@@ -790,7 +899,9 @@
             }
             else
             {
-                productErrorMessage = "Error al guardar el producto. Revise que todos los campos requeridos estén correctos o que el código de barras no esté duplicado.";
+                productErrorMessage = !string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? result.ErrorMessage.Trim('\"', '[', ']')
+                    : "Error al guardar el producto. Revise que los campos sean correctos.";
             }
         }
         catch (Exception ex)

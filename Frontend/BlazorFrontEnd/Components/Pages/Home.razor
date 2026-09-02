@@ -35,50 +35,55 @@ else if (userProfile == null)
         Error al obtener los datos de usuario. Verifique que la API del Backend esté corriendo.
     </div>
 }
-else if (userProfile.RolNombre == "Veterinario")
+else if (IsVeterinario)
 {
     <!-- Banner y Título -->
     <div class="d-flex justify-content-between align-items-center" style="margin-bottom: var(--sp-lg);">
         <div>
-            <h2 style="font-weight: 700; margin: 0; color: var(--text-primary);">🩺 Panel Profesional</h2>
+            <h2 style="font-weight: 700; margin: 0; color: var(--text-primary);">Panel Profesional</h2>
             <p class="text-secondary" style="margin: 0;">Bienvenido, Dr/a. @userProfile.NombreCompleto (Hoy: @DateTime.Today.ToString("dd MMMM yyyy"))</p>
         </div>
     </div>
 
-    <!-- KPIs Rápidos -->
+    <!-- KPIs Principales Veterinario -->
     <div class="row mb-4">
-        <div class="col-md-6">
+        <!-- Turnos de Hoy -->
+        <div class="col-md-6 mb-3 mb-md-0">
             <div class="glass-card text-center" style="padding: var(--sp-md);">
                 <p class="text-secondary small text-uppercase fw-bold m-0 mb-1">Mis Turnos de Hoy</p>
                 <h3 style="color: var(--accent-primary); font-weight: 800; margin: 0;">@(misTurnosHoy?.Count ?? 0)</h3>
-                <small class="text-secondary">Turnos programados asignados a tu agenda</small>
+                <small class="text-secondary">Turnos asignados a tu agenda para hoy</small>
             </div>
         </div>
+        <!-- Pacientes Activos -->
         <div class="col-md-6">
             <div class="glass-card text-center" style="padding: var(--sp-md);">
-                <p class="text-secondary small text-uppercase fw-bold m-0 mb-1">Vacunas Próximas</p>
-                <h3 style="color: var(--text-primary); font-weight: 800; margin: 0;">@(vacunasProximas?.Count ?? 0)</h3>
-                <small class="text-secondary">Alertas de dosis en los próximos 30 días</small>
+                <p class="text-secondary small text-uppercase fw-bold m-0 mb-1">Pacientes Activos</p>
+                <h3 style="color: var(--text-primary); font-weight: 800; margin: 0;">@(kpis?.TotalPacientes ?? 0)</h3>
+                <small class="text-secondary">Padrón activo en @(kpis?.TotalPropietarios ?? 0) familias</small>
             </div>
         </div>
     </div>
 
-    <div class="row">
-        <!-- Turnos de Hoy -->
-        <div class="col-md-7 mb-4">
-            <div class="glass-card" style="height: 100%; min-height: 400px; display: flex; flex-direction: column;">
-                <h5 class="mb-3" style="color: var(--text-primary); font-weight: 700;">📅 Mis Turnos de Hoy</h5>
+    <div class="row mb-4">
+        <!-- Turnos de Hoy (Tabla) -->
+        <div class="col-md-7 mb-4 mb-md-0">
+            <div class="glass-card" style="height: 100%; min-height: 380px; display: flex; flex-direction: column;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="m-0" style="color: var(--text-primary); font-weight: 700;">Mis Turnos de Hoy</h5>
+                    <span class="badge bg-primary rounded-pill">@(misTurnosHoy?.Count ?? 0)</span>
+                </div>
                 
                 @if (misTurnosHoy == null || !misTurnosHoy.Any())
                 {
                     <div class="text-center text-secondary my-auto p-4">
-                        <p style="font-size: 1.2rem; margin: 0;">🎉 ¡Día despejado!</p>
-                        <small>No tienes turnos agendados para hoy.</small>
+                        <p style="font-size: 1.1rem; margin: 0;">Sin turnos agendados</p>
+                        <small>No tienes turnos programados para hoy.</small>
                     </div>
                 }
                 else
                 {
-                    <div style="flex-grow: 1; overflow-y: auto; max-height: 450px;">
+                    <div style="flex-grow: 1; overflow-y: auto; max-height: 380px;">
                         <div class="table-responsive">
                             <table class="table table-dark table-hover table-borderless align-middle m-0" style="--bs-table-bg: transparent; --bs-table-hover-bg: rgba(255,255,255,0.03);">
                                 <thead>
@@ -93,8 +98,10 @@ else if (userProfile.RolNombre == "Veterinario")
                                 <tbody>
                                     @foreach (var turno in misTurnosHoy.OrderBy(t => t.FechaHora))
                                     {
-                                        var badgeColor = turno.Estado == "Completado" ? "bg-success" :
-                                                         turno.Estado == "Cancelado" ? "bg-danger" : "bg-warning text-dark";
+                                        var badgeColor = turno.Estado == "Completado" ? "bg-success text-white" :
+                                                         turno.Estado == "Ausente" ? "bg-danger text-white" :
+                                                         turno.Estado == "Cancelado" ? "bg-purple text-white" :
+                                                         turno.Estado == "Programado" ? "bg-primary text-white" : "bg-warning text-dark";
                                         
                                         <tr class="border-bottom" style="border-color: var(--border-light) !important; cursor: pointer;" @onclick='() => Navigation.NavigateTo($"/agenda?turnoId={turno.Id}")'>
                                             <td class="fw-bold" style="color: var(--accent-primary); font-size: 0.9rem;">@turno.FechaHora.ToString("HH:mm") hs</td>
@@ -122,46 +129,158 @@ else if (userProfile.RolNombre == "Veterinario")
             </div>
         </div>
 
-        <!-- Vacunas Próximas -->
-        <div class="col-md-5 mb-4">
-            <div class="glass-card" style="height: 100%; min-height: 400px; display: flex; flex-direction: column;">
-                <h5 class="mb-3" style="color: var(--text-primary); font-weight: 700;">💉 Pacientes con Vacunas Próximas</h5>
+        <!-- Centro de Resoluciones (Alertas) -->
+        <div class="col-md-5">
+            <div class="glass-card" style="height: 100%; min-height: 380px; display: flex; flex-direction: column;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="m-0" style="color: var(--text-primary); font-weight: 700;">Centro de Resoluciones</h5>
+                    <span class="badge @(monitor != null && monitor.TotalAlertas > 0 ? "bg-danger" : "bg-success") rounded-pill">@(monitor?.TotalAlertas ?? 0)</span>
+                </div>
+                
+                <div style="flex-grow: 1; overflow-y: auto; max-height: 380px;">
+                    @if (monitor == null || !monitor.Alertas.Any())
+                    {
+                        <div class="text-center text-secondary my-auto p-4">
+                            <p style="font-size: 1.1rem; margin: 0;">Todo bajo control</p>
+                            <small>No hay alertas críticas en el sistema.</small>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="list-group list-group-flush" style="background: transparent;">
+                            @foreach (var alerta in monitor.Alertas)
+                            {
+                                var colorClass = alerta.Nivel == "CRITICA" ? "text-danger" :
+                                                alerta.Nivel == "IMPORTANTE" ? "text-warning" : "text-info";
+                                
+                                <div class="list-group-item bg-transparent border-bottom px-1 py-2 alert-clickable" 
+                                     style="color: var(--text-primary); border-color: var(--border-light) !important; cursor: pointer;"
+                                     @onclick="() => OnAlertaClick(alerta)">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1 @colorClass" style="font-size: 0.9rem; font-weight: 700;">
+                                            @alerta.Titulo
+                                        </h6>
+                                        <small class="text-secondary" style="font-size: 0.7rem;">@alerta.Nivel</small>
+                                    </div>
+                                    <p class="mb-1 text-secondary" style="font-size: 0.8rem;">@alerta.Detalle</p>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
 
-                @if (vacunasProximas == null || !vacunasProximas.Any())
+    <!-- Fila: Gráfico de Atención de Pacientes por Especie (Veterinario) -->
+    <div class="row">
+        <div class="col-12">
+            <div class="glass-card" style="padding: var(--sp-md);">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom gap-3" style="border-color: var(--border-light) !important;">
+                    <div>
+                        <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Atención de Pacientes por Especie</h5>
+                        <small class="text-secondary">Cantidad de pacientes que asistieron a la veterinaria según su especie en el período seleccionado</small>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <div class="d-flex align-items-center gap-1">
+                            <label class="form-label text-secondary small m-0 fw-semibold">Desde:</label>
+                            <input type="date" class="form-control form-control-sm bg-dark text-light border-secondary" style="max-width: 140px; font-size: 0.82rem;" @bind="fechaDesdeEspecie" />
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <label class="form-label text-secondary small m-0 fw-semibold">Hasta:</label>
+                            <input type="date" class="form-control form-control-sm bg-dark text-light border-secondary" style="max-width: 140px; font-size: 0.82rem;" @bind="fechaHastaEspecie" />
+                        </div>
+                        <button class="btn btn-sm btn-primary d-flex align-items-center gap-1" style="background-color: var(--accent-primary); border-color: var(--accent-primary); color: #ffffff; font-weight: 600; padding: 4px 12px; border-radius: 6px;" @onclick="FiltrarPacientesPorEspecie" disabled="@isLoadingEspecies">
+                            @if (isLoadingEspecies)
+                            {
+                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                                <span>Cargando...</span>
+                            }
+                            else
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 14px; height: 14px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                                </svg>
+                                <span>Filtrar</span>
+                            }
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" style="font-size: 0.82rem; padding: 4px 10px; border-radius: 6px;" @onclick="ResetFiltroEspecies" title="Ver todo el historial">
+                            Todos
+                        </button>
+                    </div>
+                </div>
+
+                @if (isLoadingEspecies)
                 {
-                    <div class="text-center text-secondary my-auto p-4">
-                        <p style="font-size: 1.1rem; margin: 0;">✅ Todo al día</p>
-                        <small>No hay vacunas programadas para los próximos 30 días.</small>
+                    <div class="text-center py-4 text-secondary">
+                        <div class="spinner-border spinner-border-sm text-info mb-2"></div>
+                        <p class="small m-0">Actualizando gráfico por especie...</p>
+                    </div>
+                }
+                else if (pacientesPorEspecieData == null || !pacientesPorEspecieData.Distribucion.Any())
+                {
+                    <div class="text-center py-4 text-secondary">
+                        <p class="mb-1" style="font-size: 0.95rem;">No se registraron turnos ni visitas en el rango de fechas seleccionado.</p>
+                        <small>Pruebe seleccionando un rango de fechas más amplio o haga clic en "Todos".</small>
                     </div>
                 }
                 else
                 {
-                    <div style="flex-grow: 1; overflow-y: auto; max-height: 450px;">
-                        <div class="list-group list-group-flush" style="background: transparent;">
-                            @foreach (var vac in vacunasProximas.OrderBy(v => v.DiasRestantes))
-                            {
-                                var badgeClass = vac.DiasRestantes <= 0 ? "bg-danger" : "bg-info";
-                                var textBadge = vac.DiasRestantes <= 0 ? "Vencida" : $"En {vac.DiasRestantes} días";
+                    <div class="mb-3 d-flex align-items-center justify-content-between">
+                        <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.85rem;">
+                            Total de visitas en el período: <strong style="color: var(--accent-primary);">@pacientesPorEspecieData.Total</strong>
+                        </span>
+                        <span class="text-secondary small">
+                            @pacientesPorEspecieData.Distribucion.Count @(pacientesPorEspecieData.Distribucion.Count == 1 ? "especie atendida" : "especies atendidas")
+                        </span>
+                    </div>
 
-                                <div class="list-group-item bg-transparent border-bottom px-1 py-3 alert-clickable" 
-                                     style="color: var(--text-primary); border-color: var(--border-light) !important; cursor: pointer;"
-                                     @onclick='() => Navigation.NavigateTo($"/historial-clinico/paciente/{vac.PacienteId}?tab=vacunas")'>
-                                    <div class="d-flex w-100 justify-content-between align-items-center mb-1">
-                                        <h6 class="mb-0" style="font-size: 0.95rem; font-weight: 700; color: #333333;">
-                                            🐾 @vac.Paciente
-                                        </h6>
-                                        <span class="badge @badgeClass" style="font-size: 0.7rem;">@textBadge</span>
-                                    </div>
-                                    <p class="mb-1 text-secondary" style="font-size: 0.8rem; font-weight: 500;">
-                                        Vacuna: <span style="color: var(--accent-primary);">@vac.Vacuna</span>
-                                    </p>
-                                    <div class="d-flex justify-content-between align-items-center" style="font-size: 0.75rem;">
-                                        <span class="text-secondary">Dueño: @vac.Propietario</span>
-                                        <span class="text-secondary">📞 @vac.Telefono</span>
+                    <!-- Gráfico de barras horizontal -->
+                    <div class="d-flex flex-column gap-3 p-3 border rounded" style="background: var(--bg-main); border-color: var(--border-color) !important;">
+                        @{
+                            var maxCant = pacientesPorEspecieData.Distribucion.Max(d => d.Cantidad);
+                            if (maxCant == 0) maxCant = 1;
+
+                            string[] barGradients = new[]
+                            {
+                                "linear-gradient(90deg, #00A36C 0%, #34d399 100%)", // Verde esmeralda
+                                "linear-gradient(90deg, #2563eb 0%, #60a5fa 100%)", // Azul vibrante
+                                "linear-gradient(90deg, #d97706 0%, #fbbf24 100%)", // Ámbar
+                                "linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%)", // Púrpura
+                                "linear-gradient(90deg, #db2777 0%, #f472b6 100%)", // Rosa
+                                "linear-gradient(90deg, #0891b2 0%, #22d3ee 100%)", // Cian
+                                "linear-gradient(90deg, #4b5563 0%, #9ca3af 100%)"  // Gris
+                            };
+                        }
+
+                        @for (int i = 0; i < pacientesPorEspecieData.Distribucion.Count; i++)
+                        {
+                            var item = pacientesPorEspecieData.Distribucion[i];
+                            var widthPercent = Math.Max(8, (item.Cantidad * 100.0) / maxCant);
+                            var gradient = barGradients[i % barGradients.Length];
+                            var pctOfTotal = pacientesPorEspecieData.Total > 0 ? (item.Cantidad * 100.0) / pacientesPorEspecieData.Total : 0;
+
+                            <div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold" style="color: var(--text-primary); font-size: 0.9rem;">
+                                        @item.Especie: @item.Cantidad
+                                    </span>
+                                    <small class="text-secondary fw-semibold">
+                                        @pctOfTotal.ToString("0.#")% de las visitas
+                                    </small>
+                                </div>
+                                <div class="progress" style="height: 28px; background-color: rgba(0,0,0,0.06); border-radius: 6px; overflow: hidden; border: 1px solid var(--border-light);">
+                                    <div class="progress-bar d-flex flex-row align-items-center justify-content-between px-3 text-white fw-bold" 
+                                         role="progressbar" 
+                                         style="width: @(widthPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%; background: @gradient; transition: width 0.6s ease; font-size: 0.85rem;" 
+                                         aria-valuenow="@item.Cantidad" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="@maxCant">
+                                        <span>@item.Especie: @item.Cantidad</span>
                                     </div>
                                 </div>
-                            }
-                        </div>
+                            </div>
+                        }
                     </div>
                 }
             </div>
@@ -170,11 +289,11 @@ else if (userProfile.RolNombre == "Veterinario")
 }
 else
 {
-    <!-- Admin & Gerente Dashboard (Original) -->
+    <!-- Admin & Gerente Dashboard -->
     <!-- Banner y Título -->
     <div class="d-flex justify-content-between align-items-center" style="margin-bottom: var(--sp-lg);">
         <div>
-            <h2 style="font-weight: 700; margin: 0; color: var(--text-primary);">📍 Centro de Comando</h2>
+            <h2 style="font-weight: 700; margin: 0; color: var(--text-primary);">Centro de Comando</h2>
             <p class="text-secondary" style="margin: 0;">Resumen General del Sistema (Hoy: @DateTime.Today.ToString("dd MMMM yyyy"))</p>
         </div>
     </div>
@@ -223,7 +342,7 @@ else
             </div>
         </div>
 
-        <div class="row">
+        <div class="row mb-4">
             <!-- Gráfico / Ingresos -->
             <div class="col-md-8">
                 <div class="glass-card" style="height: 100%;">
@@ -263,11 +382,11 @@ else
                         <span class="badge @(monitor.TotalAlertas > 0 ? "bg-danger" : "bg-success") rounded-pill">@monitor.TotalAlertas</span>
                     </div>
                     
-                    <div style="flex-grow: 1; overflow-y: auto; max-height: 350px;">
+                    <div style="flex-grow: 1; overflow-y: auto; max-height: 250px;">
                         @if(!monitor.Alertas.Any())
                         {
                             <div class="text-center text-secondary mt-4">
-                                <p>✅ Todo bajo control.</p>
+                                <p>Todo bajo control.</p>
                                 <small>No hay alertas críticas en el sistema.</small>
                             </div>
                         }
@@ -284,9 +403,6 @@ else
                                          @onclick="() => OnAlertaClick(alerta)">
                                         <div class="d-flex w-100 justify-content-between">
                                             <h6 class="mb-1 @colorClass" style="font-size: 0.9rem; font-weight: 700;">
-                                                @if(alerta.Tipo == "Stock") { <span>📦</span> }
-                                                else if(alerta.Tipo == "Turno") { <span>⏰</span> }
-                                                else if(alerta.Tipo == "Vacunación") { <span>💉</span> }
                                                 @alerta.Titulo
                                             </h6>
                                             <small class="text-secondary" style="font-size: 0.7rem;">@alerta.Nivel</small>
@@ -300,27 +416,170 @@ else
                 </div>
             </div>
         </div>
+
+        <!-- Fila: Gráfico de Atención de Pacientes por Especie (Admin y Gerente) -->
+        <div class="row">
+            <div class="col-12">
+                <div class="glass-card" style="padding: var(--sp-md);">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom gap-3" style="border-color: var(--border-light) !important;">
+                        <div>
+                            <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Atención de Pacientes por Especie</h5>
+                            <small class="text-secondary">Cantidad de pacientes que asistieron a la veterinaria según su especie en el período seleccionado</small>
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <div class="d-flex align-items-center gap-1">
+                                <label class="form-label text-secondary small m-0 fw-semibold">Desde:</label>
+                                <input type="date" class="form-control form-control-sm bg-dark text-light border-secondary" style="max-width: 140px; font-size: 0.82rem;" @bind="fechaDesdeEspecie" />
+                            </div>
+                            <div class="d-flex align-items-center gap-1">
+                                <label class="form-label text-secondary small m-0 fw-semibold">Hasta:</label>
+                                <input type="date" class="form-control form-control-sm bg-dark text-light border-secondary" style="max-width: 140px; font-size: 0.82rem;" @bind="fechaHastaEspecie" />
+                            </div>
+                            <button class="btn btn-sm btn-primary d-flex align-items-center gap-1" style="background-color: var(--accent-primary); border-color: var(--accent-primary); color: #ffffff; font-weight: 600; padding: 4px 12px; border-radius: 6px;" @onclick="FiltrarPacientesPorEspecie" disabled="@isLoadingEspecies">
+                                @if (isLoadingEspecies)
+                                {
+                                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                                    <span>Cargando...</span>
+                                }
+                                else
+                                {
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 14px; height: 14px;">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                                    </svg>
+                                    <span>Filtrar</span>
+                                }
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" style="font-size: 0.82rem; padding: 4px 10px; border-radius: 6px;" @onclick="ResetFiltroEspecies" title="Ver todo el historial">
+                                Todos
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (isLoadingEspecies)
+                    {
+                        <div class="text-center py-4 text-secondary">
+                            <div class="spinner-border spinner-border-sm text-info mb-2"></div>
+                            <p class="small m-0">Actualizando gráfico por especie...</p>
+                        </div>
+                    }
+                    else if (pacientesPorEspecieData == null || !pacientesPorEspecieData.Distribucion.Any())
+                    {
+                        <div class="text-center py-4 text-secondary">
+                            <p class="mb-1" style="font-size: 0.95rem;">No se registraron turnos ni visitas en el rango de fechas seleccionado.</p>
+                            <small>Pruebe seleccionando un rango de fechas más amplio o haga clic en "Todos".</small>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3 d-flex align-items-center justify-content-between">
+                            <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.85rem;">
+                                Total de visitas en el período: <strong style="color: var(--accent-primary);">@pacientesPorEspecieData.Total</strong>
+                            </span>
+                            <span class="text-secondary small">
+                                @pacientesPorEspecieData.Distribucion.Count @(pacientesPorEspecieData.Distribucion.Count == 1 ? "especie atendida" : "especies atendidas")
+                            </span>
+                        </div>
+
+                        <!-- Gráfico de barras horizontal -->
+                        <div class="d-flex flex-column gap-3 p-3 border rounded" style="background: var(--bg-main); border-color: var(--border-color) !important;">
+                            @{
+                                var maxCant = pacientesPorEspecieData.Distribucion.Max(d => d.Cantidad);
+                                if (maxCant == 0) maxCant = 1;
+
+                                string[] barGradients = new[]
+                                {
+                                    "linear-gradient(90deg, #00A36C 0%, #34d399 100%)", // Verde esmeralda
+                                    "linear-gradient(90deg, #2563eb 0%, #60a5fa 100%)", // Azul vibrante
+                                    "linear-gradient(90deg, #d97706 0%, #fbbf24 100%)", // Ámbar
+                                    "linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%)", // Púrpura
+                                    "linear-gradient(90deg, #db2777 0%, #f472b6 100%)", // Rosa
+                                    "linear-gradient(90deg, #0891b2 0%, #22d3ee 100%)", // Cian
+                                    "linear-gradient(90deg, #4b5563 0%, #9ca3af 100%)"  // Gris
+                                };
+                            }
+
+                            @for (int i = 0; i < pacientesPorEspecieData.Distribucion.Count; i++)
+                            {
+                                var item = pacientesPorEspecieData.Distribucion[i];
+                                var widthPercent = Math.Max(8, (item.Cantidad * 100.0) / maxCant);
+                                var gradient = barGradients[i % barGradients.Length];
+                                var pctOfTotal = pacientesPorEspecieData.Total > 0 ? (item.Cantidad * 100.0) / pacientesPorEspecieData.Total : 0;
+
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="fw-bold" style="color: var(--text-primary); font-size: 0.9rem;">
+                                            @item.Especie: @item.Cantidad
+                                        </span>
+                                        <small class="text-secondary fw-semibold">
+                                            @pctOfTotal.ToString("0.#")% de las visitas
+                                        </small>
+                                    </div>
+                                    <div class="progress" style="height: 28px; background-color: rgba(0,0,0,0.06); border-radius: 6px; overflow: hidden; border: 1px solid var(--border-light);">
+                                        <div class="progress-bar d-flex flex-row align-items-center justify-content-between px-3 text-white fw-bold" 
+                                             role="progressbar" 
+                                             style="width: @(widthPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%; background: @gradient; transition: width 0.6s ease; font-size: 0.85rem;" 
+                                             aria-valuenow="@item.Cantidad" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="@maxCant">
+                                            <span>@item.Especie: @item.Cantidad</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
     }
 }
 
 @code {
     private bool isLoading = true;
     private UsuarioDto? userProfile;
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    private string currentUserRole = string.Empty;
+    private bool IsVeterinario => 
+        (userProfile?.RolNombre?.Equals("Veterinario", StringComparison.OrdinalIgnoreCase) == true) || 
+        (currentUserRole.Equals("Veterinario", StringComparison.OrdinalIgnoreCase));
+    private bool IsRecepcionista => 
+        (userProfile?.RolNombre?.Equals("Recepcionista", StringComparison.OrdinalIgnoreCase) == true) || 
+        (currentUserRole.Equals("Recepcionista", StringComparison.OrdinalIgnoreCase));
 
     // Admin & Gerente data
     private KpiDashboardDto? kpis;
     private DashboardAlertasResponse? monitor;
     private List<IngresoDiarioDto>? ingresos;
 
+    // Especies por rango de fechas (Admin, Gerente & Veterinario)
+    private DateTime? fechaDesdeEspecie = DateTime.Today.AddDays(-30);
+    private DateTime? fechaHastaEspecie = DateTime.Today;
+    private PacientesPorEspecieDashboardResponse? pacientesPorEspecieData;
+    private bool isLoadingEspecies = false;
+
     // Veterinario data
     private List<TurnoDto>? misTurnosHoy;
-    private List<VacunaPendienteDto>? vacunasProximas;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private string? _lastRole;
+    private int? _lastSucursalId;
+
+    protected override async Task OnParametersSetAsync()
     {
-        if (firstRender)
+        if (AuthState != null)
         {
-            await LoadDataAsync();
+            var authState = await AuthState;
+            var currentRole = authState.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value 
+                ?? authState.User.FindFirst("role")?.Value ?? "";
+            
+            var sucursalClaim = authState.User.FindFirst("sucursalId")?.Value;
+            int? currentSucursal = int.TryParse(sucursalClaim, out var sId) ? sId : null;
+
+            if (_lastRole != currentRole || _lastSucursalId != currentSucursal || userProfile == null)
+            {
+                _lastRole = currentRole;
+                _lastSucursalId = currentSucursal;
+                await LoadDataAsync();
+            }
         }
     }
 
@@ -330,44 +589,57 @@ else
         StateHasChanged();
         try
         {
+            if (AuthState != null)
+            {
+                var authState = await AuthState;
+                currentUserRole = authState.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value 
+                    ?? authState.User.FindFirst("role")?.Value ?? "";
+            }
+
             userProfile = await AuthService.GetProfileAsync();
-            if (userProfile == null)
+            if (userProfile == null && string.IsNullOrEmpty(currentUserRole))
             {
                 Navigation.NavigateTo("/");
                 return;
             }
 
-            if (userProfile.RolNombre == "Recepcionista")
+            if (IsRecepcionista)
             {
                 Navigation.NavigateTo("/agenda");
                 return;
             }
 
-            if (userProfile.RolNombre == "Veterinario")
+            if (IsVeterinario)
             {
                 var today = DateTime.Today;
                 var start = new DateTime(today.Year, today.Month, today.Day, 0, 0, 0);
                 var end = new DateTime(today.Year, today.Month, today.Day, 23, 59, 59);
 
-                var taskTurnos = TurnoService.GetRangoAsync(start, end, null, userProfile.VeterinarioId);
-                var taskVacunas = DashboardService.GetVacunasPendientesAsync(30);
+                var taskTurnos = TurnoService.GetRangoAsync(start, end, null, userProfile?.VeterinarioId);
+                var taskKpi = DashboardService.GetKpisAsync();
+                var taskMonitor = DashboardService.GetAlertasDashboardAsync();
+                var taskEspecies = DashboardService.GetPacientesPorEspecieAsync(fechaDesdeEspecie, fechaHastaEspecie);
 
-                await Task.WhenAll(taskTurnos, taskVacunas);
+                await Task.WhenAll(taskTurnos, taskKpi, taskMonitor, taskEspecies);
 
                 misTurnosHoy = taskTurnos.Result ?? new List<TurnoDto>();
-                vacunasProximas = taskVacunas.Result ?? new List<VacunaPendienteDto>();
+                kpis = taskKpi.Result;
+                monitor = taskMonitor.Result;
+                pacientesPorEspecieData = taskEspecies.Result;
             }
             else // Admin, Gerente, etc.
             {
                 var taskKpi = DashboardService.GetKpisAsync();
                 var taskMonitor = DashboardService.GetAlertasDashboardAsync();
                 var taskChart = DashboardService.GetIngresosDiariosAsync(7);
+                var taskEspecies = DashboardService.GetPacientesPorEspecieAsync(fechaDesdeEspecie, fechaHastaEspecie);
 
-                await Task.WhenAll(taskKpi, taskMonitor, taskChart);
+                await Task.WhenAll(taskKpi, taskMonitor, taskChart, taskEspecies);
 
                 kpis = taskKpi.Result;
                 monitor = taskMonitor.Result;
                 ingresos = taskChart.Result;
+                pacientesPorEspecieData = taskEspecies.Result;
             }
         }
         catch (Exception ex)
@@ -379,6 +651,32 @@ else
             isLoading = false;
             StateHasChanged();
         }
+    }
+
+    private async Task FiltrarPacientesPorEspecie()
+    {
+        isLoadingEspecies = true;
+        StateHasChanged();
+        try
+        {
+            pacientesPorEspecieData = await DashboardService.GetPacientesPorEspecieAsync(fechaDesdeEspecie, fechaHastaEspecie);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR FILTER ESPECIES] {ex.Message}");
+        }
+        finally
+        {
+            isLoadingEspecies = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResetFiltroEspecies()
+    {
+        fechaDesdeEspecie = null;
+        fechaHastaEspecie = null;
+        await FiltrarPacientesPorEspecie();
     }
 
     private void OnAlertaClick(AlertaDto alerta)

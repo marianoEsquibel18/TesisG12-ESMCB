@@ -13,33 +13,44 @@ namespace BlazorFrontEnd.Services
             _httpClient = httpClient;
         }
 
-        public async Task<List<CategoriaDto>?> GetCategoriasAsync()
+        public async Task<List<CategoriaDto>?> GetCategoriasAsync(bool soloActivas = true)
         {
             try
             {
-                var res = await _httpClient.GetUnwrappedAsync<PaginatedList<CategoriaDto>>("api/v1/Categoria");
-                return res?.Items.Where(c => c.Activo).ToList() ?? new List<CategoriaDto>();
+                var res = await _httpClient.GetUnwrappedAsync<PaginatedList<CategoriaDto>>($"api/v1/Categoria?soloActivas={soloActivas}");
+                var list = res?.Items ?? new List<CategoriaDto>();
+                return soloActivas ? list.Where(c => c.Activo).ToList() : list;
             }
             catch { return new List<CategoriaDto>(); }
         }
 
-        // Simulating the others since we are just scaffolding the catalog.
-        // In reality these depend on the API being ready for Marcas, Proveedores, etc.
-        public async Task<List<MarcaDto>?> GetMarcasAsync()
+        public async Task<List<MarcaDto>?> GetMarcasAsync(bool soloActivas = true)
         {
-            try { var res = await _httpClient.GetUnwrappedAsync<PaginatedList<MarcaDto>>("api/v1/Marca"); return res?.Items ?? new List<MarcaDto>(); }
+            try { 
+                var res = await _httpClient.GetUnwrappedAsync<PaginatedList<MarcaDto>>($"api/v1/Marca?soloActivas={soloActivas}"); 
+                var list = res?.Items ?? new List<MarcaDto>(); 
+                return soloActivas ? list.Where(m => m.Activo).ToList() : list;
+            }
             catch { return new List<MarcaDto>(); }
         }
 
-        public async Task<List<ProveedorDto>?> GetProveedoresAsync()
+        public async Task<List<ProveedorDto>?> GetProveedoresAsync(bool soloActivos = true)
         {
-            try { var res = await _httpClient.GetUnwrappedAsync<PaginatedList<ProveedorDto>>("api/v1/Proveedor"); return res?.Items ?? new List<ProveedorDto>(); }
+            try { 
+                var res = await _httpClient.GetUnwrappedAsync<PaginatedList<ProveedorDto>>($"api/v1/Proveedor?soloActivos={soloActivos}"); 
+                var list = res?.Items ?? new List<ProveedorDto>(); 
+                return soloActivos ? list.Where(p => p.Activo).ToList() : list;
+            }
             catch { return new List<ProveedorDto>(); }
         }
 
-        public async Task<List<DepositoDto>?> GetDepositosAsync()
+        public async Task<List<DepositoDto>?> GetDepositosAsync(bool soloActivos = true)
         {
-            try { var res = await _httpClient.GetUnwrappedAsync<PaginatedList<DepositoDto>>("api/v1/Deposito"); return res?.Items ?? new List<DepositoDto>(); }
+            try { 
+                var res = await _httpClient.GetUnwrappedAsync<PaginatedList<DepositoDto>>($"api/v1/Deposito?soloActivos={soloActivos}"); 
+                var list = res?.Items ?? new List<DepositoDto>(); 
+                return soloActivos ? list.Where(d => d.Activo).ToList() : list;
+            }
             catch { return new List<DepositoDto>(); }
         }
 

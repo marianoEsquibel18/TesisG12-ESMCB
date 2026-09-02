@@ -149,6 +149,12 @@ namespace Controllers
                 // Sistema
                 new("sistema_version", "1.0.0", "Versión del sistema", "Sistema"),
                 new("sistema_mantenimiento", "false", "Modo mantenimiento", "Sistema", TipoDato.Booleano),
+
+                // Twilio WhatsApp
+                new("twilio_account_sid", "", "Twilio Account SID para WhatsApp", "Twilio"),
+                new("twilio_auth_token", "", "Twilio Auth Token para WhatsApp", "Twilio"),
+                new("twilio_from_phone", "whatsapp:+14155238886", "Número emisor Twilio WhatsApp", "Twilio"),
+                new("twilio_default_country_code", "+549", "Código de país por defecto (+549)", "Twilio"),
             };
 
             foreach (var config in defaults)

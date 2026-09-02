@@ -75,6 +75,11 @@ namespace Domain.Entities
             }
         }
 
+        public void CambiarEstado(EstadoTurno nuevoEstado)
+        {
+            Estado = nuevoEstado;
+        }
+
         public void Reprogramar(DateTime nuevaFechaHora, int duracionMinutos)
         {
             FechaHora = nuevaFechaHora;

@@ -45,12 +45,16 @@ namespace Domain.Entities
             ArchivosAdjuntos = archivosAdjuntos ?? "[]";
         }
 
-        public void Actualizar(string diagnostico, string descripcion, string medicacion, string observaciones, string? archivosAdjuntos = null)
+        public void Actualizar(string diagnostico, string descripcion, string medicacion, string observaciones, string? veterinario = null, string? archivosAdjuntos = null)
         {
             Diagnostico = diagnostico;
             Descripcion = descripcion;
             Medicacion = medicacion;
             Observaciones = observaciones;
+            if (!string.IsNullOrWhiteSpace(veterinario))
+            {
+                Veterinario = veterinario;
+            }
             if (archivosAdjuntos != null)
             {
                 ArchivosAdjuntos = archivosAdjuntos;

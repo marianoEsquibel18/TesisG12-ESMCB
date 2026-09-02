@@ -18,12 +18,16 @@
             <p class="text-secondary" style="margin: 0;">Directorio de agentes comerciales de suministro</p>
         </div>
     </div>
-    <button class="btn-primary-glass" @onclick="OpenProveedorModalForCreate" style="display: flex; align-items: center; gap: 8px;">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px;">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-        Nuevo Proveedor
-    </button>
+    <AuthorizeView Roles="Admin,Gerente,Recepcionista">
+        <Authorized>
+            <button class="btn-primary-glass" @onclick="OpenProveedorModalForCreate" style="display: flex; align-items: center; gap: 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px;">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Nuevo Proveedor
+            </button>
+        </Authorized>
+    </AuthorizeView>
 </div>
 
 <div class="glass-card">
@@ -64,8 +68,15 @@
                                 else { <span class="badge bg-danger">No</span> }
                             </td>
                             <td class="text-end">
-                                <button class="btn btn-sm btn-outline-info" style="border-color: var(--border-glass); color: var(--text-primary);" @onclick="() => OpenProveedorModalForEdit(i.Id)">Editar</button>
-                                <button class="btn btn-sm btn-outline-danger" style="margin-left: 5px;" @onclick="() => ConfirmDelete(i.Id)">Eliminar</button>
+                                <AuthorizeView Roles="Admin,Gerente,Recepcionista">
+                                    <Authorized>
+                                        <button class="btn btn-sm btn-outline-info" style="border-color: var(--border-glass); color: var(--text-primary);" @onclick="() => OpenProveedorModalForEdit(i.Id)">Editar</button>
+                                        <button class="btn btn-sm btn-outline-danger" style="margin-left: 5px;" @onclick="() => ConfirmDelete(i.Id)">Eliminar</button>
+                                    </Authorized>
+                                    <NotAuthorized>
+                                        <span class="badge bg-secondary">Solo Lectura</span>
+                                    </NotAuthorized>
+                                </AuthorizeView>
                             </td>
                         </tr>
                     }
@@ -175,6 +186,33 @@
     </div>
 }
 
+@* ── Modal de Confirmación de Eliminación ── *@
+@if (showDeleteModal)
+{
+    <div class="modal-overlay modal-overlay-z1" @onclick="CloseDeleteModal" @onclick:stopPropagation="false">
+        <div class="modal-panel modal-panel-sm" @onclick:stopPropagation="true">
+            <div class="modal-header-row">
+                <h3>Confirmar Eliminación</h3>
+                <button class="modal-close-btn" @onclick="CloseDeleteModal" title="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p>¿Está seguro de que desea eliminar el proveedor <strong>@proveedorToDelete?.RazonSocial</strong>?</p>
+                <small class="text-secondary">Esta acción dará de baja el proveedor.</small>
+            </div>
+
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CloseDeleteModal">Cancelar</button>
+                <button type="button" class="btn btn-danger" style="background: var(--accent-danger); border: none;" @onclick="ExecuteDelete">Eliminar</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<ProveedorDto>? Items;
     private bool isLoading = true;
@@ -184,6 +222,10 @@
     private ProveedorDto proveedorModel = new() { Activo = true };
     private bool isSavingProveedor;
     private string proveedorErrorMessage = string.Empty;
+
+    // ── Delete Modal State ──
+    private bool showDeleteModal;
+    private ProveedorDto? proveedorToDelete;
 
     // ── Similarity Checks ──
     private bool showSimilarProveedoresConfirm;
@@ -202,7 +244,7 @@
         errorMessage = string.Empty;
         try
         {
-            Items = await CatalogoService.GetProveedoresAsync();
+            Items = await CatalogoService.GetProveedoresAsync(soloActivos: false);
         }
         catch (Exception)
         {
@@ -332,12 +374,28 @@
 
     private void GoBack() => Navigation.NavigateTo("/inventario");
 
-    private async Task ConfirmDelete(string id)
+    private void ConfirmDelete(string id)
     {
-        bool confirmed = true;
-        if (confirmed)
+        proveedorToDelete = Items?.FirstOrDefault(p => p.Id == id);
+        if (proveedorToDelete != null)
         {
-            var result = await CatalogoService.DeleteProveedorAsync(id);
+            showDeleteModal = true;
+        }
+    }
+
+    private void CloseDeleteModal()
+    {
+        showDeleteModal = false;
+        proveedorToDelete = null;
+    }
+
+    private async Task ExecuteDelete()
+    {
+        if (proveedorToDelete != null)
+        {
+            var result = await CatalogoService.DeleteProveedorAsync(proveedorToDelete.Id);
+            showDeleteModal = false;
+            proveedorToDelete = null;
             if (result) await LoadDataAsync();
             else errorMessage = "No se pudo eliminar el elemento. Podría tener dependencias.";
         }

@@ -19,7 +19,7 @@ namespace Domain.Validators
 
             RuleFor(t => t.FechaHora)
                 .NotEmpty().WithMessage("La fecha y hora del turno es requerida")
-                .GreaterThan(DateTime.Now.AddMinutes(-5)).WithMessage("La fecha del turno no puede ser en el pasado");
+                .GreaterThanOrEqualTo(DateTime.Now.AddMinutes(29)).WithMessage("Los turnos deben agendarse con al menos 30 minutos de anticipación");
 
             RuleFor(t => t.DuracionMinutos)
                 .GreaterThan(0).WithMessage("La duración debe ser mayor a 0 minutos")

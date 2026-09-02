@@ -56,6 +56,7 @@ namespace BlazorFrontEnd.Models
         public string Observaciones { get; set; } = string.Empty;
         public DateTime FechaRegistro { get; set; }
         public bool Activo { get; set; }
+        public int ContadorInasistencias { get; set; }
     }
 
     public class EspecieDto

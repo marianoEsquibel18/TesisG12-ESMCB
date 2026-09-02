@@ -58,23 +58,15 @@ namespace Infrastructure.Factories
             var context = services.BuildServiceProvider().GetRequiredService<Repositories.Sql.StoreDbContext>();
             context.Database.EnsureCreated();
 
-            try
-            {
-                context.Database.ExecuteSqlRaw("ALTER TABLE Servicios ADD COLUMN ProductosUtilizados TEXT;");
-            }
-            catch { /* Ya existe la columna */ }
-
-            try
-            {
-                context.Database.ExecuteSqlRaw("ALTER TABLE RegistrosVacunacion ADD COLUMN ProductoId TEXT;");
-            }
-            catch { /* Ya existe la columna */ }
-
-            try
-            {
-                context.Database.ExecuteSqlRaw("ALTER TABLE RegistrosVacunacion ADD COLUMN DepositoId INTEGER;");
-            }
-            catch { /* Ya existe la columna */ }
+            // Validar y aplicar migraciones manuales sólo si la columna no existe
+            EnsureColumnExists(context, "Pacientes", "ContadorInasistencias", "INTEGER NOT NULL DEFAULT 0");
+            EnsureColumnExists(context, "Turnos", "ArchivosAdjuntos", "TEXT");
+            EnsureColumnExists(context, "Tratamientos", "ArchivosAdjuntos", "TEXT");
+            EnsureColumnExists(context, "HistorialesClinico", "ArchivosAdjuntos", "TEXT");
+            EnsureColumnExists(context, "Servicios", "ProductosUtilizados", "TEXT");
+            EnsureColumnExists(context, "RegistrosVacunacion", "ProductoId", "TEXT");
+            EnsureColumnExists(context, "RegistrosVacunacion", "DepositoId", "INTEGER");
+            EnsureColumnExists(context, "Marcas", "Descripcion", "TEXT");
 
             try
             {
@@ -148,6 +140,41 @@ namespace Infrastructure.Factories
             services.AddSingleton(typeof(Repositories.Mongo.StoreDbContext), db);
 
             return services;
+        }
+
+        private static void EnsureColumnExists(Microsoft.EntityFrameworkCore.DbContext context, string tableName, string columnName, string columnDefinition)
+        {
+            try
+            {
+                var connection = context.Database.GetDbConnection();
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    connection.Open();
+                }
+
+                using var command = connection.CreateCommand();
+                command.CommandText = $"PRAGMA table_info({tableName});";
+                using var reader = command.ExecuteReader();
+                bool exists = false;
+                while (reader.Read())
+                {
+                    var name = reader["name"]?.ToString();
+                    if (string.Equals(name, columnName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+                reader.Close();
+
+                if (!exists)
+                {
+                    using var alterCommand = connection.CreateCommand();
+                    alterCommand.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnDefinition};";
+                    alterCommand.ExecuteNonQuery();
+                }
+            }
+            catch { /* Ignore error on column check */ }
         }
     }
 }

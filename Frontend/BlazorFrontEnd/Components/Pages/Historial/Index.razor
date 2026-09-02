@@ -5,12 +5,12 @@
 @inject PacienteService PacienteService
 @inject NavigationManager Navigation
 
-<PageTitle>Buscador de Información del Paciente</PageTitle>
+<PageTitle>Historia Clínica</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center" style="margin-bottom: var(--sp-lg);">
     <div>
-        <h2 style="font-weight: 700; margin: 0;">Información del paciente</h2>
-        <p class="text-secondary" style="margin: 0;">Seleccione un paciente para ver su ficha médica completa</p>
+        <h2 style="font-weight: 700; margin: 0;">Historia Clínica</h2>
+        <p class="text-secondary" style="margin: 0;">Seleccione un paciente para ver su historia clínica completa</p>
     </div>
 </div>
 
@@ -39,8 +39,10 @@
                             <strong style="font-size: 1.1rem; color: var(--accent-primary);">@p.Nombre</strong>
                             <div class="text-secondary" style="font-size: 0.85rem;">@p.EspecieNombre | @p.PropietarioNombre</div>
                         </div>
-                        <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.1); border-radius: 50%; display:flex; align-items:center; justify-content:center;">
-                            🐾
+                        <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.08); border-radius: 50%; display:flex; align-items:center; justify-content:center; border: 1px solid var(--border-glass);">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 20px; height: 20px; color: var(--accent-primary);">
+                                <path d="M8.5 3a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Zm7 0a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM4.5 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Zm15 0a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM12 9.5c-3.5 0-6 2.5-6 5.5 0 2.5 2 4.5 4.5 4.5.8 0 1.2-.5 1.5-.5s.7.5 1.5.5c2.5 0 4.5-2 4.5-4.5 0-3-2.5-5.5-6-5.5Z"/>
+                            </svg>
                         </div>
                     </div>
                 </div>

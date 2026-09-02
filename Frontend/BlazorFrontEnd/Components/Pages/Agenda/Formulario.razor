@@ -94,6 +94,7 @@
                             <InputSelect @bind-Value="model.Estado" class="form-select bg-dark text-light border-secondary">
                                 <option value="Programado">Programado</option>
                                 <option value="Completado">Completado</option>
+                                <option value="Ausente">Ausente</option>
                                 <option value="Cancelado">Cancelado</option>
                                 <option value="Reprogramado">Reprogramado</option>
                             </InputSelect>
@@ -238,6 +239,8 @@
         return $"{inicioStr} a {finStr} | {tipoStr}";
     }
 
+    private DateTime? originalFechaHora;
+
     protected override async Task OnInitializedAsync()
     {
         isLoading = true;
@@ -255,7 +258,11 @@
             if (isEdit)
             {
                 var response = await TurnoService.GetByIdAsync(Id!);
-                if (response != null) model = response;
+                if (response != null)
+                {
+                    model = response;
+                    originalFechaHora = response.FechaHora;
+                }
                 else errorMessage = "No se encontró el turno solicitado.";
             }
         }
@@ -275,12 +282,18 @@
         errorMessage = string.Empty;
         fechaHoraError = string.Empty;
 
-        // Validación custom: fecha no puede ser pasada (solo para turnos nuevos/reprogramados)
-        if (model.FechaHora < DateTime.Now && model.Estado != "Completado" && model.Estado != "Cancelado")
+        // Validación custom: los turnos se deben agendar con al menos 30 minutos de anticipación
+        if (!isEdit && model.FechaHora < DateTime.Now.AddMinutes(30))
         {
-            fechaHoraError = "La fecha ingresada es inválida (Es una fecha pasada)";
+            fechaHoraError = "Los turnos deben agendarse con al menos 30 minutos de anticipación.";
             isSaving = false;
             return;
+        }
+
+        // Si se cambia la fecha de un turno existente y no se especificó un estado de cierre/ausente, se marca como Reprogramado
+        if (isEdit && originalFechaHora.HasValue && originalFechaHora.Value != model.FechaHora && model.Estado != "Completado" && model.Estado != "Cancelado" && model.Estado != "Ausente")
+        {
+            model.Estado = "Reprogramado";
         }
 
         try
@@ -290,17 +303,9 @@
 
             if (isEdit)
             {
-                // Dispatch based on selected Estado
-                if (model.Estado == "Completado")
-                    result = await TurnoService.ChangeStatusAsync(Id!, "Completado");
-                else if (model.Estado == "Cancelado")
-                    result = await TurnoService.ChangeStatusAsync(Id!, "Cancelado");
-                else
-                {
-                    var resUpdate = await TurnoService.UpdateWithResultAsync(Id!, model);
-                    result = resUpdate.Success;
-                    serverMsg = resUpdate.ErrorMessage;
-                }
+                var resUpdate = await TurnoService.UpdateWithResultAsync(Id!, model);
+                result = resUpdate.Success;
+                serverMsg = resUpdate.ErrorMessage;
             }
             else
             {
@@ -311,11 +316,18 @@
 
             if (result)
             {
-                Navigation.NavigateTo("/agenda");
+                if (model.Estado == "Completado")
+                {
+                    Navigation.NavigateTo($"/ventas/pos?servicioId={model.ServicioId}&pacienteId={model.PacienteId}&turnoId={model.Id}");
+                }
+                else
+                {
+                    Navigation.NavigateTo("/agenda");
+                }
             }
             else
             {
-                errorMessage = !string.IsNullOrEmpty(serverMsg) ? serverMsg : "Ya hay un turno registrado en la fecha/hora ingresada para el mismo veterinario.";
+                errorMessage = !string.IsNullOrEmpty(serverMsg) ? serverMsg : "Ya hay un turno registrado en la fecha/hora ingresada para el mismo veterinario o error al guardar.";
             }
         }
         catch (Exception)

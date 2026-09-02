@@ -49,6 +49,19 @@ namespace Domain.Entities
             Direccion = direccion;
         }
 
+        public void Actualizar(string nombre, string apellido, string dni, string telefono, string email, string direccion)
+        {
+            Nombre = nombre;
+            Apellido = apellido;
+            if (!string.IsNullOrWhiteSpace(dni))
+            {
+                DNI = dni;
+            }
+            Telefono = telefono;
+            Email = email;
+            Direccion = direccion;
+        }
+
         public void ActualizarDNI(string dni)
         {
             DNI = dni;

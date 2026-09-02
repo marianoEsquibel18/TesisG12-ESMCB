@@ -335,6 +335,18 @@
     private void AgregarHorario()
     {
         horarioErrorMsg = "";
+
+        if (model.Horarios.Any(h => h.DiaSemana == nuevoDia))
+        {
+            var diaNombre = nuevoDia switch
+            {
+                1 => "Lunes", 2 => "Martes", 3 => "Miércoles", 4 => "Jueves",
+                5 => "Viernes", 6 => "Sábado", 7 => "Domingo", _ => "seleccionado"
+            };
+            horarioErrorMsg = $"Ya existe un horario configurado para el día {diaNombre}.";
+            return;
+        }
+
         var inicioStr = nuevaHoraInicio.ToString("HH:mm");
         var finStr = nuevaHoraFin.ToString("HH:mm");
 
@@ -373,6 +385,17 @@
     private string? ValidarHorariosLaboralesFrontend(List<HorarioDto>? horarios)
     {
         if (horarios == null || !horarios.Any()) return null;
+
+        var diasDuplicados = horarios
+            .GroupBy(h => h.DiaSemana)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (diasDuplicados.Any())
+        {
+            return "No se puede registrar más de un horario laboral o de guardia para el mismo día de la semana";
+        }
 
         double totalHorasSemanales = 0;
         var horasPorDia = new Dictionary<int, double>();

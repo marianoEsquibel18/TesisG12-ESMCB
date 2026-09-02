@@ -68,6 +68,7 @@ namespace BlazorFrontEnd.Services
                 DuracionMinutos = turno.DuracionMinutos,
                 Motivo = turno.Motivo,
                 Observaciones = turno.Observaciones,
+                Estado = turno.Estado,
                 ArchivosAdjuntos = turno.ArchivosAdjuntos
             });
             if (response.IsSuccessStatusCode)
@@ -101,6 +102,26 @@ namespace BlazorFrontEnd.Services
             if (newStatus == "Completado") {
                 var response = await _httpClient.PutAsJsonAsync($"{BaseUrl}/{id}/completar", "Completado");
                 return response.IsSuccessStatusCode;
+            }
+            if (newStatus == "Ausente") {
+                var response = await _httpClient.PutAsJsonAsync($"{BaseUrl}/{id}/ausente", new { });
+                return response.IsSuccessStatusCode;
+            }
+            if (newStatus == "Confirmado") {
+                var response = await _httpClient.PutAsJsonAsync($"{BaseUrl}/{id}/confirmar", new { });
+                return response.IsSuccessStatusCode;
+            }
+            if (newStatus == "EnCurso") {
+                var response = await _httpClient.PutAsJsonAsync($"{BaseUrl}/{id}/encurso", new { });
+                return response.IsSuccessStatusCode;
+            }
+
+            var existing = await GetByIdAsync(id);
+            if (existing != null)
+            {
+                existing.Estado = newStatus;
+                var res = await UpdateWithResultAsync(id, existing);
+                return res.Success;
             }
             return false;
         }

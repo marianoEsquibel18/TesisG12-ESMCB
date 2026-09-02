@@ -102,7 +102,7 @@ namespace Controllers
             var entity = await _tratamientoRepository.FindOneAsync(request.Id);
             if (entity == null) return NotFound($"No se encontró el tratamiento con Id {request.Id}");
 
-            entity.Actualizar(request.Diagnostico, request.Descripcion, request.Medicacion ?? "", request.Observaciones ?? "", archivosAdjuntos: request.ArchivosAdjuntos);
+            entity.Actualizar(request.Diagnostico, request.Descripcion, request.Medicacion ?? "", request.Observaciones ?? "", veterinario: request.Veterinario, archivosAdjuntos: request.ArchivosAdjuntos);
 
             if (!entity.IsValid)
                 return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
@@ -173,6 +173,7 @@ namespace Controllers
         public string Id { get; set; }
         public string Diagnostico { get; set; }
         public string Descripcion { get; set; }
+        public string? Veterinario { get; set; }
         public string Medicacion { get; set; }
         public string Observaciones { get; set; }
         public string? ArchivosAdjuntos { get; set; }

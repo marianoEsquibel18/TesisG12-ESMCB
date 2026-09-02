@@ -11,12 +11,16 @@
         <h2 style="font-weight: 700; margin: 0;">Gestión de Inventario</h2>
         <p class="text-secondary" style="margin: 0;">Control de stock y catálogo de productos</p>
     </div>
-    <a href="/inventario/nuevo" class="btn-primary-glass" style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px;">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-        Nuevo Producto
-    </a>
+    <AuthorizeView Roles="Admin,Gerente,Recepcionista">
+        <Authorized>
+            <a href="/inventario/nuevo" class="btn-primary-glass" style="text-decoration: none; display: flex; align-items: center; gap: 8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px;">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Nuevo Producto
+            </a>
+        </Authorized>
+    </AuthorizeView>
 </div>
 
 <div class="glass-card">
@@ -73,8 +77,15 @@
                                 }
                             </td>
                             <td class="text-end">
-                                <a href="/inventario/editar/@prod.Id" class="btn btn-sm btn-outline-info" style="border-color: var(--border-glass); color: var(--text-primary);">Editar / Stock</a>
-                                <button class="btn btn-sm btn-outline-danger" style="margin-left: 5px;" @onclick="() => ConfirmDelete(prod.Id)">Eliminar</button>
+                                <AuthorizeView Roles="Admin,Gerente,Recepcionista">
+                                    <Authorized>
+                                        <a href="/inventario/editar/@prod.Id" class="btn btn-sm btn-outline-info" style="border-color: var(--border-glass); color: var(--text-primary);">Editar / Stock</a>
+                                        <button class="btn btn-sm btn-outline-danger" style="margin-left: 5px;" @onclick="() => ConfirmDelete(prod.Id)">Eliminar</button>
+                                    </Authorized>
+                                    <NotAuthorized>
+                                        <span class="badge bg-secondary">Solo Lectura</span>
+                                    </NotAuthorized>
+                                </AuthorizeView>
                             </td>
                         </tr>
                     }
@@ -99,6 +110,33 @@
     </div>
 }
 
+@* ── Modal de Confirmación de Eliminación ── *@
+@if (showDeleteModal)
+{
+    <div class="modal-overlay modal-overlay-z1" @onclick="CloseDeleteModal" @onclick:stopPropagation="false">
+        <div class="modal-panel modal-panel-sm" @onclick:stopPropagation="true">
+            <div class="modal-header-row">
+                <h3>Confirmar Eliminación</h3>
+                <button class="modal-close-btn" @onclick="CloseDeleteModal" title="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div style="margin-top: 15px; margin-bottom: 25px;">
+                <p>¿Está seguro de que desea eliminar el producto <strong>@productoToDelete?.Nombre</strong>?</p>
+                <small class="text-secondary">Esta acción dará de baja el producto en el catálogo de inventario.</small>
+            </div>
+
+            <div class="d-flex justify-content-end" style="gap: 10px;">
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CloseDeleteModal">Cancelar</button>
+                <button type="button" class="btn btn-danger" style="background: var(--accent-danger); border: none;" @onclick="ExecuteDelete">Eliminar</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private PaginatedList<ProductoDto>? productosResponse;
     private bool isLoading = true;
@@ -108,6 +146,10 @@
     private int pageSize = 15;
     private string searchTerm = string.Empty;
     private System.Timers.Timer? searchTimer;
+
+    // Delete Modal State
+    private bool showDeleteModal;
+    private ProductoDto? productoToDelete;
 
     protected override async Task OnInitializedAsync()
     {
@@ -150,12 +192,28 @@
     private async Task PreviousPage() { if (productosResponse?.HasPreviousPage == true) { currentPage--; await LoadDataAsync(); } }
     private async Task NextPage() { if (productosResponse?.HasNextPage == true) { currentPage++; await LoadDataAsync(); } }
 
-    private async Task ConfirmDelete(string id)
+    private void ConfirmDelete(string id)
     {
-        bool confirmed = true; 
-        if (confirmed)
+        productoToDelete = productosResponse?.Items?.FirstOrDefault(p => p.Id == id);
+        if (productoToDelete != null)
         {
-            var result = await ProductoService.DeleteAsync(id);
+            showDeleteModal = true;
+        }
+    }
+
+    private void CloseDeleteModal()
+    {
+        showDeleteModal = false;
+        productoToDelete = null;
+    }
+
+    private async Task ExecuteDelete()
+    {
+        if (productoToDelete != null)
+        {
+            var result = await ProductoService.DeleteAsync(productoToDelete.Id);
+            showDeleteModal = false;
+            productoToDelete = null;
             if (result) await LoadDataAsync();
             else errorMessage = "No se pudo eliminar el producto.";
         }

@@ -207,6 +207,11 @@ namespace Controllers
                 }
             }
 
+            if (request.FechaHora < DateTime.Now.AddMinutes(30))
+            {
+                return BadRequest("Los turnos deben agendarse con al menos 30 minutos de anticipación");
+            }
+
             var entity = new Domain.Entities.Turno(
                 request.PacienteId, request.VeterinarioId, request.ServicioId,
                 request.FechaHora, duracion, request.Motivo ?? "", request.Observaciones ?? "",
@@ -258,55 +263,114 @@ namespace Controllers
             // Duración: usar la del servicio si no se especifica
             var duracion = request.DuracionMinutos > 0 ? request.DuracionMinutos : servicio.DuracionMinutos;
 
-            // Validar disponibilidad horaria del veterinario
-            var horariosVet = (await _horarioRepository.GetByVeterinarioIdAsync(request.VeterinarioId)).Where(h => h.Activo).ToList();
-            var isoDay = (int)request.FechaHora.DayOfWeek == 0 ? 7 : (int)request.FechaHora.DayOfWeek;
-            var horaInicioTurno = request.FechaHora.TimeOfDay;
-            var horaFinTurno = request.FechaHora.AddMinutes(duracion).TimeOfDay;
+            bool fechaCambiada = entity.FechaHora != request.FechaHora;
+            bool vetCambiado = entity.VeterinarioId != request.VeterinarioId;
+            bool duracionCambiada = duracion != entity.DuracionMinutos;
 
-            bool estaEnHorario = horariosVet.Any(h =>
-                h.DiaSemana == isoDay &&
-                horaInicioTurno >= h.HoraInicio &&
-                (horaFinTurno <= h.HoraFin || (h.HoraFin == TimeSpan.Zero && horaFinTurno <= new TimeSpan(24, 0, 0)))
-            );
-
-            if (!estaEnHorario)
+            if (fechaCambiada || vetCambiado || duracionCambiada)
             {
-                return BadRequest($"{veterinario.NombreCompleto} no se encuentra disponible en el horario seleccionado");
-            }
+                // Validar disponibilidad horaria del veterinario
+                var horariosVet = (await _horarioRepository.GetByVeterinarioIdAsync(request.VeterinarioId)).Where(h => h.Activo).ToList();
+                var isoDay = (int)request.FechaHora.DayOfWeek == 0 ? 7 : (int)request.FechaHora.DayOfWeek;
+                var horaInicioTurno = request.FechaHora.TimeOfDay;
+                var horaFinTurno = request.FechaHora.AddMinutes(duracion).TimeOfDay;
 
-            // Validar superposición con otros turnos activos del veterinario
-            var turnosVet = await _turnoRepository.GetByVeterinarioIdAsync(
-                request.VeterinarioId, request.FechaHora.Date, request.FechaHora.Date.AddDays(1));
+                bool estaEnHorario = horariosVet.Any(h =>
+                    h.DiaSemana == isoDay &&
+                    horaInicioTurno >= h.HoraInicio &&
+                    (horaFinTurno <= h.HoraFin || (h.HoraFin == TimeSpan.Zero && horaFinTurno <= new TimeSpan(24, 0, 0)))
+                );
 
-            var turnosActivos = turnosVet.Where(t =>
-                t.Id != id && t.Estado != EstadoTurno.Cancelado && t.Estado != EstadoTurno.Ausente);
-
-            foreach (var turnoExistente in turnosActivos)
-            {
-                if (turnoExistente.SeSuperponeCon(request.FechaHora, duracion))
+                if (!estaEnHorario)
                 {
-                    return BadRequest($"El veterinario ya tiene un turno entre " +
-                        $"{turnoExistente.FechaHora:HH:mm} y {turnoExistente.FechaHoraFin:HH:mm}");
+                    return BadRequest($"{veterinario.NombreCompleto} no se encuentra disponible en el horario seleccionado");
+                }
+
+                // Validar superposición con otros turnos activos del veterinario
+                var turnosVet = await _turnoRepository.GetByVeterinarioIdAsync(
+                    request.VeterinarioId, request.FechaHora.Date, request.FechaHora.Date.AddDays(1));
+
+                var turnosActivos = turnosVet.Where(t =>
+                    t.Id != id && t.Estado != EstadoTurno.Cancelado && t.Estado != EstadoTurno.Ausente);
+
+                foreach (var turnoExistente in turnosActivos)
+                {
+                    if (turnoExistente.SeSuperponeCon(request.FechaHora, duracion))
+                    {
+                        return BadRequest($"El veterinario ya tiene un turno entre " +
+                            $"{turnoExistente.FechaHora:HH:mm} y {turnoExistente.FechaHoraFin:HH:mm}");
+                    }
+                }
+
+                // Validar superposición con turnos del paciente
+                var turnosPaciente = await _turnoRepository.GetByPacienteIdAsync(request.PacienteId);
+                var turnosPacienteActivos = turnosPaciente.Where(t =>
+                    t.Id != id && t.Estado != EstadoTurno.Cancelado && t.Estado != EstadoTurno.Ausente);
+
+                foreach (var turnoExistente in turnosPacienteActivos)
+                {
+                    if (turnoExistente.SeSuperponeCon(request.FechaHora, duracion))
+                    {
+                        return BadRequest("Ya existe un turno para este paciente en el horario seleccionado");
+                    }
                 }
             }
 
-            // Validar superposición con turnos del paciente
-            var turnosPaciente = await _turnoRepository.GetByPacienteIdAsync(request.PacienteId);
-            var turnosPacienteActivos = turnosPaciente.Where(t =>
-                t.Id != id && t.Estado != EstadoTurno.Cancelado && t.Estado != EstadoTurno.Ausente);
-
-            foreach (var turnoExistente in turnosPacienteActivos)
-            {
-                if (turnoExistente.SeSuperponeCon(request.FechaHora, duracion))
-                {
-                    return BadRequest("Ya existe un turno para este paciente en el horario seleccionado");
-                }
-            }
-
+            var estadoAnterior = entity.Estado;
             entity.Actualizar(request.PacienteId, request.VeterinarioId, request.ServicioId, request.FechaHora, duracion, request.Motivo ?? "", request.Observaciones ?? "", archivosAdjuntos: request.ArchivosAdjuntos);
+            if (!string.IsNullOrWhiteSpace(request.Estado) && Enum.TryParse<EstadoTurno>(request.Estado, true, out var nuevoEstado))
+            {
+                if (nuevoEstado == EstadoTurno.Completado)
+                {
+                    entity.Completar(request.Observaciones ?? "");
+                }
+                else if (nuevoEstado == EstadoTurno.Cancelado)
+                {
+                    entity.Cancelar(request.Observaciones ?? "");
+                }
+                else if (nuevoEstado == EstadoTurno.Ausente)
+                {
+                    entity.Ausente();
+                }
+                else if (fechaCambiada)
+                {
+                    entity.CambiarEstado(EstadoTurno.Reprogramado);
+                }
+                else
+                {
+                    entity.CambiarEstado(nuevoEstado);
+                }
+            }
+            else if (fechaCambiada)
+            {
+                entity.CambiarEstado(EstadoTurno.Reprogramado);
+            }
             entity.AsignarSucursal(veterinario.SucursalId);
             _turnoRepository.Update(id, entity);
+
+            // Sincronizar contador de inasistencias del paciente
+            if (!string.IsNullOrEmpty(entity.PacienteId))
+            {
+                if (estadoAnterior != EstadoTurno.Ausente && entity.Estado == EstadoTurno.Ausente)
+                {
+                    var pac = await _pacienteRepository.FindOneAsync(entity.PacienteId);
+                    if (pac != null)
+                    {
+                        pac.IncrementarInasistencias();
+                        _pacienteRepository.Update(pac.Id, pac);
+                    }
+                }
+                else if (estadoAnterior == EstadoTurno.Ausente && entity.Estado != EstadoTurno.Ausente)
+                {
+                    var pac = await _pacienteRepository.FindOneAsync(entity.PacienteId);
+                    if (pac != null)
+                    {
+                        pac.DecrementarInasistencias();
+                        _pacienteRepository.Update(pac.Id, pac);
+                    }
+                }
+            }
+
             return NoContent();
         }
 
@@ -516,8 +580,20 @@ namespace Controllers
                 return StatusCode(403, "No tiene permisos para modificar un turno de otra sucursal");
             }
 
+            var estadoAnterior = entity.Estado;
             entity.Ausente();
             _turnoRepository.Update(id, entity);
+
+            if (estadoAnterior != EstadoTurno.Ausente && !string.IsNullOrEmpty(entity.PacienteId))
+            {
+                var pac = await _pacienteRepository.FindOneAsync(entity.PacienteId);
+                if (pac != null)
+                {
+                    pac.IncrementarInasistencias();
+                    _pacienteRepository.Update(pac.Id, pac);
+                }
+            }
+
             return NoContent();
         }
 
@@ -553,6 +629,7 @@ namespace Controllers
         public int DuracionMinutos { get; set; }
         public string Motivo { get; set; }
         public string Observaciones { get; set; }
+        public string? Estado { get; set; }
         public string? ArchivosAdjuntos { get; set; }
     }
 

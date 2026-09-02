@@ -17,9 +17,14 @@ namespace BlazorFrontEnd.Services
         {
             try
             {
+                var res = await _httpClient.GetUnwrappedAsync<PaginatedList<ServicioDto>>("api/v1/Servicio?soloActivos=true");
+                if (res?.Items != null)
+                {
+                    return res.Items.Where(s => s.Activo).ToList();
+                }
                 var url = $"api/v1/Paginado/servicios?page=1&pageSize=1000";
-                var res = await _httpClient.GetUnwrappedAsync<PaginatedList<ServicioDto>>(url);
-                return res?.Items.Where(s => s.Activo).ToList() ?? new List<ServicioDto>();
+                var resPag = await _httpClient.GetUnwrappedAsync<PaginatedList<ServicioDto>>(url);
+                return resPag?.Items.Where(s => s.Activo).ToList() ?? new List<ServicioDto>();
             }
             catch
             {

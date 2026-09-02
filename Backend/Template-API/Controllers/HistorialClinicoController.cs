@@ -61,9 +61,18 @@ namespace Controllers
             var paciente = await _pacienteRepository.FindOneAsync(request.PacienteId);
             if (paciente == null) return BadRequest($"No existe el paciente con Id {request.PacienteId}");
 
+            var fechaConsulta = request.Fecha;
+            if (fechaConsulta.TimeOfDay == TimeSpan.Zero)
+            {
+                if (fechaConsulta.Date == DateTime.Today)
+                    fechaConsulta = DateTime.Now;
+                else
+                    fechaConsulta = fechaConsulta.Date.Add(DateTime.Now.TimeOfDay);
+            }
+
             var entity = new Domain.Entities.HistorialClinico(
                 request.PacienteId,
-                request.Fecha,
+                fechaConsulta,
                 request.Motivo,
                 request.Veterinario,
                 request.Sintomas ?? "",

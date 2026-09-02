@@ -51,14 +51,18 @@
     --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
     --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
 
-    /* ── Backward-compatible aliases for inline styles ── */
+    /* ── Nombres semánticos de tarjetas y paneles ── */
+    --border-card: var(--border-color);
+    --bg-card: var(--bg-panel);
+    --shadow-glow: 0 2px 8px rgba(255, 215, 0, 0.3);
+    --accent-secondary: var(--accent-primary);
+
+    /* ── Alias de compatibilidad hacia atrás ── */
     --border-glass: var(--border-color);
     --bg-glass: var(--bg-panel);
     --bg-glass-hover: #f0f0f0;
     --accent-primary-glow: rgba(0, 163, 108, 0.15);
     --shadow-glass: var(--shadow-card);
-    --shadow-glow: 0 2px 8px rgba(255, 215, 0, 0.3);
-    --accent-secondary: var(--accent-primary);
 }
 
 * {
@@ -343,6 +347,7 @@ body {
    Tarjetas / Paneles
    ═══════════════════════ */
 
+.card-panel,
 .glass-card {
     background: var(--bg-panel);
     border: 1px solid var(--border-light);
@@ -352,9 +357,10 @@ body {
 }
 
 /* ═══════════════════════
-   Botones
+   Botones de Acción
    ═══════════════════════ */
 
+.btn-action,
 .btn-primary-glass {
     background: var(--accent-btn);
     color: var(--text-primary);
@@ -368,6 +374,7 @@ body {
     text-decoration: none;
 }
 
+.btn-action:hover,
 .btn-primary-glass:hover {
     background: var(--accent-btn-hover);
     border-color: var(--accent-btn-hover);
@@ -671,6 +678,9 @@ select.bg-dark option,
 }
 
 /* Fix cards/panels with dark inline backgrounds */
+.card-panel h2,
+.card-panel h3,
+.card-panel h4,
 .glass-card h2,
 .glass-card h3,
 .glass-card h4 {
@@ -806,3 +816,74 @@ select.bg-dark option,
         transform: translateY(0) scale(1);
     }
 }
+
+/* ═══════════════════════════════════════════════
+   Historia Clínica Imprimible
+   ═══════════════════════════════════════════════ */
+
+#historia-clinica-print-area {
+    display: none;
+}
+
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 12mm 15mm 15mm 15mm;
+    }
+
+    html, body {
+        background: #ffffff !important;
+        color: #1e293b !important;
+        font-family: 'Segoe UI', Arial, Helvetica, sans-serif !important;
+        font-size: 10pt !important;
+        height: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .app-container,
+    .sidebar,
+    .topbar,
+    .nav-menu,
+    .user-profile,
+    .admin-topbar-controls,
+    .glass-card,
+    .nav-pills,
+    .tab-content,
+    .modal-overlay,
+    button,
+    .btn,
+    #blazor-error-ui {
+        display: none !important;
+    }
+
+    #historia-clinica-print-area {
+        display: block !important;
+        visibility: visible !important;
+        position: static !important;
+        width: 100% !important;
+        background: #ffffff !important;
+        color: #1e293b !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    #historia-clinica-print-area * {
+        visibility: visible !important;
+    }
+}
+
+/* ═══════════════════════════════════════════════
+   Utilidades de Color de Estados Personalizados
+   ═══════════════════════════════════════════════ */
+.bg-purple,
+.badge-purple,
+.bg-morado {
+    background-color: #6f42c1 !important;
+    color: #ffffff !important;
+}
+

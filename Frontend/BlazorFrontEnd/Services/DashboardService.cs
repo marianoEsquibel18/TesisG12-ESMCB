@@ -34,5 +34,16 @@ namespace BlazorFrontEnd.Services
             var hasta = DateTime.Today.ToString("yyyy-MM-dd");
             return await _httpClient.GetUnwrappedAsync<List<IngresoDiarioDto>>($"api/v1/Estadisticas/ingresos/diario?desde={desde}&hasta={hasta}");
         }
+
+        public async Task<PacientesPorEspecieDashboardResponse?> GetPacientesPorEspecieAsync(DateTime? desde = null, DateTime? hasta = null)
+        {
+            var url = "api/v1/Estadisticas/pacientes/porEspecie";
+            var query = new List<string>();
+            if (desde.HasValue) query.Add($"desde={desde.Value:yyyy-MM-dd}");
+            if (hasta.HasValue) query.Add($"hasta={hasta.Value:yyyy-MM-dd}");
+            if (query.Any()) url += "?" + string.Join("&", query);
+
+            return await _httpClient.GetUnwrappedAsync<PacientesPorEspecieDashboardResponse>(url);
+        }
     }
 }

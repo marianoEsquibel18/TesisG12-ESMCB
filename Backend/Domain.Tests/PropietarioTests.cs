@@ -83,6 +83,19 @@ namespace Domain.Tests
         }
 
         [Fact]
+        public void Propietario_Actualizar_ConDNI_ShouldUpdateDNI()
+        {
+            // Arrange
+            var propietario = new Propietario("Juan", "Pérez", "12345678", "1155551234");
+
+            // Act
+            propietario.Actualizar("Juan", "Pérez", "99999999", "1155551234", "juan@test.com", "Calle 1");
+
+            // Assert
+            Assert.Equal("99999999", propietario.DNI);
+        }
+
+        [Fact]
         public void Propietario_Desactivar_ShouldSetActivoFalse()
         {
             // Arrange

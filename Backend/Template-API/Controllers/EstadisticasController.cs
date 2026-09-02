@@ -187,20 +187,45 @@ namespace Controllers
         // ═══════════════════════════════
 
         /// <summary>
-        /// Obtiene la distribución de pacientes por especie
+        /// Obtiene la distribución de visitas y turnos de pacientes por especie en un rango de fechas
         /// </summary>
         [HttpGet("api/v1/Estadisticas/pacientes/porEspecie")]
-        public async Task<IActionResult> PacientesPorEspecie()
+        public async Task<IActionResult> PacientesPorEspecie(
+            [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
         {
+            var turnos = (await turnoRepo.FindAllAsync()).AsEnumerable();
             var pacientes = await pacienteRepo.FindAllAsync();
 
-            var distribucion = pacientes
-                .GroupBy(p => p.Especie?.Nombre ?? "Sin especie")
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                turnos = turnos.Where(t => t.SucursalId == UserSucursalId.Value);
+            }
+
+            if (desde.HasValue)
+            {
+                var d = desde.Value.Date;
+                turnos = turnos.Where(t => t.FechaHora.Date >= d);
+            }
+
+            if (hasta.HasValue)
+            {
+                var h = hasta.Value.Date;
+                turnos = turnos.Where(t => t.FechaHora.Date <= h);
+            }
+
+            // Considerar visitas válidas (excluir turnos cancelados)
+            turnos = turnos.Where(t => t.Estado != EstadoTurno.Cancelado);
+
+            var listTurnos = turnos.ToList();
+            var pacienteDict = pacientes.ToDictionary(p => p.Id, p => p.Especie?.Nombre ?? "Sin especie");
+
+            var distribucion = listTurnos
+                .GroupBy(t => pacienteDict.TryGetValue(t.PacienteId, out var esp) ? esp : "Sin especie")
                 .Select(g => new { Especie = g.Key, Cantidad = g.Count() })
                 .OrderByDescending(x => x.Cantidad)
                 .ToList();
 
-            return Ok(new { Total = pacientes.Count, Distribucion = distribucion });
+            return Ok(new { Total = listTurnos.Count, Distribucion = distribucion });
         }
 
         /// <summary>
@@ -273,14 +298,14 @@ namespace Controllers
         }
 
         /// <summary>
-        /// Obtiene la cantidad de turnos por servicio
+        /// Obtiene la cantidad de turnos completados por servicio
         /// </summary>
         [HttpGet("api/v1/Estadisticas/turnos/porServicio")]
         public async Task<IActionResult> TurnosPorServicio([FromQuery] int diasAtras = 90)
         {
             var desde = DateTime.Today.AddDays(-diasAtras);
             var turnos = (await turnoRepo.FindAllAsync())
-                .Where(t => t.FechaHora >= desde).ToList();
+                .Where(t => t.FechaHora >= desde && t.Estado == EstadoTurno.Completado).ToList();
             var servicios = await servicioRepo.FindAllAsync();
 
             var resultado = turnos
@@ -290,7 +315,7 @@ namespace Controllers
                     ServicioId = g.Key,
                     Servicio = servicios.FirstOrDefault(s => s.Id == g.Key)?.Nombre ?? "Desconocido",
                     Cantidad = g.Count(),
-                    Completados = g.Count(t => t.Estado == EstadoTurno.Completado)
+                    Completados = g.Count()
                 })
                 .OrderByDescending(x => x.Cantidad)
                 .ToList();

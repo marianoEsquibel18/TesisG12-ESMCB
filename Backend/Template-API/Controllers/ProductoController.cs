@@ -2,6 +2,7 @@ using Application.DataTransferObjects;
 using Application.Repositories;
 using Core.Application;
 using Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Controllers
@@ -243,9 +244,17 @@ namespace Controllers
         }
 
         [HttpPost("api/v1/[Controller]")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Create([FromBody] CreateProductoRequest r)
         {
             if (r is null) return BadRequest("El request no puede ser nulo");
+
+            if (!string.IsNullOrWhiteSpace(r.CodigoBarras))
+            {
+                var existingBarcode = await _productoRepo.GetByCodigoBarrasAsync(r.CodigoBarras.Trim());
+                if (existingBarcode != null)
+                    return BadRequest($"Ya existe un producto con el código de barras '{r.CodigoBarras}'.");
+            }
 
             var categoria = await _categoriaRepo.FindOneAsync(r.CategoriaId);
             if (categoria == null) return BadRequest($"No existe la categoría con Id {r.CategoriaId}");
@@ -271,7 +280,7 @@ namespace Controllers
             }
 
             var entity = new Domain.Entities.Producto(
-                r.Nombre, r.Descripcion ?? "", r.CodigoBarras ?? "",
+                r.Nombre, r.Descripcion ?? "", r.CodigoBarras?.Trim() ?? "",
                 r.CategoriaId, r.PrecioCompra, r.PrecioVenta,
                 r.StockActual, r.StockMinimo,
                 r.MarcaId, r.ProveedorId, selectedDepositoId);
@@ -290,10 +299,18 @@ namespace Controllers
         }
 
         [HttpPut("api/v1/[Controller]")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Update([FromBody] UpdateProductoRequest r)
         {
             var entity = await _productoRepo.FindOneAsync(r.Id);
             if (entity == null) return NotFound();
+
+            if (!string.IsNullOrWhiteSpace(r.CodigoBarras))
+            {
+                var existingBarcode = await _productoRepo.GetByCodigoBarrasAsync(r.CodigoBarras.Trim());
+                if (existingBarcode != null && existingBarcode.Id != r.Id)
+                    return BadRequest($"Ya existe otro producto con el código de barras '{r.CodigoBarras}'.");
+            }
 
             if (r.CategoriaId > 0)
             {
@@ -320,7 +337,8 @@ namespace Controllers
                 r.CategoriaId > 0 ? r.CategoriaId : null,
                 r.MarcaId,
                 r.ProveedorId,
-                r.DepositoId);
+                r.DepositoId,
+                r.CodigoBarras?.Trim());
 
             if (!entity.IsValid) return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
             _productoRepo.Update(r.Id, entity);
@@ -331,6 +349,7 @@ namespace Controllers
         /// Registra entrada de stock en un depósito específico
         /// </summary>
         [HttpPost("api/v1/[Controller]/{id}/entrada")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> EntradaStock(string id, [FromBody] MovimientoStockRequest r)
         {
             var entity = await _productoRepo.FindOneAsync(id);
@@ -403,6 +422,7 @@ namespace Controllers
         /// Registra salida de stock de un depósito específico
         /// </summary>
         [HttpPost("api/v1/[Controller]/{id}/salida")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> SalidaStock(string id, [FromBody] MovimientoStockRequest r)
         {
             var entity = await _productoRepo.FindOneAsync(id);
@@ -486,6 +506,7 @@ namespace Controllers
         }
 
         [HttpDelete("api/v1/[Controller]/{id}")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Delete(string id)
         {
             var entity = await _productoRepo.FindOneAsync(id);
@@ -524,6 +545,7 @@ namespace Controllers
         public string Id { get; set; }
         public string Nombre { get; set; }
         public string Descripcion { get; set; }
+        public string CodigoBarras { get; set; }
         public int CategoriaId { get; set; }
         public int? MarcaId { get; set; }
         public string ProveedorId { get; set; }

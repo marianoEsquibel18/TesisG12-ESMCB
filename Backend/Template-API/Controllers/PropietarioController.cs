@@ -168,6 +168,16 @@ namespace Controllers
             var entity = await _repository.FindOneAsync(request.Id);
             if (entity == null) return NotFound($"No se encontró el propietario con Id {request.Id}");
 
+            if (!string.IsNullOrWhiteSpace(request.DNI) && request.DNI.Trim() != entity.DNI)
+            {
+                var dniExistente = await _repository.GetByDNIAsync(request.DNI.Trim());
+                if (dniExistente != null && dniExistente.Id != request.Id)
+                {
+                    return BadRequest($"Ya existe otro cliente registrado con el DNI {request.DNI}");
+                }
+                entity.ActualizarDNI(request.DNI.Trim());
+            }
+
             entity.Actualizar(request.Nombre, request.Apellido, request.Telefono, request.Email ?? "", request.Direccion ?? "");
 
             if (!entity.IsValid)
@@ -259,6 +269,7 @@ namespace Controllers
         public string Id { get; set; }
         public string Nombre { get; set; }
         public string Apellido { get; set; }
+        public string? DNI { get; set; }
         public string Telefono { get; set; }
         public string Email { get; set; }
         public string Direccion { get; set; }

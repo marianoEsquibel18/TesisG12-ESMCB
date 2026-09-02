@@ -54,7 +54,10 @@ namespace Controllers
                 PropietarioNombre = p.Propietario != null ? $"{p.Propietario.Nombre} {p.Propietario.Apellido}" : "",
                 EdadEnAnios = p.FechaNacimiento.HasValue ? (int?)Math.Floor((DateTime.Now - p.FechaNacimiento.Value).TotalDays / 365.25) : null,
                 p.FotoUrl,
-                p.Activo
+                p.Observaciones,
+                p.FechaRegistro,
+                p.Activo,
+                p.ContadorInasistencias
             });
             return Ok(PaginacionHelper.Paginar(dtos, page, pageSize, sortBy, sortDir));
         }

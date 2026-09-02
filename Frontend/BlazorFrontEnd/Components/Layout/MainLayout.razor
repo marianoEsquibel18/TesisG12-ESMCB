@@ -48,7 +48,7 @@
                                     Sucursal:
                                 </label>
                                 <select class="form-select form-select-sm" style="background: rgba(0,0,0,0.4); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.15); font-size: 0.8rem; padding: 2px 24px 2px 8px; width: auto; max-width: 170px; border-radius: 6px;" value="@(TokenStorage.ActiveSucursalId ?? 0)" @onchange="OnSucursalChanged">
-                                    <option value="0">🌐 Todas (Global)</option>
+                                    <option value="0">Todas (Global)</option>
                                     @foreach (var s in sucursales)
                                     {
                                         <option value="@s.Id">@s.Nombre</option>
@@ -66,10 +66,10 @@
                                     Ver como:
                                 </label>
                                 <select class="form-select form-select-sm" style="background: rgba(0,0,0,0.4); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.15); font-size: 0.8rem; padding: 2px 24px 2px 8px; width: auto; max-width: 150px; border-radius: 6px;" value="@(TokenStorage.SimulatedRole ?? "Admin")" @onchange="OnRoleChanged">
-                                    <option value="Admin">🛡️ Admin (Real)</option>
-                                    <option value="Gerente">👔 Gerente</option>
-                                    <option value="Veterinario">🩺 Veterinario</option>
-                                    <option value="Recepcionista">📋 Recepcionista</option>
+                                    <option value="Admin">Admin (Real)</option>
+                                    <option value="Gerente">Gerente</option>
+                                    <option value="Veterinario">Veterinario</option>
+                                    <option value="Recepcionista">Recepcionista</option>
                                 </select>
                             </div>
 
@@ -229,6 +229,8 @@
                     await CustomAuth.SetActiveSucursalAsync(null, null);
                 }
             }
+            
+            // Refrescar el estado reactivamente para filtros por sucursal
             StateHasChanged();
         }
     }
@@ -240,6 +242,15 @@
         {
             await CustomAuth.SetSimulatedRoleAsync(selectedRole);
         }
+
+        // Navegar a la pestaña de inicio correspondiente al rol
+        string targetUrl = "/dashboard";
+        if (string.Equals(selectedRole, "Recepcionista", StringComparison.OrdinalIgnoreCase))
+        {
+            targetUrl = "/agenda";
+        }
+
+        Navigation.NavigateTo(targetUrl);
         StateHasChanged();
     }
 
@@ -249,6 +260,7 @@
         {
             await CustomAuth.ResetSimulationAsync();
         }
+        Navigation.NavigateTo("/dashboard");
         StateHasChanged();
     }
 

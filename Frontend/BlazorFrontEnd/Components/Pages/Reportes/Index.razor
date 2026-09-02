@@ -419,17 +419,17 @@ else
         </div>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
-        <!-- SUBREPORTE 3: Top Productos Vendidos                          -->
+        <!-- SUBREPORTE 3: Top de Productos/Servicios Vendidos             -->
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
             <!-- Encabezado colapsable -->
             <div class="d-flex justify-content-between align-items-center pb-2 @(isTopProductosOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isTopProductosOpen = !isTopProductosOpen">
                 <div>
-                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">3. Top Productos Vendidos</h5>
-                    <small class="text-secondary">Ranking de artículos con mayor volumen y facturación</small>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">3. Top de Productos/Servicios Vendidos</h5>
+                    <small class="text-secondary">Ranking de productos y servicios con mayor volumen y facturación</small>
                 </div>
                 <div class="d-flex align-items-center gap-3">
-                    <span class="badge bg-light text-dark border px-2 py-1">@reporteVentas.ProductosMasVendidos.Count productos</span>
+                    <span class="badge bg-light text-dark border px-2 py-1">@reporteVentas.ProductosMasVendidos.Count ítems</span>
                     <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Productos">
                         @(isTopProductosOpen ? "▲" : "▼")
                     </button>
@@ -449,10 +449,10 @@ else
                     <div>
                         <span class="fw-bold" style="color: var(--text-primary);">Ordenar por:</span>
                         <span class="text-secondary small ms-1">
-                            @(productoSortBy == "CANTIDAD" ? "Muestra primero los productos con más unidades vendidas" : "Muestra primero los productos con mayor importe facturado")
+                            @(productoSortBy == "CANTIDAD" ? "Muestra primero los productos/servicios con más unidades vendidas" : "Muestra primero los productos/servicios con mayor importe facturado")
                         </span>
                     </div>
-                    <div class="btn-group" role="group" aria-label="Orden Top Productos">
+                    <div class="btn-group" role="group" aria-label="Orden Top Productos/Servicios">
                         <button type="button" 
                                 class="btn btn-sm @(productoSortBy == "CANTIDAD" ? "btn-primary" : "btn-outline-secondary")"
                                 style="font-weight: 600; padding: 4px 14px; @(productoSortBy == "CANTIDAD" ? "background-color: #0d6efd; border-color: #0d6efd; color: white;" : "")"
@@ -470,13 +470,13 @@ else
 
                 @if (!listaProds.Any())
                 {
-                    <p class="text-secondary small my-3">Sin ventas de productos registradas en el período.</p>
+                    <p class="text-secondary small my-3">Sin ventas de productos/servicios registradas en el período.</p>
                 }
                 else
                 {
-                    <!-- Gráfico de Barras para Top Productos -->
+                    <!-- Gráfico de Barras para Top Productos/Servicios -->
                     <div class="p-3 border rounded mb-4" style="background: #fafafa;">
-                        <h6 class="fw-bold mb-3" style="color: var(--text-primary);">Gráfico de Barras — Top Productos</h6>
+                        <h6 class="fw-bold mb-3" style="color: var(--text-primary);">Gráfico de Barras — Top Productos/Servicios</h6>
                         <div class="d-flex flex-column gap-3">
                             @for (int i = 0; i < listaProds.Count; i++)
                             {
@@ -516,7 +516,7 @@ else
                             <thead class="table-light">
                                 <tr>
                                     <th style="width: 60px;" class="text-center">#</th>
-                                    <th>Producto</th>
+                                    <th>Producto / Servicio</th>
                                     <th class="text-center">Unidades Vendidas</th>
                                     <th class="text-end">Total Facturado</th>
                                 </tr>
@@ -1272,17 +1272,17 @@ else
         </div>
 
         <!-- ═══════════════════════════════════════════════════════════════ -->
-        <!-- SUBREPORTE 3: Demanda por Tipo de Servicio                      -->
+        <!-- SUBREPORTE 3: Demanda y Top de Servicios Vendidos en Comercio    -->
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <div class="glass-card mb-4" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-card);">
             <!-- Encabezado colapsable -->
             <div class="d-flex justify-content-between align-items-center pb-2 @(isServiciosTurnosOpen ? "border-bottom mb-3" : "")" style="cursor: pointer;" @onclick="() => isServiciosTurnosOpen = !isServiciosTurnosOpen">
                 <div>
-                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Demanda por Tipo de Servicio</h5>
-                    <small class="text-secondary">Volumen y distribución de turnos por tipo de atención requerida</small>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-primary);">Demanda y Top de Servicios Vendidos en Comercio</h5>
+                    <small class="text-secondary">Ranking y distribución de servicios cobrados y registrados en caja durante el período seleccionado</small>
                 </div>
                 <div class="d-flex align-items-center gap-3">
-                    <span class="badge bg-light text-dark border px-2 py-1">@reporteTurnos.TurnosPorServicio.Count servicios</span>
+                    <span class="badge bg-light text-dark border px-2 py-1">@reporteTurnos.TurnosPorServicio.Count servicios registrados</span>
                     <button class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; padding: 2px 8px;" type="button" aria-label="Toggle Servicios Turnos">
                         @(isServiciosTurnosOpen ? "▲" : "▼")
                     </button>
@@ -1291,15 +1291,17 @@ else
 
             @if (isServiciosTurnosOpen)
             {
-                var listaServicios = reporteTurnos.TurnosPorServicio.OrderByDescending(s => s.CantidadTurnos).ToList();
+                var listaServicios = reporteTurnos.TurnosPorServicio.OrderByDescending(s => s.CantidadTurnos).ThenByDescending(s => s.TotalVendido).ToList();
                 int maxServ = listaServicios.Any() ? listaServicios.Max(s => s.CantidadTurnos) : 1;
                 if (maxServ <= 0) maxServ = 1;
-                int granTotalServ = reporteTurnos.TotalTurnos > 0 ? reporteTurnos.TotalTurnos : 1;
+                int granTotalServ = listaServicios.Sum(s => s.CantidadTurnos);
+                if (granTotalServ <= 0) granTotalServ = 1;
+                decimal granTotalMonto = listaServicios.Sum(s => s.TotalVendido);
 
                 @if (!listaServicios.Any())
                 {
                     <div class="text-center text-secondary p-4 border rounded" style="background: #fafafa;">
-                        No se registraron servicios solicitados en el período.
+                        No se registraron servicios vendidos en el período.
                     </div>
                 }
                 else
@@ -1324,7 +1326,11 @@ else
                                         </div>
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="badge bg-light text-dark border">@sharePercent.ToString("0.0")%</span>
-                                            <span class="fw-bold text-primary">@serv.CantidadTurnos turnos</span>
+                                            <span class="fw-bold text-success">@serv.CantidadTurnos vendidos</span>
+                                            @if (serv.TotalVendido > 0)
+                                            {
+                                                <span class="badge bg-light text-success border">($@serv.TotalVendido.ToString("N0"))</span>
+                                            }
                                         </div>
                                     </div>
                                     <div class="progress" style="height: 22px; background: #e5e7eb; border-radius: 6px; overflow: hidden;">
@@ -1344,7 +1350,8 @@ else
                             <thead class="table-light">
                                 <tr>
                                     <th>Servicio</th>
-                                    <th class="text-center">Cantidad de Turnos</th>
+                                    <th class="text-center">Cantidad Vendida</th>
+                                    <th class="text-end">Total Facturado</th>
                                     <th class="text-end">% Participación</th>
                                 </tr>
                             </thead>
@@ -1355,7 +1362,10 @@ else
                                     <tr>
                                         <td class="fw-bold" style="color: var(--text-primary);">@serv.ServicioNombre</td>
                                         <td class="text-center">
-                                            <span class="badge bg-primary text-white">@serv.CantidadTurnos turnos</span>
+                                            <span class="badge bg-success text-white">@serv.CantidadTurnos vendidos</span>
+                                        </td>
+                                        <td class="text-end fw-bold text-success">
+                                            $@serv.TotalVendido.ToString("N0")
                                         </td>
                                         <td class="text-end fw-bold text-info">@share.ToString("0.0")%</td>
                                     </tr>
@@ -1363,8 +1373,9 @@ else
                             </tbody>
                             <tfoot class="table-light fw-bold">
                                 <tr>
-                                    <td>TOTAL GENERAL</td>
-                                    <td class="text-center">@reporteTurnos.TotalTurnos turnos</td>
+                                    <td>TOTAL SERVICIOS VENDIDOS</td>
+                                    <td class="text-center text-primary">@granTotalServ servicios</td>
+                                    <td class="text-end text-success fs-6">$@granTotalMonto.ToString("N0")</td>
                                     <td class="text-end text-info">100%</td>
                                 </tr>
                             </tfoot>
@@ -2186,7 +2197,7 @@ else
 
     /// <summary>
     /// Determines if the current user role can see a specific report tab.
-    /// Admin: FINANZAS, STOCK
+    /// Admin & Gerente: FINANZAS, STOCK, TURNOS, CLINICA
     /// Veterinario: TURNOS, CLINICA
     /// </summary>
     private bool CanSeeTab(string tabName)
@@ -2196,7 +2207,7 @@ else
             "FINANZAS" => userRole == "Admin" || userRole == "Gerente",
             "STOCK" => userRole == "Admin" || userRole == "Gerente",
             "TURNOS" => userRole == "Admin" || userRole == "Veterinario" || userRole == "Gerente",
-            "CLINICA" => userRole == "Admin" || userRole == "Veterinario",
+            "CLINICA" => userRole == "Admin" || userRole == "Veterinario" || userRole == "Gerente",
             _ => false
         };
     }

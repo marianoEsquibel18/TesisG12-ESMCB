@@ -24,9 +24,41 @@
         </div>
 
         <div class="glass-card mb-3">
-            <h5 class="mb-3">Buscador de productos / servicios</h5>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="m-0">@(EsCobroTurno ? "Buscador de Productos y Servicios" : "Buscador de productos")</h5>
+                @if (EsCobroTurno)
+                {
+                    <span class="badge bg-success d-inline-flex align-items-center gap-1" style="font-size: 0.75rem; padding: 5px 9px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 14px; height: 14px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 1 1 9 0v3.75M3.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75A2.25 2.25 0 0 0 1.5 13.5v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                        </svg>
+                        Servicios Desbloqueados (Cobro de Turno)
+                    </span>
+                }
+            </div>
+
+            @if (EsCobroTurno)
+            {
+                <div class="btn-group mb-3 w-100" role="group" aria-label="Filtro Tipo Item">
+                    <button type="button" class="btn btn-sm @(tipoFiltro == "TODOS" ? "btn-primary text-white" : "btn-outline-secondary")" @onclick='() => CambiarFiltroTipo("TODOS")' style="font-size: 0.8rem; font-weight: 600;">
+                        Todos
+                    </button>
+                    <button type="button" class="btn btn-sm @(tipoFiltro == "PRODUCTOS" ? "btn-primary text-white" : "btn-outline-secondary")" @onclick='() => CambiarFiltroTipo("PRODUCTOS")' style="font-size: 0.8rem; font-weight: 600;">
+                        Solo Productos
+                    </button>
+                    <button type="button" class="btn btn-sm @(tipoFiltro == "SERVICIOS" ? "btn-success text-white" : "btn-outline-secondary")" @onclick='() => CambiarFiltroTipo("SERVICIOS")' style="font-size: 0.8rem; font-weight: 600;">
+                        Solo Servicios (@(allActiveServicios.Count))
+                    </button>
+                </div>
+            }
+
             <div class="input-group">
-                <input type="text" class="form-control" placeholder="Escanear Código de Barras o buscar producto / servicio..." @bind-value="searchTerm" @bind-value:event="oninput" @onkeyup="OnSearch" />
+                <span class="input-group-text bg-transparent border-secondary text-secondary" style="border-color: var(--border-glass) !important;">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 16px; height: 16px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                    </svg>
+                </span>
+                <input type="text" class="form-control" placeholder="@(EsCobroTurno ? "Escanear Código de Barras o buscar producto / servicio..." : "Escanear Código de Barras o buscar producto...")" @bind-value="searchTerm" @bind-value:event="oninput" @onkeyup="OnSearch" />
                 <button class="btn btn-outline-info" type="button" @onclick="BuscarProductosYServicios">Buscar</button>
             </div>
 
@@ -37,13 +69,13 @@
             else if ((searchResponse?.Items != null && searchResponse.Items.Any()) || (matchingServicios != null && matchingServicios.Any()))
             {
                 <div class="list-group mt-3" style="max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-                    <!-- Servicios Encontrados -->
-                    @if (matchingServicios != null && matchingServicios.Any())
+                    <!-- Servicios Encontrados (Solo habilitado en cobro de turno) -->
+                    @if (EsCobroTurno && matchingServicios != null)
                     {
                         @foreach(var serv in matchingServicios)
                         {
                             <div class="list-group-item d-flex justify-content-between align-items-center"
-                                 style="border-left: 5px solid #10b981 !important; border-color: var(--border-glass) !important; background: rgba(16, 185, 129, 0.05);">
+                                 style="border-left: 5px solid #10b981 !important; border-color: var(--border-glass) !important; background: rgba(16, 185, 129, 0.06);">
                                 <div style="flex: 1; margin-right: 12px;">
                                     <div class="d-flex align-items-center gap-2 mb-1">
                                         <span class="badge bg-success" style="font-size: 0.7rem; letter-spacing: 0.5px;">SERVICIO</span>
@@ -55,16 +87,13 @@
                                     }
                                     @if (!string.IsNullOrWhiteSpace(serv.ProductosUtilizados))
                                     {
-                                        <div class="mt-1" style="font-size: 0.76rem; color: #34d399;">
-                                            <span>📦 Insumos vinculados: </span>
-                                            <strong>@serv.ProductosUtilizados</strong>
-                                        </div>
+                                        <small class="text-info" style="font-size: 0.72rem;">
+                                            Insumos vinculados: @serv.ProductosUtilizados
+                                        </small>
                                     }
                                 </div>
                                 <div class="text-end d-flex flex-column align-items-end gap-1">
-                                    <span class="d-block" style="color: #10b981; font-weight: bold; font-size: 1.05rem;">
-                                        @(serv.Precio > 0 ? $"${serv.Precio:N2}" : "Sin costo")
-                                    </span>
+                                    <span class="d-block text-success fw-bold" style="font-size: 1.05rem;">$@serv.Precio.ToString("N2")</span>
                                     <button type="button" class="btn btn-sm btn-outline-success" @onclick="() => AgregarServicioAlCarrito(serv)" style="font-size: 0.8rem; padding: 3px 10px;">
                                         + Añadir al carrito
                                     </button>
@@ -74,7 +103,7 @@
                     }
 
                     <!-- Productos Encontrados -->
-                    @if (searchResponse?.Items != null && searchResponse.Items.Any())
+                    @if (searchResponse?.Items != null)
                     {
                         @foreach(var prod in searchResponse.Items)
                         {
@@ -116,7 +145,13 @@
             else if (!string.IsNullOrWhiteSpace(searchTerm) && !isSearching)
             {
                 <div class="mt-3 text-secondary small text-center p-3">
-                    No se encontraron productos ni servicios con el término "<strong>@searchTerm</strong>".
+                    No se encontraron @(EsCobroTurno ? "productos ni servicios" : "productos") con el término "<strong>@searchTerm</strong>".
+                </div>
+            }
+            else if (EsCobroTurno && tipoFiltro == "SERVICIOS" && (matchingServicios == null || !matchingServicios.Any()))
+            {
+                <div class="mt-3 text-secondary small text-center p-3">
+                    No hay servicios disponibles.
                 </div>
             }
         </div>
@@ -214,6 +249,20 @@
                     <h3 class="m-0" style="color: var(--accent-primary); font-weight: 900;">$@TotalCarrito.ToString("N2")</h3>
                 </div>
 
+                @if (propietarios != null && propietarios.Any())
+                {
+                    <div class="mb-2">
+                        <label class="text-secondary small">Cliente / Propietario</label>
+                        <select @bind="ventaRequest.PropietarioId" class="form-select form-select-sm bg-dark text-light border-secondary">
+                            <option value="">Consumidor Final / Sin Asignar</option>
+                            @foreach(var p in propietarios)
+                            {
+                                <option value="@p.Id">@p.NombreCompleto - DNI: @p.DNI</option>
+                            }
+                        </select>
+                    </div>
+                }
+
                 <div class="mb-3">
                     <label class="text-secondary small">Método de Pago (*)</label>
                     <select @bind="ventaRequest.MetodoPagoId" class="form-select form-select-lg">
@@ -239,13 +288,29 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery]
+    public int? ServicioId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? PacienteId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? PropietarioId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? TurnoId { get; set; }
+
+    private bool EsCobroTurno => !string.IsNullOrEmpty(TurnoId) || (ServicioId.HasValue && ServicioId.Value > 0);
+
     private string searchTerm = "";
+    private string tipoFiltro = "TODOS"; // "TODOS", "PRODUCTOS", "SERVICIOS"
     private System.Timers.Timer? debounceTimer;
     private bool isSearching;
     private PaginatedList<ProductoDto>? searchResponse;
-    private List<ServicioDto> allActiveServicios = new();
     private List<ServicioDto> matchingServicios = new();
+    private List<ServicioDto> allActiveServicios = new();
     private List<ProductoDto> allInventoryProducts = new();
+    private List<PropietarioDto> propietarios = new();
 
     private List<CreateDetalleVentaRequest> carrito = new();
     private Dictionary<string, ProductoDto> productosEnCarrito = new();
@@ -269,13 +334,43 @@
         var depTask = CatalogoService.GetDepositosAsync();
         var servTask = ServiciosService.GetServiciosActivosAsync();
         var prodTask = ProductoService.GetAllAsync(1, 1000);
+        var propTask = PropietarioService.GetAllActivosAsync();
         
-        await Task.WhenAll(pagosTask, depTask, servTask, prodTask);
+        await Task.WhenAll(pagosTask, depTask, servTask, prodTask, propTask);
 
         if(pagosTask.Result != null) metodosPago = pagosTask.Result;
         if(depTask.Result != null) depositos = depTask.Result;
         if(servTask.Result != null) allActiveServicios = servTask.Result;
         if(prodTask.Result?.Items != null) allInventoryProducts = prodTask.Result.Items;
+        if(propTask.Result != null) propietarios = propTask.Result;
+
+        // Si se redirige desde un turno completado, precargar servicio y datos
+        if (ServicioId.HasValue && ServicioId.Value > 0)
+        {
+            var servicio = allActiveServicios.FirstOrDefault(s => s.Id == ServicioId.Value);
+            if (servicio != null)
+            {
+                AgregarServicioAlCarrito(servicio);
+                serviceAlertMessage = $"¡Cobro precargado desde Turno! Servicio \"{servicio.Nombre}\" añadido al carrito. Seleccione el método de pago para registrar la venta.";
+            }
+        }
+
+        if (!string.IsNullOrEmpty(PropietarioId))
+        {
+            ventaRequest.PropietarioId = PropietarioId;
+        }
+        else if (!string.IsNullOrEmpty(PacienteId))
+        {
+            try
+            {
+                var pac = await PacienteService.GetByIdAsync(PacienteId);
+                if (pac != null && !string.IsNullOrEmpty(pac.PropietarioId))
+                {
+                    ventaRequest.PropietarioId = pac.PropietarioId;
+                }
+            }
+            catch {}
+        }
     }
 
     /// <summary>
@@ -307,27 +402,60 @@
 
     private async Task BuscarProductosYServicios()
     {
-        if(string.IsNullOrWhiteSpace(searchTerm)) {
-            searchResponse = null;
-            matchingServicios.Clear();
-            return; 
-        }
-
         isSearching = true;
-        
-        // 1. Buscar productos en API
-        searchResponse = await ProductoService.GetAllAsync(1, 10, searchTerm);
+        StateHasChanged();
+        try
+        {
+            // 1. Buscar productos si no está filtrado exclusivamente por servicios
+            if (tipoFiltro != "SERVICIOS")
+            {
+                if (!string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    searchResponse = await ProductoService.GetAllAsync(1, 20, searchTerm);
+                }
+                else
+                {
+                    searchResponse = null;
+                }
+            }
+            else
+            {
+                searchResponse = null;
+            }
 
-        // 2. Buscar servicios activos en memoria
-        var term = searchTerm.Trim();
-        matchingServicios = allActiveServicios
-            .Where(s => (s.Nombre != null && s.Nombre.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
-                        (!string.IsNullOrEmpty(s.Descripcion) && s.Descripcion.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
-                        (!string.IsNullOrEmpty(s.ProductosUtilizados) && s.ProductosUtilizados.Contains(term, StringComparison.OrdinalIgnoreCase)))
-            .Take(10)
-            .ToList();
+            // 2. Buscar servicios SOLO cuando proviene de un turno completado (EsCobroTurno)
+            if (EsCobroTurno && tipoFiltro != "PRODUCTOS")
+            {
+                if (string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    matchingServicios = tipoFiltro == "SERVICIOS"
+                        ? allActiveServicios.Where(s => s.Activo).ToList()
+                        : new List<ServicioDto>();
+                }
+                else
+                {
+                    matchingServicios = allActiveServicios
+                        .Where(s => s.Activo && (
+                            s.Nombre.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) || 
+                            (!string.IsNullOrEmpty(s.Descripcion) && s.Descripcion.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                        )).ToList();
+                }
+            }
+            else
+            {
+                matchingServicios.Clear();
+            }
+        }
+        finally
+        {
+            isSearching = false;
+        }
+    }
 
-        isSearching = false;
+    private async Task CambiarFiltroTipo(string nuevoTipo)
+    {
+        tipoFiltro = nuevoTipo;
+        await BuscarProductosYServicios();
     }
 
     private void AgregarAlCarrito(ProductoDto p)

@@ -1,5 +1,6 @@
 @page "/inventario/proveedores/nuevo"
 @page "/inventario/proveedores/editar/{Id}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Gerente,Recepcionista")]
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
 @inject CatalogoInventarioService CatalogoService

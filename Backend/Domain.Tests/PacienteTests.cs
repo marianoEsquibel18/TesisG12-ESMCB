@@ -137,5 +137,28 @@ namespace Domain.Tests
             Assert.Equal(2, paciente.EspecieId);
             Assert.Equal(10, paciente.RazaId);
         }
+
+        [Fact]
+        public void Paciente_Inasistencias_ShouldIncrementAndDecrementCorrectly()
+        {
+            // Arrange
+            var paciente = new Paciente("Michi", 1, "owner-123", "M");
+
+            // Act & Assert initial
+            Assert.Equal(0, paciente.ContadorInasistencias);
+
+            // Act increment
+            paciente.IncrementarInasistencias();
+            paciente.IncrementarInasistencias();
+            Assert.Equal(2, paciente.ContadorInasistencias);
+
+            // Act decrement
+            paciente.DecrementarInasistencias();
+            Assert.Equal(1, paciente.ContadorInasistencias);
+
+            // Act reset
+            paciente.ResetearInasistencias();
+            Assert.Equal(0, paciente.ContadorInasistencias);
+        }
     }
 }

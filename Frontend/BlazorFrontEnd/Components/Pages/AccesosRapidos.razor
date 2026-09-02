@@ -1,0 +1,460 @@
+@page "/accesos-rapidos"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Recepcionista")]
+@using BlazorFrontEnd.Models
+@using BlazorFrontEnd.Services
+@inject NavigationManager Navigation
+@inject AuthService AuthService
+@inject ProductoService ProductoService
+@inject CatalogoServiciosService ServiciosService
+@inject IJSRuntime JS
+
+<PageTitle>Accesos Rápidos</PageTitle>
+
+<style>
+    .action-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border-glass);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+        cursor: pointer;
+        padding: 40px 25px;
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.25s ease;
+        user-select: none;
+    }
+    .action-card:hover {
+        transform: translateY(-6px);
+        background: rgba(255, 255, 255, 0.06);
+        border-color: var(--accent-primary);
+        box-shadow: 0 12px 35px 0 rgba(0, 163, 108, 0.2);
+    }
+    .action-card:active {
+        transform: translateY(-2px);
+    }
+    .icon-wrapper {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 22px;
+        transition: transform 0.2s ease;
+    }
+    .action-card:hover .icon-wrapper {
+        transform: scale(1.08);
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center" style="margin-bottom: var(--sp-lg);">
+    <div>
+        <h2 style="font-weight: 700; margin: 0; color: var(--text-primary); display: flex; align-items: center; gap: 10px;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 28px; height: 28px; color: var(--accent-primary);">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+            </svg>
+            Accesos Rápidos
+        </h2>
+        <p class="text-secondary" style="margin: 0;">Panel operativo de atención y acciones frecuentes</p>
+    </div>
+    <div class="text-end d-none d-md-block">
+        <span class="badge" style="background: rgba(0, 163, 108, 0.12); color: var(--accent-primary); border: 1px solid var(--border-glass); padding: 8px 14px; font-size: 0.85rem; border-radius: 20px;">
+            @(DateTime.Today.ToString("dddd, dd 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-ES")))
+        </span>
+    </div>
+</div>
+
+<!-- Contenedor con botones centrados al medio de la pantalla -->
+<div style="min-height: 55vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px 0;">
+    <div style="width: 100%; max-width: 950px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
+        
+        <!-- CARD 1: Agendar Turno -->
+        <div class="action-card text-center" @onclick="GoToAgendarTurno">
+            <div class="icon-wrapper" style="background: rgba(0, 163, 108, 0.12); border: 2px solid rgba(0, 163, 108, 0.3);">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width: 40px; height: 40px; color: var(--accent-primary);">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H16.5v-.008Zm0 2.25h.008v.008H16.5V15Z" />
+                </svg>
+            </div>
+            <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">Agendar Turno</h4>
+            <p class="text-secondary" style="font-size: 0.88rem; margin-bottom: 22px; line-height: 1.4;">Programar una nueva cita o consulta médica para un paciente</p>
+            <button type="button" class="btn w-100" style="background: rgba(0, 163, 108, 0.2); color: #10b981; border: 1px solid rgba(0, 163, 108, 0.4); padding: 10px; font-weight: 700; border-radius: 8px;">
+                Agendar Turno
+            </button>
+        </div>
+
+        <!-- CARD 2: Registrar Venta -->
+        <div class="action-card text-center" @onclick="GoToRegistrarVenta">
+            <div class="icon-wrapper" style="background: rgba(59, 130, 246, 0.12); border: 2px solid rgba(59, 130, 246, 0.3);">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width: 40px; height: 40px; color: #3b82f6;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                </svg>
+            </div>
+            <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">Registrar Venta</h4>
+            <p class="text-secondary" style="font-size: 0.88rem; margin-bottom: 22px; line-height: 1.4;">Abrir el punto de venta (POS) para cobrar productos y servicios</p>
+            <button type="button" class="btn w-100" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); padding: 10px; font-weight: 700; border-radius: 8px;">
+                Registrar Venta
+            </button>
+        </div>
+
+        <!-- CARD 3: Lista de Precios -->
+        <div class="action-card text-center" @onclick="OpenListaPreciosModal">
+            <div class="icon-wrapper" style="background: rgba(168, 85, 247, 0.12); border: 2px solid rgba(168, 85, 247, 0.3);">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width: 40px; height: 40px; color: #c084fc;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+            </div>
+            <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">Lista de Precios</h4>
+            <p class="text-secondary" style="font-size: 0.88rem; margin-bottom: 22px; line-height: 1.4;">Consultar precios actualizados de todos los productos y servicios</p>
+            <button type="button" class="btn w-100" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); padding: 10px; font-weight: 700; border-radius: 8px;">
+                Ver Lista de Precios
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<!-- ═══════ POP-UP: LISTA DE PRECIOS ═══════ -->
+@if (showListaPreciosModal)
+{
+    <div class="modal-overlay modal-overlay-z1" @onclick="CloseListaPreciosModal" @onclick:stopPropagation="false">
+        <div class="modal-panel" style="max-width: 920px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;" @onclick:stopPropagation="true">
+            
+            <!-- Header -->
+            <div class="modal-header-row pb-3 border-bottom" style="border-color: var(--border-glass) !important;">
+                <div class="d-flex align-items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width: 24px; height: 24px; color: var(--accent-primary);">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                    <h3 style="margin: 0; font-weight: 700;">Lista de Precios</h3>
+                </div>
+                <button class="modal-close-btn" @onclick="CloseListaPreciosModal" title="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Toolbar: Buscador, Filtro de Tipo y Ordenamiento (Misma Altura y Diseño Balanceado) -->
+            <div class="py-3 border-bottom" style="border-color: var(--border-glass) !important;">
+                <div class="row g-2 align-items-center">
+                    
+                    <!-- Lupa / Buscador -->
+                    <div class="col-12 col-lg-5">
+                        <div class="input-group" style="height: 38px;">
+                            <span class="input-group-text text-secondary" style="border-color: var(--border-glass) !important; background: rgba(255,255,255,0.06) !important; border-right: none; padding: 0 12px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 16px; height: 16px; color: var(--accent-primary);">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                                </svg>
+                            </span>
+                            <input type="text" class="form-control text-light" placeholder="Buscar por nombre, código..." 
+                                   style="border-color: var(--border-glass); background: rgba(255,255,255,0.06) !important; border-left: none; height: 38px; font-size: 0.85rem;"
+                                   value="@searchTerm" @oninput="OnSearchInput" />
+                        </div>
+                    </div>
+
+                    <!-- Filtro por Tipo (Misma altura) -->
+                    <div class="col-12 col-sm-7 col-lg-4">
+                        <div class="btn-group w-100" role="group" style="height: 38px;">
+                            <button type="button" class="btn btn-sm d-flex align-items-center justify-content-center @(tipoFiltro == "Todos" ? "btn-primary-glass" : "btn-outline-secondary text-light")" 
+                                    style="font-size: 0.8rem; padding: 0 8px; border-color: var(--border-glass);"
+                                    @onclick='() => SetTipoFiltro("Todos")'>
+                                Todos <span class="badge ms-1" style="background: rgba(255,255,255,0.15); font-size: 0.7rem;">@itemsListaPrecios.Count</span>
+                            </button>
+                            <button type="button" class="btn btn-sm d-flex align-items-center justify-content-center @(tipoFiltro == "Productos" ? "btn-primary-glass" : "btn-outline-secondary text-light")" 
+                                    style="font-size: 0.8rem; padding: 0 8px; border-color: var(--border-glass);"
+                                    @onclick='() => SetTipoFiltro("Productos")'>
+                                Productos <span class="badge ms-1" style="background: rgba(255,255,255,0.15); font-size: 0.7rem;">@itemsListaPrecios.Count(i => i.Tipo == "Producto")</span>
+                            </button>
+                            <button type="button" class="btn btn-sm d-flex align-items-center justify-content-center @(tipoFiltro == "Servicios" ? "btn-primary-glass" : "btn-outline-secondary text-light")" 
+                                    style="font-size: 0.8rem; padding: 0 8px; border-color: var(--border-glass);"
+                                    @onclick='() => SetTipoFiltro("Servicios")'>
+                                Servicios <span class="badge ms-1" style="background: rgba(255,255,255,0.15); font-size: 0.7rem;">@itemsListaPrecios.Count(i => i.Tipo == "Servicio")</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Ordenamiento (Misma altura) -->
+                    <div class="col-12 col-sm-5 col-lg-3">
+                        <select class="form-select bg-dark text-light border-secondary" @bind="ordenSeleccionado" 
+                                style="height: 38px; border-color: var(--border-glass) !important; background: rgba(255,255,255,0.06); font-size: 0.84rem; border-radius: 8px;">
+                            <option value="nombre-asc">Nombre (A - Z)</option>
+                            <option value="nombre-desc">Nombre (Z - A)</option>
+                            <option value="precio-asc">Precio: Menor a Mayor</option>
+                            <option value="precio-desc">Precio: Mayor a Menor</option>
+                        </select>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Tabla de Precios con scroll -->
+            <div style="flex: 1; overflow-y: auto; max-height: 52vh; margin-top: 8px;">
+                @if (isLoadingPrecios)
+                {
+                    <div class="text-center py-5 text-secondary">
+                        <div class="spinner-border text-info mb-2" role="status"></div>
+                        <p>Cargando lista de precios...</p>
+                    </div>
+                }
+                else if (!FilteredItems.Any())
+                {
+                    <div class="text-center py-5 text-secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 48px; height: 48px; opacity: 0.4; margin-bottom: 10px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                        </svg>
+                        <p class="m-0">No se encontraron artículos que coincidan con los filtros aplicados.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover align-middle mb-0" style="--bs-table-bg: transparent; --bs-table-hover-bg: rgba(255,255,255,0.03);">
+                            <thead>
+                                <tr class="text-secondary border-bottom" style="border-color: var(--border-glass) !important; font-size: 0.78rem; text-transform: uppercase;">
+                                    <th style="width: 110px;">Tipo</th>
+                                    <th>Nombre / Descripción</th>
+                                    <th>Categoría / Código</th>
+                                    <th class="text-center" style="width: 100px;">Stock</th>
+                                    <th class="text-end" style="width: 140px;">Precio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in FilteredItems)
+                                {
+                                    <tr class="border-bottom" style="border-color: rgba(255,255,255,0.05) !important;">
+                                        <td>
+                                            @if (item.Tipo == "Producto")
+                                            {
+                                                <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.75rem;">
+                                                    Producto
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); font-size: 0.75rem;">
+                                                    Servicio
+                                                </span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <strong style="color: var(--text-primary); font-size: 0.95rem;">@item.Nombre</strong>
+                                            @if (!string.IsNullOrEmpty(item.Descripcion))
+                                            {
+                                                <small class="d-block text-secondary text-truncate" style="max-width: 380px; font-size: 0.8rem;">@item.Descripcion</small>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="text-light" style="font-size: 0.85rem;">@(string.IsNullOrEmpty(item.CategoriaOInfo) ? "—" : item.CategoriaOInfo)</span>
+                                            @if (!string.IsNullOrEmpty(item.Codigo))
+                                            {
+                                                <small class="d-block text-secondary" style="font-size: 0.75rem;">Cód: @item.Codigo</small>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            @if (item.Tipo == "Producto")
+                                            {
+                                                if (item.Stock.HasValue)
+                                                {
+                                                    <span class="badge @(item.Stock.Value <= 0 ? "bg-danger" : item.Stock.Value <= 5 ? "bg-warning text-dark" : "bg-secondary")" style="font-size: 0.75rem;">
+                                                        @item.Stock.Value u.
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-secondary">—</span>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="text-secondary" style="font-size: 0.8rem;">N/A</span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <strong style="color: var(--accent-primary); font-size: 1.1rem; font-weight: 700;">
+                                                $@item.Precio.ToString("N2")
+                                            </strong>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <!-- Footer -->
+            <div class="d-flex justify-content-between align-items-center pt-3 border-top mt-3" style="border-color: var(--border-glass) !important;">
+                <span class="text-secondary small">Mostrando <strong>@FilteredItems.Count()</strong> artículos</span>
+                <button type="button" class="btn btn-outline-secondary text-light" @onclick="CloseListaPreciosModal">Cerrar</button>
+            </div>
+
+        </div>
+    </div>
+}
+
+@code {
+    private bool showListaPreciosModal = false;
+    private bool isLoadingPrecios = false;
+    private List<ItemListaPrecio> itemsListaPrecios = new();
+
+    private string searchTerm = string.Empty;
+    private string tipoFiltro = "Todos"; // "Todos", "Productos", "Servicios"
+    private string ordenSeleccionado = "nombre-asc"; // "nombre-asc", "nombre-desc", "precio-asc", "precio-desc"
+
+    private void GoToAgendarTurno()
+    {
+        Navigation.NavigateTo("/agenda?nuevo=true");
+    }
+
+    private void GoToRegistrarVenta()
+    {
+        Navigation.NavigateTo("/ventas/pos");
+    }
+
+    private async Task OpenListaPreciosModal()
+    {
+        showListaPreciosModal = true;
+        searchTerm = string.Empty;
+        tipoFiltro = "Todos";
+        ordenSeleccionado = "nombre-asc";
+
+        if (!itemsListaPrecios.Any())
+        {
+            await CargarListaPrecios();
+        }
+    }
+
+    private void CloseListaPreciosModal()
+    {
+        showListaPreciosModal = false;
+    }
+
+    private async Task CargarListaPrecios()
+    {
+        isLoadingPrecios = true;
+        itemsListaPrecios = new List<ItemListaPrecio>();
+        try
+        {
+            // Cargar productos
+            var productosTask = ProductoService.GetAllAsync(page: 1, pageSize: 1000);
+            // Cargar servicios
+            var serviciosTask = ServiciosService.GetServiciosActivosAsync();
+
+            await Task.WhenAll(productosTask, serviciosTask);
+
+            var productosRes = productosTask.Result;
+            if (productosRes?.Items != null)
+            {
+                foreach (var p in productosRes.Items.Where(x => x.Activo))
+                {
+                    itemsListaPrecios.Add(new ItemListaPrecio
+                    {
+                        Id = p.Id,
+                        Tipo = "Producto",
+                        Nombre = p.Nombre,
+                        Descripcion = p.Descripcion,
+                        CategoriaOInfo = p.CategoriaNombre,
+                        Codigo = p.CodigoBarras,
+                        Precio = p.PrecioVenta,
+                        Stock = p.StockActual,
+                        Activo = p.Activo
+                    });
+                }
+            }
+
+            var serviciosRes = serviciosTask.Result;
+            if (serviciosRes != null)
+            {
+                foreach (var s in serviciosRes.Where(x => x.Activo))
+                {
+                    itemsListaPrecios.Add(new ItemListaPrecio
+                    {
+                        Id = s.Id.ToString(),
+                        Tipo = "Servicio",
+                        Nombre = s.Nombre,
+                        Descripcion = s.Descripcion,
+                        CategoriaOInfo = $"{s.DuracionMinutos} min",
+                        Codigo = string.Empty,
+                        Precio = s.Precio,
+                        Stock = null,
+                        Activo = s.Activo
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar lista de precios: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingPrecios = false;
+        }
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+    }
+
+    private void SetTipoFiltro(string tipo)
+    {
+        tipoFiltro = tipo;
+    }
+
+    private IEnumerable<ItemListaPrecio> FilteredItems
+    {
+        get
+        {
+            var query = itemsListaPrecios.AsEnumerable();
+
+            // Filtro por tipo
+            if (tipoFiltro == "Productos")
+            {
+                query = query.Where(i => i.Tipo == "Producto");
+            }
+            else if (tipoFiltro == "Servicios")
+            {
+                query = query.Where(i => i.Tipo == "Servicio");
+            }
+
+            // Búsqueda por término
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLowerInvariant();
+                query = query.Where(i => 
+                    i.Nombre.ToLowerInvariant().Contains(term) ||
+                    i.Descripcion.ToLowerInvariant().Contains(term) ||
+                    i.CategoriaOInfo.ToLowerInvariant().Contains(term) ||
+                    i.Codigo.ToLowerInvariant().Contains(term));
+            }
+
+            // Ordenamiento
+            query = ordenSeleccionado switch
+            {
+                "nombre-asc" => query.OrderBy(i => i.Nombre),
+                "nombre-desc" => query.OrderByDescending(i => i.Nombre),
+                "precio-asc" => query.OrderBy(i => i.Precio),
+                "precio-desc" => query.OrderByDescending(i => i.Precio),
+                _ => query.OrderBy(i => i.Nombre)
+            };
+
+            return query;
+        }
+    }
+
+    public class ItemListaPrecio
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Tipo { get; set; } = string.Empty; // "Producto" | "Servicio"
+        public string Nombre { get; set; } = string.Empty;
+        public string Descripcion { get; set; } = string.Empty;
+        public string CategoriaOInfo { get; set; } = string.Empty;
+        public string Codigo { get; set; } = string.Empty;
+        public decimal Precio { get; set; }
+        public int? Stock { get; set; }
+        public bool Activo { get; set; } = true;
+    }
+}

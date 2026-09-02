@@ -285,6 +285,18 @@ namespace Controllers
         {
             if (horarios == null || !horarios.Any()) return null;
 
+            // Validar que no haya días duplicados (tanto normal como guardia)
+            var diasDuplicados = horarios
+                .GroupBy(h => h.DiaSemana)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+
+            if (diasDuplicados.Any())
+            {
+                return "No se puede registrar más de un horario laboral o de guardia para el mismo día de la semana";
+            }
+
             double totalHorasSemanales = 0;
             var horasPorDia = new Dictionary<int, double>();
 

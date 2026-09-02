@@ -19,9 +19,13 @@ builder.Services.AddScoped<HttpClient>(sp =>
             ServerCertificateCustomValidationCallback = (_, _, _, _) => true
         }
     };
+    var config = sp.GetRequiredService<IConfiguration>();
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    var defaultUrl = env.IsProduction() ? "https://veterinarianandubay.qd.je/" : "https://localhost:7204/";
+    var baseUrl = config["ApiBaseUrl"] ?? defaultUrl;
     return new HttpClient(handler)
     {
-        BaseAddress = new Uri("https://localhost:7204/")
+        BaseAddress = new Uri(baseUrl)
     };
 });
 
@@ -70,6 +74,9 @@ builder.Services.AddScoped<BlazorFrontEnd.Services.SucursalService>();
 // Dashboard y Reportes
 builder.Services.AddScoped<BlazorFrontEnd.Services.DashboardService>();
 builder.Services.AddScoped<BlazorFrontEnd.Services.ReporteService>();
+
+// Integraciones y Comunicaciones
+builder.Services.AddScoped<BlazorFrontEnd.Services.WhatsAppService>();
 
 var app = builder.Build();
 

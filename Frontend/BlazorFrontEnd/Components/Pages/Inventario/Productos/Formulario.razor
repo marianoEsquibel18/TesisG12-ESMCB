@@ -1,5 +1,6 @@
 @page "/inventario/productos/nuevo"
 @page "/inventario/productos/editar/{Id}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Gerente,Recepcionista")]
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
 @inject ProductoService ProductoService
@@ -195,7 +196,17 @@
             {
                 var response = await ProductoService.GetByIdAsync(Id!);
                 if (response != null)
+                {
                     model = response;
+                    if (model.CategoriaId > 0 && !categorias.Any(c => c.Id == model.CategoriaId))
+                    {
+                        categorias.Add(new CategoriaDto { Id = model.CategoriaId, Nombre = !string.IsNullOrEmpty(model.CategoriaNombre) ? model.CategoriaNombre : $"Categoría #{model.CategoriaId} (Inactiva)", Activo = false });
+                    }
+                    if (model.MarcaId.HasValue && model.MarcaId.Value > 0 && !marcas.Any(m => m.Id == model.MarcaId.Value))
+                    {
+                        marcas.Add(new MarcaDto { Id = model.MarcaId.Value, Nombre = !string.IsNullOrEmpty(model.MarcaNombre) ? model.MarcaNombre : $"Marca #{model.MarcaId.Value} (Inactiva)", Activo = false });
+                    }
+                }
                 else
                     errorMessage = "No se encontró el producto solicitado.";
             }
@@ -212,21 +223,29 @@
 
     private async Task HandleSave()
     {
+        if (model.PrecioVenta < model.PrecioCompra)
+        {
+            errorMessage = "El precio de venta no puede ser menor al precio de compra.";
+            return;
+        }
+
         isSaving = true;
         errorMessage = string.Empty;
 
         try
         {
-            bool result;
+            (bool Success, string? ErrorMessage) result;
             if (isEdit)
-                result = await ProductoService.UpdateAsync(Id!, model);
+                result = await ProductoService.UpdateWithResultAsync(Id!, model);
             else
-                result = await ProductoService.CreateAsync(model);
+                result = await ProductoService.CreateWithResultAsync(model);
 
-            if (result)
+            if (result.Success)
                 Navigation.NavigateTo("/inventario/productos");
             else
-                errorMessage = "Error al guardar. Revise que todos los campos obligatorios estén completos.";
+                errorMessage = !string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? result.ErrorMessage.Trim('\"', '[', ']')
+                    : "Error al guardar. Revise que los datos sean correctos.";
         }
         catch (Exception)
         {

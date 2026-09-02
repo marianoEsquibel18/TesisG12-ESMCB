@@ -10,7 +10,6 @@ namespace Controllers
     [ApiController]
     public class RecordatorioController(
         IPacienteRepository pacienteRepo,
-        IPropietarioRepository propietarioRepo,
         IProductoRepository productoRepo,
         ITurnoRepository turnoRepo,
         IRegistroVacunacionRepository vacunacionRepo,

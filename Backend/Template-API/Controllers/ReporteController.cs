@@ -344,17 +344,55 @@ namespace Controllers
                 .OrderByDescending(v => v.TotalTurnos)
                 .ToList();
 
-            // Turnos por servicio
+            // Top de servicios basados en servicios registrados y cobrados en comercio (Ventas confirmadas)
+            var ventas = await ventaRepo.GetByFechaRangoAsync(d, h);
+            if (!IsAdmin && UserSucursalId.HasValue)
+            {
+                ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value).ToList();
+            }
+            var confirmadas = ventas.Where(v => v.Estado == EstadoVenta.Confirmada).ToList();
+
             var servicios = await servicioRepo.FindAllAsync();
-            var turnosPorServicio = todosTurnos
-                .GroupBy(t => t.ServicioId)
-                .Select(g => new TurnosPorServicioDto
+            var serviciosMap = new Dictionary<string, TurnosPorServicioDto>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var venta in confirmadas)
+            {
+                var detalles = await detalleVentaRepo.GetByVentaIdAsync(venta.Id);
+                foreach (var det in detalles)
                 {
-                    ServicioId = g.Key,
-                    ServicioNombre = servicios.FirstOrDefault(s => s.Id == g.Key)?.Nombre ?? "Desconocido",
-                    CantidadTurnos = g.Count()
-                })
+                    var esServicio = string.IsNullOrEmpty(det.ProductoId);
+                    if (!esServicio)
+                    {
+                        esServicio = servicios.Any(s => string.Equals(s.Nombre, det.Descripcion, StringComparison.OrdinalIgnoreCase));
+                    }
+
+                    if (esServicio)
+                    {
+                        var nombreServicio = det.Descripcion?.Trim() ?? "Servicio";
+                        var matchingServicio = servicios.FirstOrDefault(s => string.Equals(s.Nombre, nombreServicio, StringComparison.OrdinalIgnoreCase));
+                        var claveAgrupacion = matchingServicio?.Nombre ?? nombreServicio;
+
+                        if (!serviciosMap.TryGetValue(claveAgrupacion, out var dto))
+                        {
+                            dto = new TurnosPorServicioDto
+                            {
+                                ServicioId = matchingServicio?.Id ?? 0,
+                                ServicioNombre = claveAgrupacion,
+                                CantidadTurnos = 0,
+                                TotalVendido = 0
+                            };
+                            serviciosMap[claveAgrupacion] = dto;
+                        }
+
+                        dto.CantidadTurnos += det.Cantidad;
+                        dto.TotalVendido += det.Subtotal;
+                    }
+                }
+            }
+
+            var turnosPorServicio = serviciosMap.Values
                 .OrderByDescending(s => s.CantidadTurnos)
+                .ThenByDescending(s => s.TotalVendido)
                 .ToList();
 
             // Turnos por día

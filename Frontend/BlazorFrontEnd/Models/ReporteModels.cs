@@ -115,6 +115,7 @@ namespace BlazorFrontEnd.Models
         public int ServicioId { get; set; }
         public string ServicioNombre { get; set; } = string.Empty;
         public int CantidadTurnos { get; set; }
+        public decimal TotalVendido { get; set; }
     }
 
     // ════════════════════════════════════

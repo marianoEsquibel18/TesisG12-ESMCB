@@ -1,5 +1,6 @@
 @page "/inventario/nuevo"
 @page "/inventario/editar/{Id}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Gerente,Recepcionista")]
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
 @inject ProductoService ProductoService
@@ -36,7 +37,7 @@
                 
                 <div class="col-md-4" style="margin-bottom: var(--sp-sm);">
                     <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Código de Barras (*)</label>
-                    <InputText @bind-Value="model.CodigoBarras" class="form-control bg-dark text-light border-secondary" disabled="@isEdit" />
+                    <InputText @bind-Value="model.CodigoBarras" class="form-control bg-dark text-light border-secondary" placeholder="Ej: 7790001234" />
                     <ValidationMessage For="@(() => model.CodigoBarras)" class="text-danger" />
                 </div>
             </div>
@@ -221,7 +222,18 @@
             if (isEdit)
             {
                 var response = await ProductoService.GetByIdAsync(Id!);
-                if (response != null) model = response;
+                if (response != null)
+                {
+                    model = response;
+                    if (model.CategoriaId > 0 && !categorias.Any(c => c.Id == model.CategoriaId))
+                    {
+                        categorias.Add(new CategoriaDto { Id = model.CategoriaId, Nombre = !string.IsNullOrEmpty(model.CategoriaNombre) ? model.CategoriaNombre : $"Categoría #{model.CategoriaId} (Inactiva)", Activo = false });
+                    }
+                    if (model.MarcaId.HasValue && model.MarcaId.Value > 0 && !marcas.Any(m => m.Id == model.MarcaId.Value))
+                    {
+                        marcas.Add(new MarcaDto { Id = model.MarcaId.Value, Nombre = !string.IsNullOrEmpty(model.MarcaNombre) ? model.MarcaNombre : $"Marca #{model.MarcaId.Value} (Inactiva)", Activo = false });
+                    }
+                }
                 else errorMessage = "No se encontró el producto solicitado.";
             }
         }
@@ -240,6 +252,12 @@
         if (model.CategoriaId == 0)
         {
             errorMessage = "Debe asignar una Categoría obligatoriamente.";
+            return;
+        }
+
+        if (model.PrecioVenta < model.PrecioCompra)
+        {
+            errorMessage = "El precio de venta no puede ser menor al precio de compra.";
             return;
         }
 
@@ -266,19 +284,21 @@
             bypassProductSimilarity = false;
             showSimilarProductsConfirm = false;
 
-            bool result;
+            (bool Success, string? ErrorMessage) result;
             if (isEdit) 
-                result = await ProductoService.UpdateAsync(Id!, model);
+                result = await ProductoService.UpdateWithResultAsync(Id!, model);
             else 
-                result = await ProductoService.CreateAsync(model);
+                result = await ProductoService.CreateWithResultAsync(model);
 
-            if (result)
+            if (result.Success)
             {
                 Navigation.NavigateTo("/inventario");
             }
             else
             {
-                errorMessage = "Hubo un problema de validación en el Backend (Ej: Código de barras duplicado o Categoría inexistente).";
+                errorMessage = !string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? result.ErrorMessage.Trim('\"', '[', ']')
+                    : "Hubo un problema de validación en el Backend (Ej: Código de barras duplicado o Categoría inexistente).";
             }
         }
         catch (Exception)

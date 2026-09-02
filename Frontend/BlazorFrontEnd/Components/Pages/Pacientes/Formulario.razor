@@ -109,15 +109,63 @@
                     </InputSelect>
                     <ValidationMessage For="@(() => model.Sexo)" class="text-danger" />
                 </div>
-                
                 <div class="col-md-6" style="margin-bottom: var(--sp-sm);">
-                    <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Nacimiento (*)</label>
-                    <InputDate @bind-Value="model.FechaNacimiento" class="form-control bg-dark text-light border-secondary" />
-                    <ValidationMessage For="@(() => model.FechaNacimiento)" class="text-danger" />
-                    @if (!string.IsNullOrEmpty(fechaNacimientoError))
-                    { <div class="text-danger" style="font-size: 0.8rem; margin-top: 4px;">@fechaNacimientoError</div> }
+                    <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Modalidad de Nacimiento / Edad (*)</label>
+                    <select class="form-select bg-dark text-light border-secondary" value="@tipoIngresoFecha" @onchange="OnTipoIngresoFechaChanged">
+                        <option value="fecha">Fecha exacta (Día/Mes/Año)</option>
+                        <option value="edad">Por edad (Años, meses y días)</option>
+                    </select>
                 </div>
             </div>
+
+            @if (tipoIngresoFecha == "fecha")
+            {
+                <div class="row">
+                    <div class="col-12" style="margin-bottom: var(--sp-sm);">
+                        <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Fecha de Nacimiento (*)</label>
+                        <InputDate Value="model.FechaNacimiento" ValueExpression="() => model.FechaNacimiento" ValueChanged="((DateTime? val) => OnFechaNacimientoChanged(val))" class="form-control bg-dark text-light border-secondary" />
+                        <ValidationMessage For="@(() => model.FechaNacimiento)" class="text-danger" />
+                        @if (!string.IsNullOrEmpty(fechaNacimientoError))
+                        { <div class="text-danger" style="font-size: 0.8rem; margin-top: 4px;">@fechaNacimientoError</div> }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row" style="margin-bottom: var(--sp-sm);">
+                    <div class="col-12">
+                        <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Edad del Paciente (*)</label>
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <div class="input-group">
+                                    <input type="number" min="0" max="100" class="form-control bg-dark text-light border-secondary" placeholder="0" value="@edadAniosInput" @oninput="OnEdadAniosInput" />
+                                    <span class="input-group-text bg-dark text-secondary border-secondary" style="font-size: 0.8rem;">años</span>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="input-group">
+                                    <input type="number" min="0" max="11" class="form-control bg-dark text-light border-secondary" placeholder="0" value="@edadMesesInput" @oninput="OnEdadMesesInput" />
+                                    <span class="input-group-text bg-dark text-secondary border-secondary" style="font-size: 0.8rem;">meses</span>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="input-group">
+                                    <input type="number" min="0" max="31" class="form-control bg-dark text-light border-secondary" placeholder="0" value="@edadDiasInput" @oninput="OnEdadDiasInput" />
+                                    <span class="input-group-text bg-dark text-secondary border-secondary" style="font-size: 0.8rem;">días</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <small class="text-secondary" style="font-size: 0.8rem;">
+                                Fecha calculada: <span style="color: var(--accent-primary); font-weight: 500;">@(model.FechaNacimiento?.ToString("dd/MM/yyyy") ?? "No calculada")</span>
+                            </small>
+                        </div>
+                        <ValidationMessage For="@(() => model.FechaNacimiento)" class="text-danger" />
+                        @if (!string.IsNullOrEmpty(fechaNacimientoError))
+                        { <div class="text-danger" style="font-size: 0.8rem; margin-top: 4px;">@fechaNacimientoError</div> }
+                    </div>
+                </div>
+            }
 
             <div class="row" style="margin-bottom: var(--sp-sm);">
                 <div class="col-12">
@@ -329,6 +377,10 @@
     private bool isSaving;
     private string errorMessage = string.Empty;
     private string fechaNacimientoError = string.Empty;
+    private string tipoIngresoFecha = "fecha";
+    private int edadAniosInput = 0;
+    private int edadMesesInput = 0;
+    private int edadDiasInput = 0;
 
     // Catálogos
     private List<PropietarioDto> propietarios = new();
@@ -379,6 +431,7 @@
                     {
                         await CargarRazas(model.EspecieId);
                     }
+                    CalcularEdadDesdeFecha();
                 }
                 else errorMessage = "No se encontró el paciente solicitado.";
             }
@@ -391,6 +444,123 @@
         {
             isLoading = false;
         }
+    }
+
+    private void OnTipoIngresoFechaChanged(ChangeEventArgs e)
+    {
+        tipoIngresoFecha = e.Value?.ToString() ?? "fecha";
+        if (tipoIngresoFecha == "edad")
+        {
+            if (model.FechaNacimiento.HasValue)
+            {
+                CalcularEdadDesdeFecha();
+            }
+            else
+            {
+                CalcularFechaDesdeEdad();
+            }
+        }
+        else
+        {
+            CalcularFechaDesdeEdad();
+        }
+    }
+
+    private void OnFechaNacimientoChanged(DateTime? val)
+    {
+        model.FechaNacimiento = val;
+        fechaNacimientoError = string.Empty;
+        CalcularEdadDesdeFecha();
+    }
+
+    private void OnEdadAniosInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int val))
+        {
+            edadAniosInput = Math.Max(0, val);
+        }
+        else
+        {
+            edadAniosInput = 0;
+        }
+        CalcularFechaDesdeEdad();
+    }
+
+    private void OnEdadMesesInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int val))
+        {
+            edadMesesInput = Math.Max(0, val);
+        }
+        else
+        {
+            edadMesesInput = 0;
+        }
+        CalcularFechaDesdeEdad();
+    }
+
+    private void OnEdadDiasInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int val))
+        {
+            edadDiasInput = Math.Max(0, val);
+        }
+        else
+        {
+            edadDiasInput = 0;
+        }
+        CalcularFechaDesdeEdad();
+    }
+
+    private void CalcularFechaDesdeEdad()
+    {
+        fechaNacimientoError = string.Empty;
+        model.FechaNacimiento = DateTime.Today
+            .AddYears(-edadAniosInput)
+            .AddMonths(-edadMesesInput)
+            .AddDays(-edadDiasInput);
+    }
+
+    private void CalcularEdadDesdeFecha()
+    {
+        if (!model.FechaNacimiento.HasValue)
+        {
+            edadAniosInput = 0;
+            edadMesesInput = 0;
+            edadDiasInput = 0;
+            return;
+        }
+
+        var hoy = DateTime.Today;
+        var nac = model.FechaNacimiento.Value.Date;
+
+        if (nac > hoy)
+        {
+            edadAniosInput = 0;
+            edadMesesInput = 0;
+            edadDiasInput = 0;
+            return;
+        }
+
+        int a = hoy.Year - nac.Year;
+        int m = hoy.Month - nac.Month;
+        int d = hoy.Day - nac.Day;
+
+        if (d < 0)
+        {
+            m--;
+            var prevMonth = hoy.AddMonths(-1);
+            d += DateTime.DaysInMonth(prevMonth.Year, prevMonth.Month);
+        }
+        if (m < 0)
+        {
+            a--;
+            m += 12;
+        }
+
+        edadAniosInput = Math.Max(0, a);
+        edadMesesInput = Math.Max(0, m);
+        edadDiasInput = Math.Max(0, d);
     }
 
     private async Task OnEspecieChanged(int newEspecieId)
@@ -500,7 +670,7 @@
                 var esp = await CatalogoService.GetEspeciesActivasAsync();
                 if (esp != null) especies = esp;
 
-                var nuevo = especies.FirstOrDefault(e => e.Nombre.Equals(especieModel.Nombre, StringComparison.OrdinalIgnoreCase));
+                var nuevo = especies?.FirstOrDefault(e => e.Nombre.Equals(especieModel.Nombre, StringComparison.OrdinalIgnoreCase));
                 if (nuevo != null)
                 {
                     await OnEspecieChanged(nuevo.Id);
@@ -579,7 +749,7 @@
             {
                 await CargarRazas(model.EspecieId);
 
-                var nuevo = razas.FirstOrDefault(r => r.Nombre.Equals(razaModel.Nombre, StringComparison.OrdinalIgnoreCase));
+                var nuevo = razas?.FirstOrDefault(r => r.Nombre.Equals(razaModel.Nombre, StringComparison.OrdinalIgnoreCase));
                 if (nuevo != null)
                 {
                     model.RazaId = nuevo.Id;

@@ -258,7 +258,8 @@ namespace Controllers
             FotoUrl = p.FotoUrl,
             Observaciones = p.Observaciones,
             FechaRegistro = p.FechaRegistro,
-            Activo = p.Activo
+            Activo = p.Activo,
+            ContadorInasistencias = p.ContadorInasistencias
         };
     }
 

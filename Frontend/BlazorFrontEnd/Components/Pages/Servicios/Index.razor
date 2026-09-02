@@ -12,7 +12,7 @@
         <h2 style="font-weight: 700; margin: 0;">Catálogo de Servicios</h2>
         <p class="text-secondary" style="margin: 0;">Gestión de servicios clínicos y veterinarios ofrecidos</p>
     </div>
-    <AuthorizeView Roles="Admin,Veterinario,Recepcionista">
+    <AuthorizeView Roles="Admin,Gerente,Veterinario,Recepcionista">
         <Authorized>
             <button @onclick="OpenCreateModal" class="btn-primary-glass" style="display: flex; align-items: center; gap: 8px; border: none; cursor: pointer;">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;">
@@ -40,12 +40,12 @@
                 <label class="text-secondary" style="font-size: 0.78rem; margin-bottom: 4px; display: block;">Estado</label>
                 <select @bind="filtroEstado" @bind:after="ApplyFilters" class="form-select form-select-sm"
                         style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                    <option value="">Todos</option>
                     <option value="Activo">Activos</option>
                     <option value="Inactivo">Inactivos</option>
-                    <option value="">Todos</option>
                 </select>
             </div>
-            @if (!string.IsNullOrEmpty(searchTerm) || filtroEstado != "Activo")
+            @if (!string.IsNullOrEmpty(searchTerm) || !string.IsNullOrEmpty(filtroEstado))
             {
                 <button class="btn btn-sm btn-outline-secondary" style="height: 31px; border-color: var(--border-glass); color: var(--text-secondary);" @onclick="ClearFilters">
                     Limpiar filtros
@@ -131,7 +131,7 @@
                                 }
                             </td>
                             <td class="align-middle text-end">
-                                <AuthorizeView Roles="Admin,Veterinario,Recepcionista">
+                                <AuthorizeView Roles="Admin,Gerente,Veterinario,Recepcionista">
                                     <Authorized>
                                         <button type="button" class="btn btn-sm btn-outline-info" style="border-color: var(--border-glass); color: var(--text-primary);" @onclick="() => OpenEditModal(s)">Editar</button>
                                         <button type="button" class="btn btn-sm btn-outline-danger" style="margin-left: 5px;" @onclick="() => ConfirmDelete(s)">Eliminar</button>
@@ -345,7 +345,7 @@
 
     private bool isLoading = true;
     private string searchTerm = string.Empty;
-    private string filtroEstado = "Activo";
+    private string filtroEstado = string.Empty;
     private string generalMessage = string.Empty;
 
     // ── Form Modal State ──
@@ -439,7 +439,7 @@
     private void ClearFilters()
     {
         searchTerm = string.Empty;
-        filtroEstado = "Activo";
+        filtroEstado = string.Empty;
         ApplyFilters();
     }
 

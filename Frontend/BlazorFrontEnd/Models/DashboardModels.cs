@@ -61,4 +61,16 @@ namespace BlazorFrontEnd.Models
         public int DiasAntelacion { get; set; }
         public List<VacunaPendienteDto> Items { get; set; } = new();
     }
+
+    public class DistribucionEspecieItemDto
+    {
+        public string Especie { get; set; } = string.Empty;
+        public int Cantidad { get; set; }
+    }
+
+    public class PacientesPorEspecieDashboardResponse
+    {
+        public int Total { get; set; }
+        public List<DistribucionEspecieItemDto> Distribucion { get; set; } = new();
+    }
 }

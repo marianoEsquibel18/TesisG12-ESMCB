@@ -16,7 +16,8 @@ namespace Domain.Validators
             RuleFor(p => p.PrecioCompra)
                 .GreaterThanOrEqualTo(0).WithMessage("El precio de compra no puede ser negativo");
             RuleFor(p => p.PrecioVenta)
-                .GreaterThanOrEqualTo(0).WithMessage("El precio de venta no puede ser negativo");
+                .GreaterThanOrEqualTo(0).WithMessage("El precio de venta no puede ser negativo")
+                .GreaterThanOrEqualTo(p => p.PrecioCompra).WithMessage("El precio de venta no puede ser menor al precio de compra");
             RuleFor(p => p.StockMinimo)
                 .GreaterThanOrEqualTo(0).WithMessage("El stock mínimo no puede ser negativo");
             RuleFor(p => p.CodigoBarras)

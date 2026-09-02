@@ -396,3 +396,16 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Credenciales y archivos locales sensibles
+appsettings.Development.json
+*.pem
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+logs/
+logs errores/
+publish_backend/
+publish_frontend/
+deploy_package.tar.gz

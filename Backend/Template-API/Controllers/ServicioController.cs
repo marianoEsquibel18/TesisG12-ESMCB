@@ -48,7 +48,7 @@ namespace Controllers
         }
 
         [HttpPost("api/v1/[Controller]")]
-        [Authorize(Roles = "Admin,Veterinario,Recepcionista")]
+        [Authorize(Roles = "Admin,Gerente,Veterinario,Recepcionista")]
         public async Task<IActionResult> Create([FromBody] CreateServicioRequest request)
         {
             if (request is null) return BadRequest("El request no puede ser nulo");
@@ -65,7 +65,7 @@ namespace Controllers
         }
 
         [HttpPut("api/v1/[Controller]")]
-        [Authorize(Roles = "Admin,Veterinario,Recepcionista")]
+        [Authorize(Roles = "Admin,Gerente,Veterinario,Recepcionista")]
         public async Task<IActionResult> Update([FromBody] UpdateServicioRequest request)
         {
             if (request is null) return BadRequest("El request no puede ser nulo");
@@ -75,6 +75,12 @@ namespace Controllers
             var duracion = request.DuracionMinutos > 0 ? request.DuracionMinutos : (entity.DuracionMinutos > 0 ? entity.DuracionMinutos : 30);
             entity.Actualizar(request.Nombre, request.Descripcion ?? "", duracion, request.Precio, request.ProductosUtilizados ?? "");
 
+            if (request.Activo.HasValue)
+            {
+                if (request.Activo.Value) entity.Activar();
+                else entity.Desactivar();
+            }
+
             if (!entity.IsValid)
                 return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
 
@@ -83,7 +89,7 @@ namespace Controllers
         }
 
         [HttpDelete("api/v1/[Controller]/{id}")]
-        [Authorize(Roles = "Admin,Veterinario,Recepcionista")]
+        [Authorize(Roles = "Admin,Gerente,Veterinario,Recepcionista")]
         public async Task<IActionResult> Delete(int id)
         {
             if (id <= 0) return BadRequest("El ID debe ser mayor a 0");
@@ -113,5 +119,6 @@ namespace Controllers
         public int DuracionMinutos { get; set; }
         public decimal Precio { get; set; }
         public string ProductosUtilizados { get; set; }
+        public bool? Activo { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Application.Repositories;
+using Application.Repositories;
 using Core.Application;
 using Core.Infraestructure;
 using Domain.Others.Utils;
@@ -28,6 +28,7 @@ namespace Infrastructure.Registrations
 
             /* Adapters */
             services.AddSingleton<IExternalApiClient, ExternalApiHttpAdapter>();
+            services.AddScoped<ITwilioWhatsAppService, Infrastructure.Repositories.TwilioWhatsAppService>();
 
             return services;
         }

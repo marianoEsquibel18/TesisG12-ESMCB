@@ -339,10 +339,20 @@ namespace Controllers
             for (int i = 1; i <= 8; i++)
             {
                 var vet = vets[i % vets.Count];
-                var t = new Turno(pacientes[i % pacientes.Count].Id, vet.Id,
+                var pac = pacientes[i % pacientes.Count];
+                var t = new Turno(pac.Id, vet.Id,
                     servicios[0].Id, DateTime.Today.AddDays(-i * 5).AddHours(10),
                     30, "Consulta de seguimiento", "", vet.SucursalId);
-                t.Completar("Paciente en buen estado");
+                if (i == 2 || i == 6)
+                {
+                    t.Ausente();
+                    pac.IncrementarInasistencias();
+                    pacienteRepo.Update(pac.Id, pac);
+                }
+                else
+                {
+                    t.Completar("Paciente en buen estado");
+                }
                 turnosList.Add(t);
             }
             foreach (var t in turnosList) await turnoRepo.AddAsync(t);
@@ -513,19 +523,21 @@ namespace Controllers
             resumen["MétodosPago"] = metodos.Count;
 
             // DetalleVenta(ventaId, productoId, descripcion, cantidad, precioUnitario)
-            var v1 = new Venta(props[0].Id, metodos[0].Id, "Compra de alimento y medicación", sucursalCentral.Id);
+            var v1 = new Venta(props[0].Id, metodos[0].Id, "Consulta y Medicación", sucursalCentral.Id);
             await ventaRepo.AddAsync(v1);
+            await detalleVentaRepo.AddAsync(new DetalleVenta(v1.Id, null, servicios[0].Nombre, 1, servicios[0].Precio)); // Consulta general
             await detalleVentaRepo.AddAsync(new DetalleVenta(v1.Id, productos[2].Id, productos[2].Nombre, 1, productos[2].PrecioVenta));
             await detalleVentaRepo.AddAsync(new DetalleVenta(v1.Id, productos[0].Id, productos[0].Nombre, 2, productos[0].PrecioVenta));
-            v1.ActualizarTotal(28000m + 2 * 2500m);
+            v1.ActualizarTotal(servicios[0].Precio + 28000m + 2 * 2500m);
             v1.Confirmar();
             ventaRepo.Update(v1.Id, v1);
 
-            var v2 = new Venta(props[1].Id, metodos[1].Id, "Accesorios", sucursalCentral.Id);
+            var v2 = new Venta(props[1].Id, metodos[1].Id, "Vacunación y Accesorios", sucursalCentral.Id);
             await ventaRepo.AddAsync(v2);
+            await detalleVentaRepo.AddAsync(new DetalleVenta(v2.Id, null, servicios[1].Nombre, 1, servicios[1].Precio)); // Vacunación
             await detalleVentaRepo.AddAsync(new DetalleVenta(v2.Id, productos[4].Id, productos[4].Nombre, 1, productos[4].PrecioVenta));
             await detalleVentaRepo.AddAsync(new DetalleVenta(v2.Id, productos[5].Id, productos[5].Nombre, 1, productos[5].PrecioVenta));
-            v2.ActualizarTotal(4500m + 3000m);
+            v2.ActualizarTotal(servicios[1].Precio + 4500m + 3000m);
             v2.Confirmar();
             ventaRepo.Update(v2.Id, v2);
 
@@ -536,7 +548,15 @@ namespace Controllers
             v3.Confirmar();
             ventaRepo.Update(v3.Id, v3);
 
-            resumen["Ventas"] = 3;
+            var v4 = new Venta(props[0].Id, metodos[2].Id, "Cirugía Menor y Medicamento", sucursalCentral.Id);
+            await ventaRepo.AddAsync(v4);
+            await detalleVentaRepo.AddAsync(new DetalleVenta(v4.Id, null, servicios[2].Nombre, 1, servicios[2].Precio)); // Cirugía menor
+            await detalleVentaRepo.AddAsync(new DetalleVenta(v4.Id, null, servicios[0].Nombre, 1, servicios[0].Precio)); // Consulta general
+            v4.ActualizarTotal(servicios[2].Precio + servicios[0].Precio);
+            v4.Confirmar();
+            ventaRepo.Update(v4.Id, v4);
+
+            resumen["Ventas"] = 4;
             resumen["MétodosPago"] = metodos.Count;
 
             return Ok(new

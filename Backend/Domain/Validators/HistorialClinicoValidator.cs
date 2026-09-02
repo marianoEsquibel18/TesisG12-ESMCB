@@ -37,8 +37,8 @@ namespace Domain.Validators
                 .WithMessage("El peso debe ser mayor a 0");
 
             RuleFor(h => h.Temperatura)
-                .InclusiveBetween(30, 50).When(h => h.Temperatura.HasValue)
-                .WithMessage("La temperatura debe estar entre 30 y 50 grados");
+                .InclusiveBetween(1, 50).When(h => h.Temperatura.HasValue)
+                .WithMessage("La temperatura debe estar entre 1 y 50 grados");
         }
     }
 }

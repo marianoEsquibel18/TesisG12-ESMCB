@@ -18,6 +18,7 @@ namespace Domain.Entities
         public string Observaciones { get; private set; }
         public DateTime FechaRegistro { get; private set; }
         public bool Activo { get; private set; }
+        public int ContadorInasistencias { get; private set; } = 0;
 
         // Navegación
         public virtual Especie Especie { get; private set; }
@@ -100,6 +101,29 @@ namespace Domain.Entities
         public void Activar()
         {
             Activo = true;
+        }
+
+        public void IncrementarInasistencias()
+        {
+            ContadorInasistencias++;
+        }
+
+        public void DecrementarInasistencias()
+        {
+            if (ContadorInasistencias > 0)
+            {
+                ContadorInasistencias--;
+            }
+        }
+
+        public void ResetearInasistencias()
+        {
+            ContadorInasistencias = 0;
+        }
+
+        public void EstablecerInasistencias(int cantidad)
+        {
+            ContadorInasistencias = Math.Max(0, cantidad);
         }
     }
 }

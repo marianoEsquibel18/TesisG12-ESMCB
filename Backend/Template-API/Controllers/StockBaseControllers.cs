@@ -1,6 +1,7 @@
 using Application.DataTransferObjects;
 using Application.Repositories;
 using Core.Application;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Controllers
@@ -27,6 +28,7 @@ namespace Controllers
         }
 
         [HttpPost("api/v1/[Controller]")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Create([FromBody] CreateCategoriaRequest r)
         {
             var entity = new Domain.Entities.Categoria(r.Nombre, r.Descripcion ?? "");
@@ -36,17 +38,24 @@ namespace Controllers
         }
 
         [HttpPut("api/v1/[Controller]")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Update([FromBody] UpdateCategoriaRequest r)
         {
             var e = await _repo.FindOneAsync(r.Id);
             if (e == null) return NotFound();
             e.Actualizar(r.Nombre, r.Descripcion ?? "");
+            if (r.Activo.HasValue)
+            {
+                if (r.Activo.Value) e.Activar();
+                else e.Desactivar();
+            }
             if (!e.IsValid) return BadRequest(e.GetErrors().Select(x => x.ErrorMessage));
             _repo.Update(r.Id, e);
             return NoContent();
         }
 
         [HttpDelete("api/v1/[Controller]/{id}")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Delete(int id)
         {
             var e = await _repo.FindOneAsync(id);
@@ -57,7 +66,7 @@ namespace Controllers
     }
 
     public class CreateCategoriaRequest { public string Nombre { get; set; } public string Descripcion { get; set; } }
-    public class UpdateCategoriaRequest { public int Id { get; set; } public string Nombre { get; set; } public string Descripcion { get; set; } }
+    public class UpdateCategoriaRequest { public int Id { get; set; } public string Nombre { get; set; } public string Descripcion { get; set; } public bool? Activo { get; set; } }
 
     [ApiController]
     public class MarcaController(IMarcaRepository repo) : BaseController
@@ -68,7 +77,7 @@ namespace Controllers
         public async Task<IActionResult> GetAll(bool soloActivas = true)
         {
             var entities = soloActivas ? await _repo.GetActivasAsync() : await _repo.FindAllAsync();
-            var dtos = entities.Select(m => new MarcaDto { Id = m.Id, Nombre = m.Nombre, Activo = m.Activo }).ToList();
+            var dtos = entities.Select(m => new MarcaDto { Id = m.Id, Nombre = m.Nombre, Descripcion = m.Descripcion, Activo = m.Activo }).ToList();
             return Ok(new QueryResult<MarcaDto>(dtos, dtos.Count, 1, 10));
         }
 
@@ -77,30 +86,38 @@ namespace Controllers
         {
             var e = await _repo.FindOneAsync(id);
             if (e == null) return NotFound();
-            return Ok(new MarcaDto { Id = e.Id, Nombre = e.Nombre, Activo = e.Activo });
+            return Ok(new MarcaDto { Id = e.Id, Nombre = e.Nombre, Descripcion = e.Descripcion, Activo = e.Activo });
         }
 
         [HttpPost("api/v1/[Controller]")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Create([FromBody] CreateMarcaRequest r)
         {
-            var entity = new Domain.Entities.Marca(r.Nombre);
+            var entity = new Domain.Entities.Marca(r.Nombre, r.Descripcion ?? "");
             if (!entity.IsValid) return BadRequest(entity.GetErrors().Select(e => e.ErrorMessage));
             var id = await _repo.AddAsync(entity);
             return Created($"api/v1/Marca/{id}", new { Id = id });
         }
 
         [HttpPut("api/v1/[Controller]")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Update([FromBody] UpdateMarcaRequest r)
         {
             var e = await _repo.FindOneAsync(r.Id);
             if (e == null) return NotFound();
-            e.Actualizar(r.Nombre);
+            e.Actualizar(r.Nombre, r.Descripcion ?? "");
+            if (r.Activo.HasValue)
+            {
+                if (r.Activo.Value) e.Activar();
+                else e.Desactivar();
+            }
             if (!e.IsValid) return BadRequest(e.GetErrors().Select(x => x.ErrorMessage));
             _repo.Update(r.Id, e);
             return NoContent();
         }
 
         [HttpDelete("api/v1/[Controller]/{id}")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Delete(int id)
         {
             var e = await _repo.FindOneAsync(id);
@@ -110,8 +127,8 @@ namespace Controllers
         }
     }
 
-    public class CreateMarcaRequest { public string Nombre { get; set; } }
-    public class UpdateMarcaRequest { public int Id { get; set; } public string Nombre { get; set; } }
+    public class CreateMarcaRequest { public string Nombre { get; set; } public string Descripcion { get; set; } }
+    public class UpdateMarcaRequest { public int Id { get; set; } public string Nombre { get; set; } public string Descripcion { get; set; } public bool? Activo { get; set; } }
 
     [ApiController]
     public class ProveedorController(IProveedorRepository repo) : BaseController
@@ -143,6 +160,7 @@ namespace Controllers
         }
 
         [HttpPost("api/v1/[Controller]")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Create([FromBody] CreateProveedorRequest r)
         {
             var existing = await _repo.GetByCUITAsync(r.CUIT);
@@ -156,17 +174,24 @@ namespace Controllers
         }
 
         [HttpPut("api/v1/[Controller]")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Update([FromBody] UpdateProveedorRequest r)
         {
             var e = await _repo.FindOneAsync(r.Id);
             if (e == null) return NotFound();
             e.Actualizar(r.RazonSocial, r.CUIT, r.Telefono, r.Email ?? "", r.Direccion ?? "", r.Contacto ?? "");
+            if (r.Activo.HasValue)
+            {
+                if (r.Activo.Value) e.Activar();
+                else e.Desactivar();
+            }
             if (!e.IsValid) return BadRequest(e.GetErrors().Select(x => x.ErrorMessage));
             _repo.Update(r.Id, e);
             return NoContent();
         }
 
         [HttpDelete("api/v1/[Controller]/{id}")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Delete(string id)
         {
             var e = await _repo.FindOneAsync(id);
@@ -196,6 +221,7 @@ namespace Controllers
         public string CUIT { get; set; }
         public string Telefono { get; set; } public string Email { get; set; }
         public string Direccion { get; set; } public string Contacto { get; set; }
+        public bool? Activo { get; set; }
     }
 
     [ApiController]
@@ -228,6 +254,7 @@ namespace Controllers
         }
 
         [HttpPost("api/v1/[Controller]")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Create([FromBody] CreateDepositoRequest r)
         {
             int targetSucursalId = 1; // default to Sucursal Central
@@ -247,6 +274,7 @@ namespace Controllers
         }
 
         [HttpPut("api/v1/[Controller]")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Update([FromBody] UpdateDepositoRequest r)
         {
             var e = await _repo.FindOneAsync(r.Id);
@@ -269,6 +297,11 @@ namespace Controllers
 
             e.Actualizar(r.Nombre, r.Ubicacion ?? "");
             e.AsignarSucursal(targetSucursalId);
+            if (r.Activo.HasValue)
+            {
+                if (r.Activo.Value) e.Activar();
+                else e.Desactivar();
+            }
 
             if (!e.IsValid) return BadRequest(e.GetErrors().Select(x => x.ErrorMessage));
             _repo.Update(r.Id, e);
@@ -276,6 +309,7 @@ namespace Controllers
         }
 
         [HttpDelete("api/v1/[Controller]/{id}")]
+        [Authorize(Roles = "Admin,Gerente,Recepcionista")]
         public async Task<IActionResult> Delete(int id)
         {
             var e = await _repo.FindOneAsync(id);
@@ -302,5 +336,5 @@ namespace Controllers
     }
 
     public class CreateDepositoRequest { public string Nombre { get; set; } public string Ubicacion { get; set; } public int? SucursalId { get; set; } }
-    public class UpdateDepositoRequest { public int Id { get; set; } public string Nombre { get; set; } public string Ubicacion { get; set; } public int? SucursalId { get; set; } }
+    public class UpdateDepositoRequest { public int Id { get; set; } public string Nombre { get; set; } public string Ubicacion { get; set; } public int? SucursalId { get; set; } public bool? Activo { get; set; } }
 }

@@ -119,6 +119,7 @@ namespace Infrastructure.Repositories.Sql
                 entity.Property(p => p.Sexo).IsRequired().HasMaxLength(1);
                 entity.Property(p => p.FotoUrl).HasMaxLength(2000000);
                 entity.Property(p => p.Observaciones).HasMaxLength(1000);
+                entity.Property(p => p.ContadorInasistencias).HasDefaultValue(0);
 
                 entity.HasOne(p => p.Especie)
                     .WithMany(e => e.Pacientes)
@@ -343,6 +344,7 @@ namespace Infrastructure.Repositories.Sql
                 entity.HasKey(m => m.Id);
                 entity.Property(m => m.Id).ValueGeneratedOnAdd();
                 entity.Property(m => m.Nombre).IsRequired().HasMaxLength(100);
+                entity.Property(m => m.Descripcion).HasMaxLength(300);
             });
 
             // Configuración de Proveedor
