@@ -11,6 +11,7 @@
 @inject PropietarioService PropietarioService
 @inject ProductoService ProductoService
 @inject WhatsAppService WhatsAppService
+@inject IaService IaService
 @inject IJSRuntime JS
 
 <PageTitle>Historia Clínica: @(paciente?.Nombre ?? "Cargando...")</PageTitle>
@@ -60,11 +61,24 @@ else
                 @if (paciente != null && paciente.ContadorInasistencias > 0)
                 {
                     <span class="badge bg-danger" style="font-size: 0.8rem; padding: 4px 8px;" title="Inasistencias a turnos registradas">
-                        ⚠️ @paciente.ContadorInasistencias @(paciente.ContadorInasistencias == 1 ? "ausencia" : "ausencias")
+                        Inasistencias: @paciente.ContadorInasistencias @(paciente.ContadorInasistencias == 1 ? "ausencia" : "ausencias")
                     </span>
                 }
             </div>
             <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-gemini-square" @onclick="AbrirModalResumenIa" title="Resumen Clínico Inteligente (Gemini)" aria-label="Resumen Clínico Inteligente">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="geminiBtnGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#1ba0e2" />
+                                <stop offset="45%" stop-color="#9b72cf" />
+                                <stop offset="75%" stop-color="#d96570" />
+                                <stop offset="100%" stop-color="#f2994a" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 6.62742 12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24Z" fill="url(#geminiBtnGradient)"/>
+                    </svg>
+                </button>
                 <button type="button" class="btn btn-sm btn-outline-info d-flex align-items-center gap-2" style="border-color: var(--border-glass); color: var(--accent-primary); font-weight: 600; padding: 6px 14px; border-radius: 6px;" @onclick="NavigateToEditPaciente">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 16px; height: 16px;">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
@@ -1046,6 +1060,267 @@ else
     </div>
 }
 
+@* Modal de Resumen Clínico Inteligente (Gemini) *@
+@if (showResumenModal)
+{
+    <div class="modal-overlay modal-overlay-z2" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 16px;">
+        <div class="modal-panel" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; width: 850px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.18);">
+            @* Modal Header *@
+            <div style="padding: 16px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width: 38px; height: 38px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="geminiModalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#1ba0e2" />
+                                    <stop offset="45%" stop-color="#9b72cf" />
+                                    <stop offset="75%" stop-color="#d96570" />
+                                    <stop offset="100%" stop-color="#f2994a" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 6.62742 12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24Z" fill="url(#geminiModalGrad)"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h5 class="m-0 fw-bold" style="font-size: 1.1rem; color: #1e293b;">Resumen Clinico Inteligente</h5>
+                        <small class="text-secondary" style="font-size: 0.8rem;">Analisis sintetico de historia clinica para @(paciente?.Nombre ?? "el paciente")</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    @if (resumenIa != null)
+                    {
+                        <button type="button" class="btn btn-sm @(isSpeakingResumen ? "btn-danger" : "btn-outline-primary") d-flex align-items-center gap-1" @onclick="ToggleVozResumen" style="font-size: 0.78rem; border-radius: 6px; padding: 4px 10px;">
+                            @if (isSpeakingResumen)
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="14" height="14">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z" />
+                                </svg>
+                                <span>Detener voz</span>
+                            }
+                            else
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="14" height="14">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.757 3.63 8.25 4.51 8.25H6.75Z" />
+                                </svg>
+                                <span>Escuchar informe</span>
+                            }
+                        </button>
+                    }
+                    <button type="button" class="btn-icon" @onclick="CerrarModalResumenIa" title="Cerrar" style="color: #64748b; background: transparent; border: none; cursor: pointer; padding: 6px; border-radius: 6px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="20" height="20">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            @* Modal Body *@
+            <div style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: #f8fafc;">
+                @if (isLoadingResumen)
+                {
+                    <div style="padding: 60px 20px; text-align: center;">
+                        <div class="spinner-border text-info mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                        <h6 class="fw-semibold" style="color: #1e293b;">Sintetizando expediente clinico con Gemini...</h6>
+                        <p class="text-secondary small m-0">Extrayendo datos de consultas, tratamientos, vacunas y alertas.</p>
+                    </div>
+                }
+                else if (resumenIa != null)
+                {
+                    @* Tarjetas estructuradas *@
+                    <div class="row g-3">
+                        @* 1. Info Basica *@
+                        <div class="col-12 col-md-6">
+                            <div class="resumen-card">
+                                <div class="resumen-card-header">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="18" height="18" class="text-primary">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                                    </svg>
+                                    <span>Informacion del Paciente</span>
+                                </div>
+                                <div class="resumen-card-content">
+                                    @resumenIa.InformacionBasica
+                                </div>
+                            </div>
+                        </div>
+
+                        @* 2. Ultima Consulta *@
+                        <div class="col-12 col-md-6">
+                            <div class="resumen-card">
+                                <div class="resumen-card-header">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="18" height="18" class="text-info">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                    </svg>
+                                    <span>Ultima Atencion Medica</span>
+                                </div>
+                                <div class="resumen-card-content">
+                                    @resumenIa.UltimaConsulta
+                                </div>
+                            </div>
+                        </div>
+
+                        @* 3. Tratamientos y Vacunas *@
+                        <div class="col-12 col-md-6">
+                            <div class="resumen-card">
+                                <div class="resumen-card-header">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="18" height="18" class="text-success">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                                    </svg>
+                                    <span>Tratamientos y Vacunacion</span>
+                                </div>
+                                <div class="resumen-card-content">
+                                    @resumenIa.TratamientosYVacunas
+                                </div>
+                            </div>
+                        </div>
+
+                        @* 4. Alertas y Recomendaciones *@
+                        <div class="col-12 col-md-6">
+                            <div class="resumen-card">
+                                <div class="resumen-card-header">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="18" height="18" class="text-warning">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                                    </svg>
+                                    <span>Alertas y Recomendaciones</span>
+                                </div>
+                                <div class="resumen-card-content">
+                                    @resumenIa.AlertasYRecomendaciones
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @* Bloque de Markdown Completo *@
+                    <div class="resumen-card mt-2">
+                        <div class="resumen-card-header d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="18" height="18" class="text-secondary">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                </svg>
+                                <span>Informe Clinico Completo</span>
+                            </div>
+                            <button type="button" class="btn-copiar-resumen" @onclick="CopiarInformeMarkdown">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="14" height="14">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                                </svg>
+                                <span>@(copiadoExitoso ? "Copiado" : "Copiar informe")</span>
+                            </button>
+                        </div>
+                        <div class="resumen-markdown-view">
+                            @((MarkupString)FormatearMarkdownResumen(resumenIa.ResumenCompletoMarkdown))
+                        </div>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(resumenErrorMessage))
+                {
+                    <div class="alert alert-danger" style="background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;">
+                        @resumenErrorMessage
+                    </div>
+                }
+            </div>
+
+            @* Modal Footer *@
+            <div style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: #64748b;">
+                <div>
+                    @if (resumenIa != null)
+                    {
+                        <span>Proveedor: @resumenIa.ModeloUtilizado | Generado: @resumenIa.FechaGeneracion.ToString("dd/MM/yyyy HH:mm") hs</span>
+                    }
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CerrarModalResumenIa" style="border-radius: 6px; padding: 5px 14px; font-size: 0.82rem; color: #334155;">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .btn-gemini-square {
+        width: 38px;
+        height: 33px;
+        padding: 0;
+        border-radius: 7px;
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+        border: 1.5px solid #818cf8;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.35), 0 0 10px rgba(129, 140, 248, 0.35);
+    }
+    .btn-gemini-square:hover {
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+        border-color: #c084fc;
+        transform: translateY(-2px) scale(1.06);
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.45), 0 0 16px rgba(192, 132, 252, 0.6);
+    }
+    .btn-gemini-square:active {
+        transform: scale(0.96);
+    }
+    .resumen-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .resumen-card-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.86rem;
+        font-weight: 600;
+        color: #1e293b;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 6px;
+    }
+    .resumen-card-content {
+        font-size: 0.85rem;
+        color: #334155;
+        line-height: 1.5;
+    }
+    .btn-copiar-resumen {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        border-radius: 6px;
+        padding: 3px 10px;
+        font-size: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .btn-copiar-resumen:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+        border-color: #94a3b8;
+    }
+    .resumen-markdown-view {
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 0.85rem;
+        color: #1e293b;
+        line-height: 1.6;
+        max-height: 250px;
+        overflow-y: auto;
+    }
+    .resumen-markdown-view h1, .resumen-markdown-view h2, .resumen-markdown-view h3 {
+        color: #0f172a;
+        margin-top: 8px;
+        margin-bottom: 4px;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+</style>
+
 @code {
     [Parameter]
     public string PacienteId { get; set; } = string.Empty;
@@ -1058,6 +1333,14 @@ else
     private PacienteDto? paciente;
     private PropietarioDto? propietario;
     private string activeTab = "consultas"; // consultas | vacunas | tratamientos
+
+    // Resumen Clínico IA States
+    private bool showResumenModal = false;
+    private bool isLoadingResumen = false;
+    private ResumenHistoriaClinicaDto? resumenIa;
+    private string resumenErrorMessage = string.Empty;
+    private bool copiadoExitoso = false;
+    private bool isSpeakingResumen = false;
 
     private List<HistorialClinicoDto> consultas = new();
     private List<RegistroVacunacionDto> vacunas = new();
@@ -1782,5 +2065,96 @@ else
         {
             Console.WriteLine($"Error al abrir archivo: {ex.Message}");
         }
+    }
+
+    private async Task AbrirModalResumenIa()
+    {
+        showResumenModal = true;
+        copiadoExitoso = false;
+        resumenErrorMessage = string.Empty;
+
+        if (resumenIa == null)
+        {
+            isLoadingResumen = true;
+            StateHasChanged();
+            try
+            {
+                resumenIa = await IaService.GenerarResumenHistorialAsync(PacienteId);
+                if (resumenIa == null)
+                {
+                    resumenErrorMessage = "No se pudo obtener el resumen clínico del paciente.";
+                }
+            }
+            catch (Exception ex)
+            {
+                resumenErrorMessage = $"Error al generar resumen: {ex.Message}";
+            }
+            finally
+            {
+                isLoadingResumen = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task CerrarModalResumenIa()
+    {
+        if (isSpeakingResumen)
+        {
+            await JS.InvokeVoidAsync("window.textToSpeechHelper.stop");
+            isSpeakingResumen = false;
+        }
+        showResumenModal = false;
+    }
+
+    private async Task ToggleVozResumen()
+    {
+        if (resumenIa == null || string.IsNullOrWhiteSpace(resumenIa.ResumenCompletoMarkdown)) return;
+
+        if (isSpeakingResumen)
+        {
+            await JS.InvokeVoidAsync("window.textToSpeechHelper.stop");
+            isSpeakingResumen = false;
+        }
+        else
+        {
+            var success = await JS.InvokeAsync<bool>("window.textToSpeechHelper.speak", resumenIa.ResumenCompletoMarkdown);
+            isSpeakingResumen = success;
+        }
+        StateHasChanged();
+    }
+
+    private async Task CopiarInformeMarkdown()
+    {
+        if (resumenIa == null || string.IsNullOrWhiteSpace(resumenIa.ResumenCompletoMarkdown)) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", resumenIa.ResumenCompletoMarkdown);
+            copiadoExitoso = true;
+            StateHasChanged();
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(2000);
+                copiadoExitoso = false;
+                await InvokeAsync(StateHasChanged);
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al copiar al portapapeles: {ex.Message}");
+        }
+    }
+
+    private string FormatearMarkdownResumen(string? markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown)) return string.Empty;
+        var html = System.Net.WebUtility.HtmlEncode(markdown);
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^# (.*?)$", "<h1>$1</h1>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^## (.*?)$", "<h2>$1</h2>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^### (.*?)$", "<h3>$1</h3>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        html = html.Replace("\n", "<br />");
+        return html;
     }
 }

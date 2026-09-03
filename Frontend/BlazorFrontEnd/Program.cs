@@ -77,6 +77,7 @@ builder.Services.AddScoped<BlazorFrontEnd.Services.ReporteService>();
 
 // Integraciones y Comunicaciones
 builder.Services.AddScoped<BlazorFrontEnd.Services.WhatsAppService>();
+builder.Services.AddScoped<BlazorFrontEnd.Services.IaService>();
 
 var app = builder.Build();
 

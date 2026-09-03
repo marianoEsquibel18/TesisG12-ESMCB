@@ -1,0 +1,852 @@
+@using BlazorFrontEnd.Models
+@using BlazorFrontEnd.Services
+@inject IaService IaService
+@inject IJSRuntime JS
+
+@* Botón Flotante Redondo con SOLO el Logo de Gemini *@
+<div class="chatbot-floating-container">
+    @if (!isOpen)
+    {
+        <button type="button" class="chatbot-bubble-btn" @onclick="ToggleChat" title="Copiloto Inteligente" aria-label="Abrir Copiloto">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" xmlns="http://www.w3.org/2000/svg" class="gemini-icon">
+                <defs>
+                    <linearGradient id="geminiBubbleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#1ba0e2" />
+                        <stop offset="45%" stop-color="#9b72cf" />
+                        <stop offset="75%" stop-color="#d96570" />
+                        <stop offset="100%" stop-color="#f2994a" />
+                    </linearGradient>
+                </defs>
+                <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 6.62742 12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24Z" fill="url(#geminiBubbleGradient)"/>
+            </svg>
+        </button>
+    }
+
+    @* Ventana del Copiloto *@
+    @if (isOpen)
+    {
+        <div class="chatbot-window">
+            @* Encabezado *@
+            <div class="chatbot-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="gemini-header-badge">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="geminiHeaderGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#1ba0e2" />
+                                    <stop offset="45%" stop-color="#9b72cf" />
+                                    <stop offset="75%" stop-color="#d96570" />
+                                    <stop offset="100%" stop-color="#f2994a" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 6.62742 12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24Z" fill="url(#geminiHeaderGradient)"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h6 class="m-0 fw-bold" style="font-size: 0.95rem; line-height: 1.2; color: #1e293b;">Copiloto de Turnos</h6>
+                        <small class="text-success d-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                            <span class="online-indicator"></span> Activo
+                        </small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <button type="button" class="btn-icon" @onclick="ReiniciarConversacion" title="Reiniciar chat">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="16" height="16">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                    </button>
+                    <button type="button" class="btn-icon" @onclick="ToggleChat" title="Cerrar">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="16" height="16">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            @* Cuerpo de Mensajes *@
+            <div class="chatbot-body" id="chatbot-messages-container">
+                @foreach (var msg in mensajes)
+                {
+                    <div class="chat-row @(msg.Role == "user" ? "user-row" : "bot-row")">
+                        @if (msg.Role == "model")
+                        {
+                            <div class="bot-avatar">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 6.62742 12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24Z" fill="url(#geminiHeaderGradient)"/>
+                                </svg>
+                            </div>
+                        }
+
+                        <div class="chat-bubble @(msg.Role == "user" ? "user-bubble" : "bot-bubble")">
+                            <div class="bubble-content">
+                                @((MarkupString)FormatearTextoMarkdown(msg.Content))
+                            </div>
+
+                            @* Tarjeta Interactiva de Turno Propuesto *@
+                            @if (msg.TurnoPropuesto != null)
+                            {
+                                <div class="turno-propuesto-card">
+                                    <div class="turno-propuesto-header">
+                                        <div class="d-flex align-items-center gap-1 text-primary fw-semibold">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="16" height="16">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                                            </svg>
+                                            <span>Turno Propuesto</span>
+                                        </div>
+                                        <span class="badge-hora">@msg.TurnoPropuesto.FechaHora.ToString("dd/MM/yyyy HH:mm") hs</span>
+                                    </div>
+
+                                    <div class="turno-propuesto-body">
+                                        <div class="info-row">
+                                            <span class="info-label">Paciente:</span>
+                                            <strong class="info-val">@msg.TurnoPropuesto.PacienteNombre</strong>
+                                        </div>
+                                        <div class="info-row">
+                                            <span class="info-label">Veterinario:</span>
+                                            <span class="info-val">@msg.TurnoPropuesto.VeterinarioNombre</span>
+                                        </div>
+                                        <div class="info-row">
+                                            <span class="info-label">Servicio:</span>
+                                            <span class="info-val">@msg.TurnoPropuesto.ServicioNombre</span>
+                                        </div>
+                                        <div class="info-row">
+                                            <span class="info-label">Duracion:</span>
+                                            <span class="info-val">@msg.TurnoPropuesto.DuracionMinutos min</span>
+                                        </div>
+                                    </div>
+
+                                    @if (!turnoConfirmadoIds.Contains(msg.TurnoPropuesto.TurnoId ?? (msg.TurnoPropuesto.PacienteId + msg.TurnoPropuesto.FechaHora.Ticks)))
+                                    {
+                                        <button type="button" class="btn-confirmar-turno"
+                                                disabled="@isConfirmingTurno"
+                                                @onclick="() => ConfirmarTurno(msg.TurnoPropuesto)">
+                                            @if (isConfirmingTurno)
+                                            {
+                                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                                                <span>Confirmando...</span>
+                                            }
+                                            else
+                                            {
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="16" height="16">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                                </svg>
+                                                <span>Confirmar Turno</span>
+                                            }
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <div class="turno-confirmado-badge">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="16" height="16">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                            </svg>
+                                            <span>Turno Registrado</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            <div class="bubble-time">@msg.Timestamp.ToString("HH:mm")</div>
+                        </div>
+                    </div>
+                }
+
+                @if (isLoading)
+                {
+                    <div class="chat-row bot-row">
+                        <div class="bot-avatar">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 6.62742 12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24Z" fill="url(#geminiHeaderGradient)"/>
+                            </svg>
+                        </div>
+                        <div class="chat-bubble bot-bubble loading-bubble">
+                            <div class="typing-indicator">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+            @* Accesos Rápidos Todo el Tiempo con Barra Deslizante *@
+            <div class="chatbot-chips-container">
+                <div class="chatbot-chips" title="Desliza para ver todas las acciones">
+                    @foreach (var opt in accesosRapidosFijos)
+                    {
+                        <button type="button" class="chip-btn" @onclick="() => SeleccionarChip(opt)">
+                            @opt
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @* Input de Envío *@
+            <div class="chatbot-footer">
+                <input type="text"
+                       class="chatbot-input"
+                       placeholder="Escribe tu consulta o turno..."
+                       @bind="mensajeInput"
+                       @bind:event="oninput"
+                       @onkeydown="HandleKeyDown"
+                       disabled="@isLoading" />
+                <button type="button"
+                        class="chatbot-send-btn"
+                        @onclick="EnviarMensaje"
+                        disabled="@(isLoading || string.IsNullOrWhiteSpace(mensajeInput))"
+                        title="Enviar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="18" height="18">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .chatbot-floating-container {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 1050;
+        font-family: inherit;
+    }
+
+    /* Botón flotante redondo con SOLO el logo, color contrastante y llamativo */
+    .chatbot-bubble-btn {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+        border: 2px solid #818cf8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 10px 25px -3px rgba(15, 23, 42, 0.45), 0 0 18px rgba(129, 140, 248, 0.45);
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        padding: 0;
+    }
+
+    .chatbot-bubble-btn:hover {
+        transform: scale(1.1);
+        border-color: #c084fc;
+        box-shadow: 0 14px 30px -3px rgba(15, 23, 42, 0.55), 0 0 24px rgba(192, 132, 252, 0.65);
+    }
+
+    .chatbot-bubble-btn:active {
+        transform: scale(0.96);
+    }
+
+    .gemini-icon {
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));
+    }
+
+    /* Ventana del Chat */
+    .chatbot-window {
+        width: 380px;
+        height: 540px;
+        max-width: calc(100vw - 32px);
+        max-height: calc(100vh - 100px);
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        animation: fadeInSlideUp 0.25s ease-out;
+    }
+
+    @@keyframes fadeInSlideUp {
+        from {
+            opacity: 0;
+            transform: translateY(16px) scale(0.97);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    /* Header */
+    .chatbot-header {
+        padding: 12px 16px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .gemini-header-badge {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .online-indicator {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background-color: #16a34a;
+        box-shadow: 0 0 6px #16a34a;
+    }
+
+    .btn-icon {
+        background: transparent;
+        border: none;
+        color: #64748b;
+        padding: 6px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .btn-icon:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+
+    /* Cuerpo */
+    .chatbot-body {
+        flex: 1;
+        padding: 16px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        scroll-behavior: smooth;
+        background: #f8fafc;
+    }
+
+    .chatbot-body::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    .chatbot-body::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+
+    .chat-row {
+        display: flex;
+        gap: 8px;
+        max-width: 88%;
+    }
+
+    .user-row {
+        align-self: flex-end;
+        flex-direction: row-reverse;
+    }
+
+    .bot-row {
+        align-self: flex-start;
+    }
+
+    .bot-avatar {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 2px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    .chat-bubble {
+        padding: 10px 14px;
+        border-radius: 12px;
+        font-size: 0.88rem;
+        line-height: 1.45;
+        position: relative;
+        word-break: break-word;
+    }
+
+    .user-bubble {
+        background: linear-gradient(135deg, #00A36C, #008a5a);
+        color: #ffffff;
+        border-bottom-right-radius: 2px;
+        box-shadow: 0 2px 6px rgba(0, 163, 108, 0.2);
+    }
+
+    .bot-bubble {
+        background: #ffffff;
+        color: #1e293b;
+        border: 1px solid #e2e8f0;
+        border-bottom-left-radius: 2px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .bubble-time {
+        font-size: 0.68rem;
+        color: #64748b;
+        opacity: 0.8;
+        text-align: right;
+        margin-top: 4px;
+    }
+
+    /* Tarjeta Turno */
+    .turno-propuesto-card {
+        margin-top: 10px;
+        background: #ffffff;
+        border: 1px solid #93c5fd;
+        border-radius: 8px;
+        padding: 10px 12px;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+    }
+
+    .turno-propuesto-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.8rem;
+    }
+
+    .badge-hora {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+
+    .turno-propuesto-body {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.82rem;
+        margin-bottom: 10px;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .info-label {
+        color: #64748b;
+    }
+
+    .info-val {
+        color: #0f172a;
+        font-weight: 600;
+        text-align: right;
+    }
+
+    .btn-confirmar-turno {
+        width: 100%;
+        background: linear-gradient(135deg, #00A36C, #008a5a);
+        border: none;
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 0.82rem;
+        padding: 7px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: opacity 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn-confirmar-turno:hover:not(:disabled) {
+        opacity: 0.92;
+        transform: translateY(-1px);
+    }
+
+    .btn-confirmar-turno:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .turno-confirmado-badge {
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+        padding: 6px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    /* Chips / Accesos Rápidos con Barra Deslizante */
+    .chatbot-chips-container {
+        padding: 8px 10px 6px 10px;
+        border-top: 1px solid #e2e8f0;
+        background: #f8fafc;
+    }
+
+    .chatbot-chips {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        padding-bottom: 6px;
+        scroll-behavior: smooth;
+        scrollbar-width: thin;
+        scrollbar-color: #94a3b8 #f1f5f9;
+    }
+
+    .chatbot-chips::-webkit-scrollbar {
+        height: 5px;
+    }
+
+    .chatbot-chips::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+    }
+
+    .chatbot-chips::-webkit-scrollbar-thumb {
+        background: #94a3b8;
+        border-radius: 4px;
+    }
+
+    .chatbot-chips::-webkit-scrollbar-thumb:hover {
+        background: #64748b;
+    }
+
+    .chip-btn {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #1e293b;
+        font-weight: 500;
+        font-size: 0.78rem;
+        padding: 5px 12px;
+        border-radius: 14px;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        flex-shrink: 0;
+    }
+
+    .chip-btn:hover {
+        background: #00A36C;
+        color: #ffffff;
+        border-color: #00A36C;
+        box-shadow: 0 2px 6px rgba(0, 163, 108, 0.25);
+    }
+
+    /* Footer / Input */
+    .chatbot-footer {
+        padding: 10px 12px;
+        background: #ffffff;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .chatbot-input {
+        flex: 1;
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 8px 12px;
+        color: #0f172a;
+        font-size: 0.85rem;
+        outline: none;
+        transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .chatbot-input::placeholder {
+        color: #94a3b8;
+    }
+
+    .chatbot-input:focus {
+        border-color: #00A36C;
+        background: #ffffff;
+    }
+
+    .chatbot-send-btn {
+        background: #00A36C;
+        border: none;
+        color: white;
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.15s ease, transform 0.1s ease;
+        flex-shrink: 0;
+    }
+
+    .chatbot-send-btn:hover:not(:disabled) {
+        background: #008a5a;
+    }
+
+    .chatbot-send-btn:disabled {
+        background: #e2e8f0;
+        color: #94a3b8;
+        cursor: not-allowed;
+    }
+
+    /* Typing indicator */
+    .typing-indicator {
+        display: flex;
+        gap: 4px;
+        padding: 4px 6px;
+    }
+
+    .typing-indicator span {
+        width: 6px;
+        height: 6px;
+        background: #64748b;
+        border-radius: 50%;
+        animation: typingBounce 1.2s infinite ease-in-out;
+    }
+
+    .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    @@keyframes typingBounce {
+        0%, 80%, 100% {
+            transform: scale(0);
+            opacity: 0.3;
+        }
+        40% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+</style>
+
+@code {
+    private bool isOpen = false;
+    private bool isLoading = false;
+    private bool isConfirmingTurno = false;
+    private string mensajeInput = string.Empty;
+    private List<ChatMensajeDto> mensajes = new();
+    private List<string> opcionesActuales = new();
+    private HashSet<string> turnoConfirmadoIds = new();
+    private readonly List<string> accesosRapidosFijos = new()
+    {
+        "Turnos de hoy",
+        "Mis pacientes",
+        "Veterinarios y horarios",
+        "Stock en alerta",
+        "Precios de productos",
+        "Precios de servicios",
+        "Agendar turno"
+    };
+
+    protected override void OnInitialized()
+    {
+        if (!mensajes.Any())
+        {
+            mensajes.Add(new ChatMensajeDto
+            {
+                Role = "model",
+                Content = "Hola, soy el copiloto de la clinica veterinaria. Puedo ayudarte a consultar la agenda, coordinar citas medicas o consultar pacientes, veterinarios y productos. Escribe por ejemplo: 'turnos de hoy', 'mis pacientes' o 'turno para Toby manana a las 11'.",
+                Timestamp = DateTime.Now
+            });
+        }
+    }
+
+    private void ToggleChat()
+    {
+        isOpen = !isOpen;
+        if (isOpen)
+        {
+            ScrollToBottom();
+        }
+    }
+
+    private void ReiniciarConversacion()
+    {
+        mensajes.Clear();
+        turnoConfirmadoIds.Clear();
+        mensajes.Add(new ChatMensajeDto
+        {
+            Role = "model",
+            Content = "Conversacion reiniciada. ¿En que puedo ayudarte hoy?",
+            Timestamp = DateTime.Now
+        });
+        opcionesActuales = new List<string> { "Turnos de hoy", "Como agendar un turno?", "Agendar turno" };
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await EnviarMensaje();
+        }
+    }
+
+    private async Task SeleccionarChip(string texto)
+    {
+        mensajeInput = texto;
+        await EnviarMensaje();
+    }
+
+    private async Task EnviarMensaje()
+    {
+        var texto = mensajeInput?.Trim();
+        if (string.IsNullOrWhiteSpace(texto) || isLoading) return;
+
+        mensajeInput = string.Empty;
+
+        // Agregar mensaje de usuario
+        mensajes.Add(new ChatMensajeDto
+        {
+            Role = "user",
+            Content = texto,
+            Timestamp = DateTime.Now
+        });
+
+        isLoading = true;
+        opcionesActuales.Clear();
+        StateHasChanged();
+        ScrollToBottom();
+
+        try
+        {
+            var request = new ChatbotRequestDto
+            {
+                Mensaje = texto,
+                Historial = mensajes.TakeLast(6).ToList()
+            };
+
+            var respuesta = await IaService.EnviarMensajeChatAsync(request);
+
+            mensajes.Add(new ChatMensajeDto
+            {
+                Role = "model",
+                Content = respuesta.Respuesta,
+                TurnoPropuesto = respuesta.TurnoPropuesto,
+                Timestamp = DateTime.Now
+            });
+
+            if (respuesta.OpcionesSugeridas != null && respuesta.OpcionesSugeridas.Any())
+            {
+                opcionesActuales = respuesta.OpcionesSugeridas;
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajes.Add(new ChatMensajeDto
+            {
+                Role = "model",
+                Content = $"Error al procesar la solicitud: {ex.Message}",
+                Timestamp = DateTime.Now
+            });
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+            ScrollToBottom();
+        }
+    }
+
+    private async Task ConfirmarTurno(TurnoPropuestoDto turno)
+    {
+        if (turno == null || isConfirmingTurno) return;
+
+        isConfirmingTurno = true;
+        StateHasChanged();
+
+        try
+        {
+            var resultado = await IaService.ConfirmarTurnoAsync(turno);
+            if (resultado.Exito)
+            {
+                var key = turno.TurnoId ?? (turno.PacienteId + turno.FechaHora.Ticks);
+                turnoConfirmadoIds.Add(key);
+
+                mensajes.Add(new ChatMensajeDto
+                {
+                    Role = "model",
+                    Content = resultado.Respuesta,
+                    Timestamp = DateTime.Now
+                });
+
+                opcionesActuales = new List<string> { "Turnos de hoy", "Agendar otro turno" };
+            }
+            else
+            {
+                mensajes.Add(new ChatMensajeDto
+                {
+                    Role = "model",
+                    Content = $"No se pudo confirmar el turno: {resultado.ErrorMensaje}",
+                    Timestamp = DateTime.Now
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajes.Add(new ChatMensajeDto
+            {
+                Role = "model",
+                Content = $"Error al confirmar el turno: {ex.Message}",
+                Timestamp = DateTime.Now
+            });
+        }
+        finally
+        {
+            isConfirmingTurno = false;
+            StateHasChanged();
+            ScrollToBottom();
+        }
+    }
+
+    private void ScrollToBottom()
+    {
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(50);
+            try
+            {
+                await JS.InvokeVoidAsync("eval", "var el = document.getElementById('chatbot-messages-container'); if (el) el.scrollTop = el.scrollHeight;");
+            }
+            catch { }
+        });
+    }
+
+    private string FormatearTextoMarkdown(string texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
+
+        var html = System.Net.WebUtility.HtmlEncode(texto);
+
+        // Reemplazar negritas **texto** -> <strong>texto</strong>
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+
+        // Reemplazar saltos de línea
+        html = html.Replace("\n", "<br />");
+
+        return html;
+    }
+}

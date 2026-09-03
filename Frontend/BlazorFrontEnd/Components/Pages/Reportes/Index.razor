@@ -3,6 +3,7 @@
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
 @inject ReporteService ReporteService
+@inject IaService IaService
 @inject IJSRuntime JS
 
 <PageTitle>Centro de Reportes</PageTitle>
@@ -61,6 +62,19 @@ else
                 <small class="text-secondary">Período: @reporteVentas.Desde.ToString("dd/MM/yyyy") — @reporteVentas.Hasta.ToString("dd/MM/yyyy") (Últimos 30 días)</small>
             </div>
             <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-gemini-square" @onclick='() => AbrirModalResumenReporte("FINANZAS")' title="Resumen Ejecutivo IA (Gemini)" aria-label="Resumen Ejecutivo IA">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="geminiRepGradFin" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#1ba0e2" />
+                                <stop offset="45%" stop-color="#9b72cf" />
+                                <stop offset="75%" stop-color="#d96570" />
+                                <stop offset="100%" stop-color="#f2994a" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 6.62742 12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24Z" fill="url(#geminiRepGradFin)"/>
+                    </svg>
+                </button>
                 <button class="btn btn-outline-secondary btn-sm" @onclick="ToggleAllSubreportes" style="border-radius: 8px; font-weight: 500;">
                     @(isResumenOpen && isMetodosOpen && isTopProductosOpen ? "Contraer todos" : "Expandir todos")
                 </button>
@@ -560,6 +574,19 @@ else
                 <small class="text-secondary">Valuación monetaria, auditoría de existencias y alertas de reposición</small>
             </div>
             <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-gemini-square" @onclick='() => AbrirModalResumenReporte("STOCK")' title="Resumen Ejecutivo IA (Gemini)" aria-label="Resumen Ejecutivo IA">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="geminiRepGradStock" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#1ba0e2" />
+                                <stop offset="45%" stop-color="#9b72cf" />
+                                <stop offset="75%" stop-color="#d96570" />
+                                <stop offset="100%" stop-color="#f2994a" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 6.62742 12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24Z" fill="url(#geminiRepGradStock)"/>
+                    </svg>
+                </button>
                 <button class="btn btn-outline-secondary btn-sm" @onclick="ToggleAllStockSubreportes" style="border-radius: 8px; font-weight: 500;">
                     @(isValuacionStockOpen && isListadoStockOpen ? "Contraer todos" : "Expandir todos")
                 </button>
@@ -831,6 +858,19 @@ else
                 <small class="text-secondary">Gestión operativa, atención profesional y demanda por servicios</small>
             </div>
             <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-gemini-square" @onclick='() => AbrirModalResumenReporte("TURNOS")' title="Resumen Ejecutivo IA (Gemini)" aria-label="Resumen Ejecutivo IA">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="geminiRepGradTurnos" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#1ba0e2" />
+                                <stop offset="45%" stop-color="#9b72cf" />
+                                <stop offset="75%" stop-color="#d96570" />
+                                <stop offset="100%" stop-color="#f2994a" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 6.62742 12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24Z" fill="url(#geminiRepGradTurnos)"/>
+                    </svg>
+                </button>
                 <button class="btn btn-outline-secondary btn-sm" @onclick="ToggleAllTurnosSubreportes" style="border-radius: 8px; font-weight: 500;">
                     @(isGestionTurnosOpen && isVetTurnosOpen && isServiciosTurnosOpen ? "Contraer todos" : "Expandir todos")
                 </button>
@@ -1396,6 +1436,19 @@ else
                 <small class="text-secondary">Padrón médico, distribución por especie e historial clínico</small>
             </div>
             <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-gemini-square" @onclick='() => AbrirModalResumenReporte("CLINICA")' title="Resumen Ejecutivo IA (Gemini)" aria-label="Resumen Ejecutivo IA">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="geminiRepGradClinica" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#1ba0e2" />
+                                <stop offset="45%" stop-color="#9b72cf" />
+                                <stop offset="75%" stop-color="#d96570" />
+                                <stop offset="100%" stop-color="#f2994a" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 6.62742 12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24Z" fill="url(#geminiRepGradClinica)"/>
+                    </svg>
+                </button>
                 <button class="btn btn-outline-secondary btn-sm" @onclick="ToggleAllClinicaSubreportes" style="border-radius: 8px; font-weight: 500;">
                     @(isPanelClinicoOpen && isEspeciesOpen && isHistoricoTratamientosOpen ? "Contraer todos" : "Expandir todos")
                 </button>
@@ -1525,15 +1578,13 @@ else
                                     
                                     @if (especieSeleccionada != null)
                                     {
-                                        @RenderSvgText(175, 155, GetEspecieIcon(especieSeleccionada.EspecieNombre), "middle", 22, "#111827", "normal")
-                                        @RenderSvgText(175, 178, $"{especieSeleccionada.Cantidad} ({especieSeleccionada.Porcentaje:0.0}%)", "middle", 12, "#111827", "700")
-                                        @RenderSvgText(175, 195, especieSeleccionada.EspecieNombre, "middle", 11, "#6b7280", "600")
+                                        @RenderSvgText(175, 162, especieSeleccionada.EspecieNombre, "middle", 13, "#111827", "700")
+                                        @RenderSvgText(175, 185, $"{especieSeleccionada.Cantidad} ({especieSeleccionada.Porcentaje:0.0}%)", "middle", 12, "#00A36C", "700")
                                     }
                                     else
                                     {
-                                        @RenderSvgText(175, 155, "🐾", "middle", 22, "#111827", "normal")
-                                        @RenderSvgText(175, 178, reporteClinico.TotalPacientes.ToString(), "middle", 17, "#111827", "700")
-                                        @RenderSvgText(175, 196, "Total Pacientes", "middle", 10, "#6b7280", "600")
+                                        @RenderSvgText(175, 168, reporteClinico.TotalPacientes.ToString(), "middle", 20, "#111827", "700")
+                                        @RenderSvgText(175, 192, "Total Pacientes", "middle", 11, "#6b7280", "600")
                                     }
                                 </svg>
                             </div>
@@ -1690,6 +1741,202 @@ else
     }
 }
 
+@* Modal de Resumen Ejecutivo con IA para Reportes *@
+@if (showReporteIaModal)
+{
+    <div class="modal-overlay modal-overlay-z2" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 16px;">
+        <div class="modal-panel" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 16px; width: 800px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.18);">
+            @* Modal Header *@
+            <div style="padding: 16px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width: 38px; height: 38px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="geminiRepModalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#1ba0e2" />
+                                    <stop offset="45%" stop-color="#9b72cf" />
+                                    <stop offset="75%" stop-color="#d96570" />
+                                    <stop offset="100%" stop-color="#f2994a" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 6.62742 12 0C12 6.62742 17.3726 12 24 12C17.3726 12 12 17.3726 12 24Z" fill="url(#geminiRepModalGrad)"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h5 class="m-0 fw-bold" style="font-size: 1.1rem; color: #1e293b;">@(reporteIaRespuesta?.Titulo ?? "Analisis Ejecutivo Inteligente")</h5>
+                        <small class="text-secondary" style="font-size: 0.8rem;">Sintesis analitica de metricas y graficos del subreporte de @reporteIaTipoActual</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    @if (reporteIaRespuesta != null && !string.IsNullOrWhiteSpace(reporteIaRespuesta.TextoParaVoz))
+                    {
+                        <button type="button" class="btn btn-sm @(isSpeakingReporte ? "btn-danger" : "btn-outline-primary") d-flex align-items-center gap-1" @onclick="ToggleVozReporte" style="font-size: 0.78rem; border-radius: 6px; padding: 4px 10px;">
+                            @if (isSpeakingReporte)
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="14" height="14">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z" />
+                                </svg>
+                                <span>Detener voz</span>
+                            }
+                            else
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="14" height="14">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.757 3.63 8.25 4.51 8.25H6.75Z" />
+                                </svg>
+                                <span>Escuchar informe</span>
+                            }
+                        </button>
+                    }
+                    <button type="button" class="btn-icon" @onclick="CerrarModalResumenReporte" title="Cerrar" style="color: #64748b; background: transparent; border: none; cursor: pointer; padding: 6px; border-radius: 6px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="20" height="20">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            @* Modal Body *@
+            <div style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: #f8fafc;">
+                @if (isLoadingReporteIa)
+                {
+                    <div style="padding: 60px 20px; text-align: center;">
+                        <div class="spinner-border text-info mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                        <h6 class="fw-semibold" style="color: #1e293b;">Analizando metricas y graficos del subreporte...</h6>
+                        <p class="text-secondary small m-0">Evaluando indicadores operativos y formulando diagnostico ejecutivo.</p>
+                    </div>
+                }
+                else if (reporteIaRespuesta != null)
+                {
+                    @* 1. Resumen Ejecutivo *@
+                    <div class="reporte-ia-card">
+                        <div class="reporte-ia-card-header">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="18" height="18" class="text-primary">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
+                            </svg>
+                            <span>Diagnostico y Evolucion del Modulo</span>
+                        </div>
+                        <div class="reporte-ia-card-content">
+                            @reporteIaRespuesta.ResumenEjecutivo
+                        </div>
+                    </div>
+
+                    @* 2. Puntos Clave *@
+                    @if (reporteIaRespuesta.PuntosClave != null && reporteIaRespuesta.PuntosClave.Any())
+                    {
+                        <div class="reporte-ia-card">
+                            <div class="reporte-ia-card-header">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="18" height="18" class="text-info">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                </svg>
+                                <span>Puntos Clave y Metricas Destacadas</span>
+                            </div>
+                            <div class="reporte-ia-card-content">
+                                <ul class="m-0 ps-3" style="display: flex; flex-direction: column; gap: 6px;">
+                                    @foreach (var punto in reporteIaRespuesta.PuntosClave)
+                                    {
+                                        <li>@punto</li>
+                                    }
+                                </ul>
+                            </div>
+                        </div>
+                    }
+
+                    @* 3. Recomendaciones Estrategicas *@
+                    @if (reporteIaRespuesta.Recomendaciones != null && reporteIaRespuesta.Recomendaciones.Any())
+                    {
+                        <div class="reporte-ia-card">
+                            <div class="reporte-ia-card-header">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="18" height="18" class="text-success">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.516 0c.85.493 1.509 1.333 1.509 2.316V18" />
+                                </svg>
+                                <span>Recomendaciones Estrategicas y Acciones</span>
+                            </div>
+                            <div class="reporte-ia-card-content">
+                                <ul class="m-0 ps-3" style="display: flex; flex-direction: column; gap: 6px;">
+                                    @foreach (var rec in reporteIaRespuesta.Recomendaciones)
+                                    {
+                                        <li>@rec</li>
+                                    }
+                                </ul>
+                            </div>
+                        </div>
+                    }
+                }
+                else if (!string.IsNullOrEmpty(reporteIaErrorMessage))
+                {
+                    <div class="alert alert-danger" style="background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;">
+                        @reporteIaErrorMessage
+                    </div>
+                }
+            </div>
+
+            @* Modal Footer *@
+            <div style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: #64748b;">
+                <div>
+                    @if (reporteIaRespuesta != null)
+                    {
+                        <span>Motor: @reporteIaRespuesta.ModeloUtilizado | Subreporte: @reporteIaTipoActual</span>
+                    }
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CerrarModalResumenReporte" style="border-radius: 6px; padding: 5px 14px; font-size: 0.82rem; color: #334155;">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .btn-gemini-square {
+        width: 38px;
+        height: 33px;
+        padding: 0;
+        border-radius: 7px;
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+        border: 1.5px solid #818cf8;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.35), 0 0 10px rgba(129, 140, 248, 0.35);
+    }
+    .btn-gemini-square:hover {
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+        border-color: #c084fc;
+        transform: translateY(-2px) scale(1.06);
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.45), 0 0 16px rgba(192, 132, 252, 0.6);
+    }
+    .btn-gemini-square:active {
+        transform: scale(0.96);
+    }
+    .reporte-ia-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .reporte-ia-card-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.86rem;
+        font-weight: 600;
+        color: #1e293b;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 6px;
+    }
+    .reporte-ia-card-content {
+        font-size: 0.85rem;
+        color: #334155;
+        line-height: 1.5;
+    }
+</style>
+
 @code {
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthState { get; set; }
 
@@ -1703,6 +1950,15 @@ else
     private ReporteTurnosDto? reporteTurnos;
     private ReporteClinicDto? reporteClinico;
     private List<HistoricoTratamientoItemDto>? historicoTratamientos;
+
+    // Resumen IA de Reportes States
+    private bool showReporteIaModal = false;
+    private bool isLoadingReporteIa = false;
+    private string reporteIaTipoActual = "";
+    private ResumenReporteResponseDto? reporteIaRespuesta = null;
+    private string reporteIaErrorMessage = "";
+    private bool isSpeakingReporte = false;
+    private Dictionary<string, ResumenReporteResponseDto> cacheReportesIa = new();
 
     // UI States
     private string pacienteIdParaExportar = string.Empty;
@@ -1829,13 +2085,7 @@ else
 
     private string GetIconoMetodoPago(string metodo)
     {
-        if (string.IsNullOrWhiteSpace(metodo)) return "🏷️";
-        var m = metodo.ToLowerInvariant();
-        if (m.Contains("efectivo")) return "💵";
-        if (m.Contains("débito") || m.Contains("debito")) return "💳";
-        if (m.Contains("crédito") || m.Contains("credito")) return "💳";
-        if (m.Contains("transfer") || m.Contains("mp") || m.Contains("mercado") || m.Contains("qr")) return "📱";
-        return "🏷️";
+        return string.Empty;
     }
 
     // ═════════════════════════════════════════════════════
@@ -2156,15 +2406,7 @@ else
 
     private string GetEspecieIcon(string nombre)
     {
-        var n = (nombre ?? "").ToLowerInvariant();
-        if (n.Contains("can") || n.Contains("perr") || n.Contains("dog")) return "🐕";
-        if (n.Contains("fel") || n.Contains("gat") || n.Contains("cat")) return "🐈";
-        if (n.Contains("av") || n.Contains("paj") || n.Contains("bird") || n.Contains("loro")) return "🦜";
-        if (n.Contains("con") || n.Contains("roed") || n.Contains("ham") || n.Contains("cob")) return "🐇";
-        if (n.Contains("rep") || n.Contains("tort") || n.Contains("serp") || n.Contains("igua")) return "🐢";
-        if (n.Contains("equ") || n.Contains("cab")) return "🐎";
-        if (n.Contains("bov") || n.Contains("vac")) return "🐄";
-        return "🐾";
+        return string.Empty;
     }
 
     // Filtros Histórico de Tratamientos
@@ -2298,4 +2540,132 @@ else
         !string.IsNullOrWhiteSpace(filtroPaciente) ||
         !string.IsNullOrWhiteSpace(filtroPropietario) ||
         !string.IsNullOrWhiteSpace(filtroVeterinario);
+
+    // ═══ Resumen Ejecutivo IA para Reportes ═══
+
+    private async Task AbrirModalResumenReporte(string tipo)
+    {
+        reporteIaTipoActual = tipo;
+        showReporteIaModal = true;
+        reporteIaErrorMessage = "";
+        isSpeakingReporte = false;
+
+        if (cacheReportesIa.TryGetValue(tipo, out var cached))
+        {
+            reporteIaRespuesta = cached;
+            return;
+        }
+
+        reporteIaRespuesta = null;
+        isLoadingReporteIa = true;
+        StateHasChanged();
+
+        try
+        {
+            string datosJson = "{}";
+            if (tipo == "FINANZAS" && reporteVentas != null)
+            {
+                datosJson = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    reporteVentas.TotalVentas,
+                    reporteVentas.CantidadVentas,
+                    reporteVentas.PromedioVenta,
+                    reporteVentas.Desde,
+                    reporteVentas.Hasta,
+                    TopProductos = reporteVentas.ProductosMasVendidos?.Take(5),
+                    MetodosPago = reporteVentas.VentasPorMetodoPago
+                });
+            }
+            else if (tipo == "STOCK" && reporteStock != null)
+            {
+                datosJson = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    reporteStock.ValorTotalStock,
+                    reporteStock.TotalProductos,
+                    reporteStock.ProductosActivos,
+                    reporteStock.ProductosStockBajo,
+                    reporteStock.ProductosSinStock,
+                    ListaStockBajo = reporteStock.ListaStockBajo?.Take(10),
+                    ProductosCriticos = reporteStock.ListaTodosProductos?.Where(p => p.StockActual <= p.StockMinimo).Take(10)
+                });
+            }
+            else if (tipo == "TURNOS" && reporteTurnos != null)
+            {
+                datosJson = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    reporteTurnos.TotalTurnos,
+                    reporteTurnos.Completados,
+                    reporteTurnos.Ausentes,
+                    reporteTurnos.Cancelados,
+                    reporteTurnos.TasaCumplimiento,
+                    reporteTurnos.TurnosPorVeterinario,
+                    reporteTurnos.TurnosPorServicio
+                });
+            }
+            else if (tipo == "CLINICA" && reporteClinico != null)
+            {
+                datosJson = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    reporteClinico.TotalPacientes,
+                    reporteClinico.PacientesPorEspecie,
+                    reporteClinico.VacunasAplicadasMes,
+                    reporteClinico.TratamientosActivosCount,
+                    TratamientosRecientes = historicoTratamientos?.Take(10)
+                });
+            }
+
+            var request = new ResumenReporteRequestDto
+            {
+                TipoReporte = tipo,
+                DatosJson = datosJson
+            };
+
+            var resultado = await IaService.GenerarResumenReporteAsync(request);
+            if (resultado != null && resultado.Exito)
+            {
+                reporteIaRespuesta = resultado;
+                cacheReportesIa[tipo] = resultado;
+            }
+            else
+            {
+                reporteIaErrorMessage = resultado?.ErrorMensaje ?? "No fue posible generar el analisis del reporte.";
+            }
+        }
+        catch (Exception ex)
+        {
+            reporteIaErrorMessage = $"Error al generar analisis: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingReporteIa = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CerrarModalResumenReporte()
+    {
+        if (isSpeakingReporte)
+        {
+            await JS.InvokeVoidAsync("window.textToSpeechHelper.stop");
+            isSpeakingReporte = false;
+        }
+        showReporteIaModal = false;
+    }
+
+    private async Task ToggleVozReporte()
+    {
+        if (reporteIaRespuesta == null || string.IsNullOrWhiteSpace(reporteIaRespuesta.TextoParaVoz)) return;
+
+        if (isSpeakingReporte)
+        {
+            await JS.InvokeVoidAsync("window.textToSpeechHelper.stop");
+            isSpeakingReporte = false;
+        }
+        else
+        {
+            var success = await JS.InvokeAsync<bool>("window.textToSpeechHelper.speak", reporteIaRespuesta.TextoParaVoz);
+            isSpeakingReporte = success;
+        }
+        StateHasChanged();
+    }
 }

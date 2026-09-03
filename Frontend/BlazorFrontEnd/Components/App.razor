@@ -45,6 +45,43 @@
             link.click();
             setTimeout(() => URL.revokeObjectURL(blobUrl), 200);
         }
+
+        window.textToSpeechHelper = {
+            speak: function (text) {
+                if (!('speechSynthesis' in window)) return false;
+                window.speechSynthesis.cancel();
+                if (!text) return false;
+
+                // Limpiar caracteres markdown y saltos de línea para locución limpia
+                const cleanText = text
+                    .replace(/[#*`_~>\[\]]/g, '')
+                    .replace(/\n+/g, '. ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.lang = 'es-ES';
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+
+                const voices = window.speechSynthesis.getVoices();
+                const esVoice = voices.find(v => v.lang.startsWith('es'));
+                if (esVoice) {
+                    utterance.voice = esVoice;
+                }
+
+                window.speechSynthesis.speak(utterance);
+                return true;
+            },
+            stop: function () {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                }
+            },
+            isSpeaking: function () {
+                return 'speechSynthesis' in window && window.speechSynthesis.speaking;
+            }
+        };
     </script>
     <script src="js/printHelper.js"></script>
 </body>
