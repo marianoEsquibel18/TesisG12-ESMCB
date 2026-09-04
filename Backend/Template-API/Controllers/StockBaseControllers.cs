@@ -7,9 +7,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace Controllers
 {
     [ApiController]
-    public class CategoriaController(ICategoriaRepository repo) : BaseController
+    public class CategoriaController(ICategoriaRepository repo, IProductoRepository productoRepo) : BaseController
     {
         private readonly ICategoriaRepository _repo = repo ?? throw new ArgumentNullException(nameof(repo));
+        private readonly IProductoRepository _productoRepo = productoRepo ?? throw new ArgumentNullException(nameof(productoRepo));
 
         [HttpGet("api/v1/[Controller]")]
         public async Task<IActionResult> GetAll(bool soloActivas = true)
@@ -59,19 +60,34 @@ namespace Controllers
         public async Task<IActionResult> Delete(int id)
         {
             var e = await _repo.FindOneAsync(id);
-            if (e == null) return NotFound();
-            e.Desactivar(); _repo.Update(id, e);
-            return NoContent();
+            if (e == null) return NotFound("No se encontró la categoría solicitada");
+
+            var prods = await _productoRepo.GetByCategoriaIdAsync(id);
+            if (prods != null && prods.Any())
+            {
+                return BadRequest("No se puede eliminar la categoría porque tiene productos vinculados. Puede desactivarla para que no esté disponible.");
+            }
+
+            try
+            {
+                _repo.Remove(id);
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return BadRequest("No se pudo eliminar la categoría porque tiene registros dependientes.");
+            }
         }
     }
 
-    public class CreateCategoriaRequest { public string Nombre { get; set; } public string Descripcion { get; set; } }
-    public class UpdateCategoriaRequest { public int Id { get; set; } public string Nombre { get; set; } public string Descripcion { get; set; } public bool? Activo { get; set; } }
+    public class CreateCategoriaRequest { public string Nombre { get; set; } public string? Descripcion { get; set; } }
+    public class UpdateCategoriaRequest { public int Id { get; set; } public string Nombre { get; set; } public string? Descripcion { get; set; } public bool? Activo { get; set; } }
 
     [ApiController]
-    public class MarcaController(IMarcaRepository repo) : BaseController
+    public class MarcaController(IMarcaRepository repo, IProductoRepository productoRepo) : BaseController
     {
         private readonly IMarcaRepository _repo = repo ?? throw new ArgumentNullException(nameof(repo));
+        private readonly IProductoRepository _productoRepo = productoRepo ?? throw new ArgumentNullException(nameof(productoRepo));
 
         [HttpGet("api/v1/[Controller]")]
         public async Task<IActionResult> GetAll(bool soloActivas = true)
@@ -121,19 +137,34 @@ namespace Controllers
         public async Task<IActionResult> Delete(int id)
         {
             var e = await _repo.FindOneAsync(id);
-            if (e == null) return NotFound();
-            e.Desactivar(); _repo.Update(id, e);
-            return NoContent();
+            if (e == null) return NotFound("No se encontró la marca solicitada");
+
+            var prods = await _productoRepo.GetProductosExpandidosAsync();
+            if (prods.Any(p => p.MarcaId == id))
+            {
+                return BadRequest("No se puede eliminar la marca porque tiene productos vinculados. Puede desactivarla para que no esté disponible.");
+            }
+
+            try
+            {
+                _repo.Remove(id);
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return BadRequest("No se pudo eliminar la marca porque tiene registros dependientes.");
+            }
         }
     }
 
-    public class CreateMarcaRequest { public string Nombre { get; set; } public string Descripcion { get; set; } }
-    public class UpdateMarcaRequest { public int Id { get; set; } public string Nombre { get; set; } public string Descripcion { get; set; } public bool? Activo { get; set; } }
+    public class CreateMarcaRequest { public string Nombre { get; set; } public string? Descripcion { get; set; } }
+    public class UpdateMarcaRequest { public int Id { get; set; } public string Nombre { get; set; } public string? Descripcion { get; set; } public bool? Activo { get; set; } }
 
     [ApiController]
-    public class ProveedorController(IProveedorRepository repo) : BaseController
+    public class ProveedorController(IProveedorRepository repo, IProductoRepository productoRepo) : BaseController
     {
         private readonly IProveedorRepository _repo = repo ?? throw new ArgumentNullException(nameof(repo));
+        private readonly IProductoRepository _productoRepo = productoRepo ?? throw new ArgumentNullException(nameof(productoRepo));
 
         [HttpGet("api/v1/[Controller]")]
         public async Task<IActionResult> GetAll(bool soloActivos = true)
@@ -195,9 +226,23 @@ namespace Controllers
         public async Task<IActionResult> Delete(string id)
         {
             var e = await _repo.FindOneAsync(id);
-            if (e == null) return NotFound();
-            e.Desactivar(); _repo.Update(id, e);
-            return NoContent();
+            if (e == null) return NotFound("No se encontró el proveedor solicitado");
+
+            var prods = await _productoRepo.GetProductosExpandidosAsync();
+            if (prods.Any(p => p.ProveedorId == id))
+            {
+                return BadRequest("No se puede eliminar el proveedor porque tiene productos vinculados. Puede desactivarlo para que no esté disponible para nuevas compras.");
+            }
+
+            try
+            {
+                _repo.Remove(id);
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return BadRequest("No se pudo eliminar el proveedor porque tiene registros dependientes.");
+            }
         }
 
         private static ProveedorDto MapToDto(Domain.Entities.Proveedor p) => new()
@@ -210,30 +255,37 @@ namespace Controllers
 
     public class CreateProveedorRequest
     {
-        public string RazonSocial { get; set; } public string CUIT { get; set; }
-        public string Telefono { get; set; } public string Email { get; set; }
-        public string Direccion { get; set; } public string Contacto { get; set; }
+        public string RazonSocial { get; set; }
+        public string CUIT { get; set; }
+        public string Telefono { get; set; }
+        public string? Email { get; set; }
+        public string? Direccion { get; set; }
+        public string? Contacto { get; set; }
     }
 
     public class UpdateProveedorRequest
     {
-        public string Id { get; set; } public string RazonSocial { get; set; }
+        public string Id { get; set; }
+        public string RazonSocial { get; set; }
         public string CUIT { get; set; }
-        public string Telefono { get; set; } public string Email { get; set; }
-        public string Direccion { get; set; } public string Contacto { get; set; }
+        public string Telefono { get; set; }
+        public string? Email { get; set; }
+        public string? Direccion { get; set; }
+        public string? Contacto { get; set; }
         public bool? Activo { get; set; }
     }
 
     [ApiController]
-    public class DepositoController(IDepositoRepository repo) : BaseController
+    public class DepositoController(IDepositoRepository repo, IProductoDepositoRepository pdRepo) : BaseController
     {
         private readonly IDepositoRepository _repo = repo ?? throw new ArgumentNullException(nameof(repo));
+        private readonly IProductoDepositoRepository _pdRepo = pdRepo ?? throw new ArgumentNullException(nameof(pdRepo));
 
         [HttpGet("api/v1/[Controller]")]
         public async Task<IActionResult> GetAll(bool soloActivos = true)
         {
             var entities = soloActivos ? await _repo.GetActivosAsync() : await _repo.FindAllAsync();
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 entities = entities.Where(d => d.SucursalId == UserSucursalId.Value).ToList();
             }
@@ -313,15 +365,28 @@ namespace Controllers
         public async Task<IActionResult> Delete(int id)
         {
             var e = await _repo.FindOneAsync(id);
-            if (e == null) return NotFound();
+            if (e == null) return NotFound("No se encontró el depósito solicitado");
 
             if (!IsAdmin && UserSucursalId.HasValue && e.SucursalId != UserSucursalId.Value)
             {
                 return StatusCode(403, "No tiene permisos para modificar un depósito de otra sucursal");
             }
 
-            e.Desactivar(); _repo.Update(id, e);
-            return NoContent();
+            var stocks = await _pdRepo.GetByDepositoIdAsync(id);
+            if (stocks != null && stocks.Any(s => s.StockActual > 0))
+            {
+                return BadRequest("No se puede eliminar el depósito porque contiene productos con stock. Puede desactivarlo en su lugar.");
+            }
+
+            try
+            {
+                _repo.Remove(id);
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return BadRequest("No se pudo eliminar el depósito porque tiene registros vinculados.");
+            }
         }
 
         private static DepositoDto MapToDto(Domain.Entities.Deposito d) => new()
@@ -335,6 +400,6 @@ namespace Controllers
         };
     }
 
-    public class CreateDepositoRequest { public string Nombre { get; set; } public string Ubicacion { get; set; } public int? SucursalId { get; set; } }
-    public class UpdateDepositoRequest { public int Id { get; set; } public string Nombre { get; set; } public string Ubicacion { get; set; } public int? SucursalId { get; set; } public bool? Activo { get; set; } }
+    public class CreateDepositoRequest { public string Nombre { get; set; } public string? Ubicacion { get; set; } public int? SucursalId { get; set; } }
+    public class UpdateDepositoRequest { public int Id { get; set; } public string Nombre { get; set; } public string? Ubicacion { get; set; } public int? SucursalId { get; set; } public bool? Activo { get; set; } }
 }

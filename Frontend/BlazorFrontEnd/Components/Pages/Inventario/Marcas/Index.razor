@@ -48,7 +48,7 @@
                         <th>ID</th>
                         <th>Nombre</th>
                         <th>Descripción</th>
-                        <th>Activo</th>
+                        <th>Estado</th>
                         <th class="text-end">Acciones</th>
                     </tr>
                 </thead>
@@ -60,8 +60,14 @@
                             <td><strong>@i.Nombre</strong></td>
                             <td class="text-truncate" style="max-width: 300px;">@i.Descripcion</td>
                             <td>
-                                @if(i.Activo) { <span class="badge bg-success">Sí</span> }
-                                else { <span class="badge bg-danger">No</span> }
+                                @if (i.Activo)
+                                {
+                                    <span class="badge bg-success">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">Inactivo</span>
+                                }
                             </td>
                             <td class="text-end">
                                 <AuthorizeView Roles="Admin,Gerente,Recepcionista">
@@ -179,8 +185,8 @@
             </div>
 
             <div style="margin-top: 15px; margin-bottom: 25px;">
-                <p>¿Está seguro de que desea eliminar la marca <strong>@marcaToDelete?.Nombre</strong>?</p>
-                <small class="text-secondary">Esta acción dará de baja la marca.</small>
+                <p>¿Está seguro de que desea eliminar permanentemente la marca <strong>@marcaToDelete?.Nombre</strong>?</p>
+                <small class="text-secondary">Esta acción eliminará el registro definitivamente si no tiene productos vinculados.</small>
             </div>
 
             <div class="d-flex justify-content-end" style="gap: 10px;">
@@ -301,24 +307,24 @@
             bypassMarcaSimilarity = false;
             showSimilarMarcasConfirm = false;
 
-            bool success;
+            (bool Success, string ErrorMessage) result;
             if (marcaModel.Id == 0)
             {
-                success = await CatalogoService.CreateMarcaAsync(marcaModel);
+                result = await CatalogoService.CreateMarcaAsync(marcaModel);
             }
             else
             {
-                success = await CatalogoService.UpdateMarcaAsync(marcaModel.Id, marcaModel);
+                result = await CatalogoService.UpdateMarcaAsync(marcaModel.Id, marcaModel);
             }
 
-            if (success)
+            if (result.Success)
             {
                 showMarcaModal = false;
                 await LoadDataAsync();
             }
             else
             {
-                marcaErrorMessage = "Error al guardar la marca.";
+                marcaErrorMessage = result.ErrorMessage ?? "Error al guardar la marca.";
             }
         }
         catch (Exception ex)
@@ -369,8 +375,16 @@
             var result = await CatalogoService.DeleteMarcaAsync(marcaToDelete.Id);
             showDeleteModal = false;
             marcaToDelete = null;
-            if (result) await LoadDataAsync();
-            else errorMessage = "No se pudo eliminar el elemento. Podría estar en uso por un Producto.";
+            if (result.Success)
+            {
+                await LoadDataAsync();
+            }
+            else
+            {
+                errorMessage = !string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? result.ErrorMessage.Trim('\"', '[', ']')
+                    : "No se pudo eliminar la marca. Podría estar en uso por un Producto.";
+            }
         }
     }
 }

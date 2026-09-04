@@ -147,7 +147,7 @@ namespace Controllers
         {
             var productos = await productoRepo.FindAllAsync();
             if (soloActivos) productos = productos.Where(p => p.Activo).ToList();
-            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+            int? targetSucursalId = UserSucursalId.HasValue ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
 
             var sb = new StringBuilder();
             sb.AppendLine("Id,Nombre,CodigoBarras,Categoria,Marca,Proveedor,Deposito,PrecioCompra,PrecioVenta,StockActual,StockMinimo,Activo");
@@ -179,7 +179,7 @@ namespace Controllers
         public async Task<IActionResult> ExportStockBajo([FromQuery] int? sucursalId = null)
         {
             var productos = (await productoRepo.FindAllAsync()).Where(p => p.Activo).ToList();
-            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+            int? targetSucursalId = UserSucursalId.HasValue ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
 
             var itemsBajo = new List<(Domain.Entities.Producto prod, int stock)>();
             foreach (var p in productos)
@@ -229,7 +229,7 @@ namespace Controllers
             var d = desde ?? DateTime.Today.AddMonths(-1);
             var h = hasta ?? DateTime.Today.AddDays(1);
             var ventas = await ventaRepo.GetByFechaRangoAsync(d, h);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value).ToList();
             }
@@ -269,7 +269,7 @@ namespace Controllers
             var turnos = (await turnoRepo.FindAllAsync())
                 .Where(t => t.FechaHora >= d && t.FechaHora <= h).AsEnumerable();
 
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 turnos = turnos.Where(t => t.SucursalId == UserSucursalId.Value);
             }

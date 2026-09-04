@@ -22,6 +22,8 @@ namespace BlazorFrontEnd.Models
         public decimal Total { get; set; }
         public string Estado { get; set; } = string.Empty;
         public string Observaciones { get; set; } = string.Empty;
+        public int? SucursalId { get; set; }
+        public string? SucursalNombre { get; set; }
         public List<DetalleVentaDto> Detalles { get; set; } = new();
     }
 

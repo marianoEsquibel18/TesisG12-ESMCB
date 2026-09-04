@@ -78,7 +78,7 @@ namespace Controllers
             foreach (var p in matchedProds)
             {
                 int stock = p.StockActual;
-                if (!IsAdmin && UserSucursalId.HasValue)
+                if (UserSucursalId.HasValue)
                 {
                     var pds = await _pdRepo.GetByProductoIdAsync(p.Id);
                     stock = pds.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).Sum(s => s.StockActual);
@@ -96,7 +96,7 @@ namespace Controllers
 
             // Buscar veterinarios
             var vetQuery = (await _veterinarioRepo.FindAllAsync()).AsEnumerable();
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 vetQuery = vetQuery.Where(v => v.SucursalId == UserSucursalId.Value);
             }
@@ -197,7 +197,7 @@ namespace Controllers
             [FromQuery] int? sucursalId = null)
         {
             var list = (await _productoRepo.FindAllAsync()).Where(p => p.Activo).ToList();
-            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+            int? targetSucursalId = UserSucursalId.HasValue ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
 
             var filtered = new List<object>();
             foreach (var p in list)
@@ -250,7 +250,7 @@ namespace Controllers
             var query = (await _turnoRepo.FindAllAsync())
                 .Where(t => t.FechaHora >= d && t.FechaHora <= h).AsQueryable();
 
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 query = query.Where(t => t.SucursalId == UserSucursalId.Value);
             }

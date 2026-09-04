@@ -2,6 +2,8 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Veterinario,Recepcionista")]
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
+@using BlazorFrontEnd.Auth
+@implements IDisposable
 @inject VentaService VentaService
 @inject PacienteService PacienteService 
 @inject PropietarioService PropietarioService
@@ -9,6 +11,7 @@
 @inject CatalogoServiciosService ServiciosService
 @inject MetodoPagoService PagoService
 @inject CatalogoInventarioService CatalogoService
+@inject TokenStorageService TokenStorage
 @inject NavigationManager Navigation
 
 <PageTitle>Punto de Venta (POS)</PageTitle>
@@ -330,19 +333,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var pagosTask = PagoService.GetAllActivosAsync();
-        var depTask = CatalogoService.GetDepositosAsync();
-        var servTask = ServiciosService.GetServiciosActivosAsync();
-        var prodTask = ProductoService.GetAllAsync(1, 1000);
-        var propTask = PropietarioService.GetAllActivosAsync();
-        
-        await Task.WhenAll(pagosTask, depTask, servTask, prodTask, propTask);
-
-        if(pagosTask.Result != null) metodosPago = pagosTask.Result;
-        if(depTask.Result != null) depositos = depTask.Result;
-        if(servTask.Result != null) allActiveServicios = servTask.Result;
-        if(prodTask.Result?.Items != null) allInventoryProducts = prodTask.Result.Items;
-        if(propTask.Result != null) propietarios = propTask.Result;
+        TokenStorage.OnContextChanged += HandleContextChanged;
+        await LoadCatalogsAsync();
 
         // Si se redirige desde un turno completado, precargar servicio y datos
         if (ServicioId.HasValue && ServicioId.Value > 0)
@@ -371,6 +363,39 @@
             }
             catch {}
         }
+    }
+
+    private async void HandleContextChanged()
+    {
+        await InvokeAsync(async () =>
+        {
+            await LoadCatalogsAsync();
+            await BuscarProductosYServicios();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        TokenStorage.OnContextChanged -= HandleContextChanged;
+        debounceTimer?.Dispose();
+    }
+
+    private async Task LoadCatalogsAsync()
+    {
+        var pagosTask = PagoService.GetAllActivosAsync();
+        var depTask = CatalogoService.GetDepositosAsync();
+        var servTask = ServiciosService.GetServiciosActivosAsync();
+        var prodTask = ProductoService.GetAllAsync(1, 1000);
+        var propTask = PropietarioService.GetAllActivosAsync();
+        
+        await Task.WhenAll(pagosTask, depTask, servTask, prodTask, propTask);
+
+        if(pagosTask.Result != null) metodosPago = pagosTask.Result;
+        if(depTask.Result != null) depositos = depTask.Result;
+        if(servTask.Result != null) allActiveServicios = servTask.Result;
+        if(prodTask.Result?.Items != null) allInventoryProducts = prodTask.Result.Items;
+        if(propTask.Result != null) propietarios = propTask.Result;
     }
 
     /// <summary>

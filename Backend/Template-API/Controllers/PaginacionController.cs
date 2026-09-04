@@ -116,7 +116,7 @@ namespace Controllers
 
             var list = entities.ToList();
             var dtos = new List<object>();
-            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+            int? targetSucursalId = UserSucursalId.HasValue ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
 
             foreach (var p in list)
             {
@@ -170,7 +170,7 @@ namespace Controllers
             [FromQuery] string? veterinarioId = null, [FromQuery] string? searchTerm = null)
         {
             var entities = (await turnoRepo.GetTurnosExpandidosAsync()).AsEnumerable();
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 entities = entities.Where(t => t.SucursalId == UserSucursalId.Value);
             }
@@ -215,7 +215,7 @@ namespace Controllers
             [FromQuery] DateTime? desde = null, [FromQuery] DateTime? hasta = null)
         {
             var entities = (await ventaRepo.FindAllAsync()).AsEnumerable();
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 entities = entities.Where(v => v.SucursalId == UserSucursalId.Value);
             }
@@ -227,7 +227,9 @@ namespace Controllers
                 v.Id, v.Fecha, v.Total, Estado = v.Estado.ToString(),
                 Propietario = v.Propietario != null ? $"{v.Propietario.Nombre} {v.Propietario.Apellido}" : "",
                 MetodoPago = v.MetodoPago != null ? v.MetodoPago.Nombre : "",
-                Items = v.Detalles != null ? v.Detalles.Count : 0
+                Items = v.Detalles != null ? v.Detalles.Count : 0,
+                v.SucursalId,
+                SucursalNombre = v.Sucursal != null ? v.Sucursal.Nombre : ""
             });
             return Ok(PaginacionHelper.Paginar(dtos, page, pageSize, sortBy, sortDir));
         }
@@ -262,7 +264,7 @@ namespace Controllers
             [FromQuery] string sortBy = "Apellido", [FromQuery] string sortDir = "asc")
         {
             var entities = (await veterinarioRepo.FindAllAsync()).AsEnumerable();
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 entities = entities.Where(v => v.SucursalId == UserSucursalId.Value);
             }

@@ -113,8 +113,8 @@
             if (isEdit) 
             {
                 var result = await CatalogoService.UpdateCategoriaAsync(Id!.Value, model);
-                if (result) Navigation.NavigateTo("/inventario/categorias");
-                else errorMessage = "Error en la actualización.";
+                if (result.Success) Navigation.NavigateTo("/inventario/categorias");
+                else errorMessage = result.ErrorMessage ?? "Error en la actualización.";
             }
             else 
             {

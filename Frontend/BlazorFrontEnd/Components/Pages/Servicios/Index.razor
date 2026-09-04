@@ -40,12 +40,12 @@
                 <label class="text-secondary" style="font-size: 0.78rem; margin-bottom: 4px; display: block;">Estado</label>
                 <select @bind="filtroEstado" @bind:after="ApplyFilters" class="form-select form-select-sm"
                         style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: var(--text-primary);">
-                    <option value="">Todos</option>
+                    <option value="Todos">Todos</option>
                     <option value="Activo">Activos</option>
                     <option value="Inactivo">Inactivos</option>
                 </select>
             </div>
-            @if (!string.IsNullOrEmpty(searchTerm) || !string.IsNullOrEmpty(filtroEstado))
+            @if (!string.IsNullOrEmpty(searchTerm) || filtroEstado != "Todos")
             {
                 <button class="btn btn-sm btn-outline-secondary" style="height: 31px; border-color: var(--border-glass); color: var(--text-secondary);" @onclick="ClearFilters">
                     Limpiar filtros
@@ -296,10 +296,10 @@
             </div>
             <div style="margin-top: 15px; margin-bottom: 25px;">
                 <p class="text-light">
-                    ¿Estás seguro de que deseas eliminar el servicio <strong style="color: var(--accent-primary);">@servicioToDelete?.Nombre</strong>?
+                    ¿Estás seguro de que deseas eliminar permanentemente el servicio <strong style="color: var(--accent-primary);">@servicioToDelete?.Nombre</strong>?
                 </p>
                 <p class="text-secondary" style="font-size: 0.85rem;">
-                    Esta acción desactivará el servicio del catálogo y no estará disponible para nuevos turnos.
+                    Esta acción eliminará el servicio definitivamente de la base de datos si no tiene turnos asociados en la agenda.
                 </p>
             </div>
             <div class="d-flex justify-content-end" style="gap: 10px;">
@@ -345,7 +345,7 @@
 
     private bool isLoading = true;
     private string searchTerm = string.Empty;
-    private string filtroEstado = string.Empty;
+    private string filtroEstado = "Todos";
     private string generalMessage = string.Empty;
 
     // ── Form Modal State ──
@@ -439,7 +439,7 @@
     private void ClearFilters()
     {
         searchTerm = string.Empty;
-        filtroEstado = string.Empty;
+        filtroEstado = "Todos";
         ApplyFilters();
     }
 
@@ -542,17 +542,17 @@
             // Sync productos utilizados
             formModel.ProductosUtilizados = string.Join(", ", selectedProductosList);
 
-            bool success;
+            (bool Success, string ErrorMessage) result;
             if (formModel.Id == 0)
             {
-                success = await ServiciosService.CreateAsync(formModel);
+                result = await ServiciosService.CreateAsync(formModel);
             }
             else
             {
-                success = await ServiciosService.UpdateAsync(formModel.Id, formModel);
+                result = await ServiciosService.UpdateAsync(formModel.Id, formModel);
             }
 
-            if (success)
+            if (result.Success)
             {
                 showServicioModal = false;
                 await LoadDataAsync();
@@ -560,7 +560,7 @@
             }
             else
             {
-                formErrorMessage = "Ocurrió un error al guardar el servicio. Verifica los datos ingresados.";
+                formErrorMessage = result.ErrorMessage ?? "Ocurrió un error al guardar el servicio. Verifica los datos ingresados.";
             }
         }
         catch (Exception ex)
@@ -605,17 +605,18 @@
         isDeleting = true;
         try
         {
-            var success = await ServiciosService.DeleteAsync(servicioToDelete.Id);
-            if (success)
+            var result = await ServiciosService.DeleteAsync(servicioToDelete.Id);
+            CloseDeleteConfirmationModal();
+            if (result.Success)
             {
-                CloseDeleteConfirmationModal();
                 await LoadDataAsync();
-                generalMessage = "Servicio eliminado correctamente.";
+                generalMessage = "Servicio eliminado permanentemente.";
             }
             else
             {
-                generalMessage = "No se pudo eliminar el servicio. Podría estar en uso.";
-                CloseDeleteConfirmationModal();
+                generalMessage = !string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? result.ErrorMessage.Trim('\"', '[', ']')
+                    : "No se pudo eliminar el servicio. Podría tener turnos asociados en la agenda.";
             }
         }
         catch (Exception ex)

@@ -254,6 +254,7 @@ namespace Controllers
                 new("Nala", felino.Id, props[9].Id, "H", razas[6].Id, DateTime.Today.AddYears(-1)),
                 new("Sam", canino.Id, props[10].Id, "M", razas[0].Id, DateTime.Today.AddYears(-6)),
                 new("Mora", canino.Id, props[11].Id, "H", razas[4].Id, DateTime.Today.AddYears(-2)),
+                new("Henry", canino.Id, props[0].Id, "M", razas[0].Id, DateTime.Today.AddYears(-2)),
             };
             foreach (var p in pacientes) await pacienteRepo.AddAsync(p);
             resumen["Pacientes"] = pacientes.Count;

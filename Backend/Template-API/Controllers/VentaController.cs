@@ -97,7 +97,7 @@ namespace Controllers
             var d = desde ?? DateTime.Today;
             var h = hasta ?? DateTime.Today.AddDays(1);
             var entities = await _ventaRepo.GetByFechaRangoAsync(d, h);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 entities = entities.Where(v => v.SucursalId == UserSucursalId.Value).ToList();
             }
@@ -122,7 +122,7 @@ namespace Controllers
         public async Task<IActionResult> GetByPropietario(string propietarioId)
         {
             var entities = await _ventaRepo.GetByPropietarioIdAsync(propietarioId);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 entities = entities.Where(v => v.SucursalId == UserSucursalId.Value).ToList();
             }
@@ -195,7 +195,7 @@ namespace Controllers
                         if (pd == null)
                             return BadRequest($"No hay stock del producto '{producto.Nombre}' en el depósito seleccionado");
                         
-                        if (!IsAdmin && UserSucursalId.HasValue && pd.Deposito?.SucursalId != UserSucursalId.Value)
+                        if (UserSucursalId.HasValue && pd.Deposito?.SucursalId != UserSucursalId.Value)
                         {
                             return BadRequest($"El depósito '{pd.Deposito?.Nombre}' no pertenece a su sucursal");
                         }

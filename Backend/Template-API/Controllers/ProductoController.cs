@@ -33,7 +33,7 @@ namespace Controllers
         {
             var entities = soloActivos ? await _productoRepo.GetActivosAsync() : await _productoRepo.FindAllAsync();
             var dtos = new List<ProductoDto>();
-            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+            int? targetSucursalId = UserSucursalId.HasValue ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
 
             foreach (var p in entities)
             {
@@ -70,7 +70,7 @@ namespace Controllers
             if (entity == null) return NotFound();
             var dto = MapToDto(entity);
             var stocks = (await _pdRepo.GetByProductoIdAsync(id)).ToList();
-            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+            int? targetSucursalId = UserSucursalId.HasValue ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
             
             if (targetSucursalId.HasValue)
             {
@@ -94,7 +94,7 @@ namespace Controllers
             if (string.IsNullOrWhiteSpace(nombre)) return BadRequest("Debe proporcionar un término de búsqueda");
             var entities = await _productoRepo.SearchByNombreAsync(nombre);
             var dtos = new List<ProductoDto>();
-            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+            int? targetSucursalId = UserSucursalId.HasValue ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
 
             foreach (var p in entities)
             {
@@ -122,7 +122,7 @@ namespace Controllers
         {
             var entities = await _productoRepo.GetByCategoriaIdAsync(categoriaId);
             var dtos = new List<ProductoDto>();
-            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+            int? targetSucursalId = UserSucursalId.HasValue ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
 
             foreach (var p in entities)
             {
@@ -152,7 +152,7 @@ namespace Controllers
             if (entity == null) return NotFound();
             var dto = MapToDto(entity);
             var stocks = (await _pdRepo.GetByProductoIdAsync(entity.Id)).ToList();
-            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+            int? targetSucursalId = UserSucursalId.HasValue ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
 
             if (targetSucursalId.HasValue)
             {
@@ -175,7 +175,7 @@ namespace Controllers
         [HttpGet("api/v1/[Controller]/stockBajo")]
         public async Task<IActionResult> GetStockBajo([FromQuery] int? sucursalId = null)
         {
-            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+            int? targetSucursalId = UserSucursalId.HasValue ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
             var dtos = new List<ProductoDto>();
 
             if (targetSucursalId.HasValue)
@@ -228,7 +228,7 @@ namespace Controllers
         public async Task<IActionResult> GetStockDepositos(string id, [FromQuery] int? sucursalId = null)
         {
             var stocks = (await _pdRepo.GetByProductoIdAsync(id)).ToList();
-            int? targetSucursalId = (!IsAdmin && UserSucursalId.HasValue) ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
+            int? targetSucursalId = UserSucursalId.HasValue ? UserSucursalId : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId : null);
 
             if (targetSucursalId.HasValue)
             {
@@ -269,7 +269,7 @@ namespace Controllers
                     return StatusCode(403, "No tiene permisos para asignar un depósito de otra sucursal");
                 }
             }
-            else if (!IsAdmin && UserSucursalId.HasValue)
+            else if (UserSucursalId.HasValue)
             {
                 var sucursalDeps = (await _depositoRepo.GetActivosAsync())
                     .Where(d => d.SucursalId == UserSucursalId.Value).ToList();
@@ -357,7 +357,7 @@ namespace Controllers
             if (r.Cantidad <= 0) return BadRequest("La cantidad debe ser mayor a 0");
 
             int? targetDepId = r.DepositoId;
-            if ((!targetDepId.HasValue || targetDepId.Value <= 0) && !IsAdmin && UserSucursalId.HasValue)
+            if ((!targetDepId.HasValue || targetDepId.Value <= 0) && UserSucursalId.HasValue)
             {
                 var sucursalDeps = (await _depositoRepo.GetActivosAsync())
                     .Where(d => d.SucursalId == UserSucursalId.Value).ToList();
@@ -408,7 +408,7 @@ namespace Controllers
             await _movimientoRepo.AddAsync(movimiento);
 
             int returnStock = entity.StockActual;
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 var branchStocks = (await _pdRepo.GetByProductoIdAsync(id))
                     .Where(s => s.Deposito?.SucursalId == UserSucursalId.Value);
@@ -430,7 +430,7 @@ namespace Controllers
             if (r.Cantidad <= 0) return BadRequest("La cantidad debe ser mayor a 0");
 
             int? targetDepId = r.DepositoId;
-            if ((!targetDepId.HasValue || targetDepId.Value <= 0) && !IsAdmin && UserSucursalId.HasValue)
+            if ((!targetDepId.HasValue || targetDepId.Value <= 0) && UserSucursalId.HasValue)
             {
                 var sucursalDeps = (await _depositoRepo.GetActivosAsync())
                     .Where(d => d.SucursalId == UserSucursalId.Value).ToList();
@@ -478,7 +478,7 @@ namespace Controllers
             await _movimientoRepo.AddAsync(movimiento);
 
             int returnStock = entity.StockActual;
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 var branchStocks = (await _pdRepo.GetByProductoIdAsync(id))
                     .Where(s => s.Deposito?.SucursalId == UserSucursalId.Value);

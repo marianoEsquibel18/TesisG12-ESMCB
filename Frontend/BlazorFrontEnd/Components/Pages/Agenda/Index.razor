@@ -11,6 +11,8 @@
 
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
+@implements IDisposable
+@inject BlazorFrontEnd.Auth.TokenStorageService TokenStorage
 @inject TurnoService TurnoService
 @inject VeterinarioService VeterinarioService
 @inject PacienteService PacienteService
@@ -80,7 +82,7 @@
                 <option value="">TODOS LOS VETERINARIOS</option>
                 @foreach(var vet in veterinariosList)
                 {
-                    <option value="@vet.Id" selected="@(filterVeterinarioId == vet.Id)">@vet.NombreCompleto</option>
+                    <option value="@vet.Id" selected="@(filterVeterinarioId == vet.Id)">@vet.NombreCompleto @(!string.IsNullOrEmpty(vet.SucursalNombre) ? $"({vet.SucursalNombre})" : "")</option>
                 }
             </select>
         </div>
@@ -368,7 +370,7 @@
                                     <label class="form-label" style="color: var(--text-secondary); font-size: 0.875rem;">Veterinario Asignado (*)</label>
                                     <InputSelect @bind-Value="turnoModel.VeterinarioId" class="form-select bg-dark text-light border-secondary">
                                         <option value="">-- Médico Veterinario --</option>
-                                        @foreach (var v in modalVeterinarios) { <option value="@v.Id">@v.NombreCompleto - @v.Especialidad</option> }
+                                        @foreach (var v in modalVeterinarios) { <option value="@v.Id">@v.NombreCompleto - @v.Especialidad @(!string.IsNullOrEmpty(v.SucursalNombre) ? $"({v.SucursalNombre})" : "")</option> }
                                     </InputSelect>
                                     <ValidationMessage For="@(() => turnoModel.VeterinarioId)" class="text-danger" />
                                 </div>
@@ -1333,12 +1335,30 @@
 
     protected override async Task OnInitializedAsync()
     {
+        TokenStorage.OnContextChanged += HandleContextChanged;
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
         isGerente = user.IsInRole("Gerente");
 
         await LoadVeterinariosAsync();
         await LoadDataAsync();
+    }
+
+    private async void HandleContextChanged()
+    {
+        await InvokeAsync(async () =>
+        {
+            currentPage = 1;
+            filterVeterinarioId = "";
+            await LoadVeterinariosAsync();
+            await LoadDataAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        TokenStorage.OnContextChanged -= HandleContextChanged;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -1367,7 +1387,11 @@
     {
         var paginateVets = await VeterinarioService.GetAllAsync(true);
         if (paginateVets?.Items != null)
-            veterinariosList = paginateVets.Items.Where(v => v.Activo).ToList();
+        {
+            veterinariosList = paginateVets.Items
+                .Where(v => v.Activo && (!TokenStorage.ActiveSucursalId.HasValue || v.SucursalId == TokenStorage.ActiveSucursalId.Value))
+                .ToList();
+        }
     }
 
     private async Task HandleSearch(KeyboardEventArgs e)
@@ -1465,7 +1489,13 @@
         try
         {
             var resP = await PacienteService.GetAllAsync(1, 1000, ""); if (resP != null) modalPacientes = resP.Items;
-            var resV = await PersonalService.GetVeterinariosActivosAsync(); if (resV != null) modalVeterinarios = resV;
+            var resV = await PersonalService.GetVeterinariosActivosAsync();
+            if (resV != null)
+            {
+                modalVeterinarios = resV
+                    .Where(v => !TokenStorage.ActiveSucursalId.HasValue || v.SucursalId == TokenStorage.ActiveSucursalId.Value)
+                    .ToList();
+            }
             var resS = await ServiciosService.GetServiciosActivosAsync(); if (resS != null) modalServicios = resS;
         }
         catch { turnoErrorMessage = "Error al cargar datos."; }

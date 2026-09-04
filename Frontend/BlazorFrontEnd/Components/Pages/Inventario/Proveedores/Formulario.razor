@@ -128,14 +128,16 @@
 
         try
         {
-            bool result;
+            (bool Success, string ErrorMessage) result;
             if (isEdit) 
                 result = await CatalogoService.UpdateProveedorAsync(Id!, model);
             else 
                 result = await CatalogoService.CreateProveedorAsync(model);
 
-            if (result) Navigation.NavigateTo("/inventario/proveedores");
-            else errorMessage = "Error en la creación o actualización. Valide el formato del CUIT.";
+            if (result.Success) Navigation.NavigateTo("/inventario/proveedores");
+            else errorMessage = !string.IsNullOrWhiteSpace(result.ErrorMessage)
+                ? result.ErrorMessage.Trim('\"', '[', ']')
+                : "Error al guardar el proveedor. Verifique los datos.";
         }
         catch (Exception)
         {

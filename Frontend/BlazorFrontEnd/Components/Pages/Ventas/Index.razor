@@ -1,7 +1,10 @@
 @page "/ventas"
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
+@using BlazorFrontEnd.Auth
+@implements IDisposable
 @inject VentaService VentaService
+@inject TokenStorageService TokenStorage
 @inject NavigationManager Navigation
 
 <PageTitle>Comercio</PageTitle>
@@ -84,7 +87,7 @@
                                 {
                                     <AuthorizeView Roles="Admin,Veterinario,Recepcionista">
                                         <Authorized>
-                                            <button class="btn btn-sm btn-outline-danger ms-2" @onclick="() => AnularVenta(v.Id)">Anular</button>
+                                             <button class="btn btn-sm btn-outline-danger ms-2" @onclick="() => AnularVenta(v.Id)">Anular</button>
                                         </Authorized>
                                     </AuthorizeView>
                                 }
@@ -152,7 +155,22 @@
 
     protected override async Task OnInitializedAsync()
     {
+        TokenStorage.OnContextChanged += HandleContextChanged;
         await LoadDataAsync();
+    }
+
+    private async void HandleContextChanged()
+    {
+        await InvokeAsync(async () =>
+        {
+            await LoadDataAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        TokenStorage.OnContextChanged -= HandleContextChanged;
     }
 
     private async Task LoadDataAsync()

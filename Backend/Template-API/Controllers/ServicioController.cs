@@ -8,10 +8,12 @@ namespace Controllers
 {
     [ApiController]
     [Authorize]
-    public class ServicioController(IServicioRepository servicioRepository) : BaseController
+    public class ServicioController(IServicioRepository servicioRepository, ITurnoRepository turnoRepository) : BaseController
     {
         private readonly IServicioRepository _repository = servicioRepository
             ?? throw new ArgumentNullException(nameof(servicioRepository));
+        private readonly ITurnoRepository _turnoRepository = turnoRepository
+            ?? throw new ArgumentNullException(nameof(turnoRepository));
 
         [HttpGet("api/v1/[Controller]")]
         [Authorize(Roles = "Admin,Gerente,Veterinario,Recepcionista")]
@@ -96,29 +98,41 @@ namespace Controllers
             var entity = await _repository.FindOneAsync(id);
             if (entity == null) return NotFound($"No se encontró el servicio con Id {id}");
 
-            entity.Desactivar();
-            _repository.Update(id, entity);
-            return NoContent();
+            var turnos = await _turnoRepository.FindAllAsync();
+            if (turnos.Any(t => t.ServicioId == id))
+            {
+                return BadRequest("No se puede eliminar el servicio porque tiene turnos asociados en la agenda. Puede desactivarlo para que no esté disponible para nuevos turnos.");
+            }
+
+            try
+            {
+                _repository.Remove(id);
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return BadRequest("No se pudo eliminar el servicio porque tiene registros dependientes.");
+            }
         }
     }
 
     public class CreateServicioRequest
     {
         public string Nombre { get; set; }
-        public string Descripcion { get; set; }
+        public string? Descripcion { get; set; }
         public int DuracionMinutos { get; set; }
         public decimal Precio { get; set; }
-        public string ProductosUtilizados { get; set; }
+        public string? ProductosUtilizados { get; set; }
     }
 
     public class UpdateServicioRequest
     {
         public int Id { get; set; }
         public string Nombre { get; set; }
-        public string Descripcion { get; set; }
+        public string? Descripcion { get; set; }
         public int DuracionMinutos { get; set; }
         public decimal Precio { get; set; }
-        public string ProductosUtilizados { get; set; }
+        public string? ProductosUtilizados { get; set; }
         public bool? Activo { get; set; }
     }
 }

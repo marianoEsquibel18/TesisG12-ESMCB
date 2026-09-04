@@ -2,6 +2,8 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Veterinario,Recepcionista")]
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
+@implements IDisposable
+@inject BlazorFrontEnd.Auth.TokenStorageService TokenStorage
 @inject TurnoService TurnoService
 @inject PacienteService PacienteService
 @inject PersonalService PersonalService
@@ -62,7 +64,7 @@
                                 <option value="">-- Médico Veterinario --</option>
                                 @foreach (var v in veterinarios)
                                 {
-                                    <option value="@v.Id">@v.NombreCompleto - @v.Especialidad</option>
+                                    <option value="@v.Id">@v.NombreCompleto - @v.Especialidad @(!string.IsNullOrEmpty(v.SucursalNombre) ? $"({v.SucursalNombre})" : "")</option>
                                 }
                             </InputSelect>
                             <ValidationMessage For="@(() => model.VeterinarioId)" class="text-danger" />
@@ -243,6 +245,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        TokenStorage.OnContextChanged += HandleContextChanged;
         isLoading = true;
         try
         {
@@ -250,7 +253,12 @@
             if(resP != null) pacientes = resP.Items;
 
             var resV = await PersonalService.GetVeterinariosActivosAsync();
-            if(resV != null) veterinarios = resV;
+            if(resV != null)
+            {
+                veterinarios = resV
+                    .Where(v => !TokenStorage.ActiveSucursalId.HasValue || v.SucursalId == TokenStorage.ActiveSucursalId.Value || (isEdit && v.Id == model.VeterinarioId))
+                    .ToList();
+            }
 
             var resS = await ServiciosService.GetServiciosActivosAsync();
             if(resS != null) servicios = resS;
@@ -341,4 +349,24 @@
     }
 
     private void GoBack() => Navigation.NavigateTo("/agenda");
+
+    private async void HandleContextChanged()
+    {
+        await InvokeAsync(async () =>
+        {
+            var resV = await PersonalService.GetVeterinariosActivosAsync();
+            if(resV != null)
+            {
+                veterinarios = resV
+                    .Where(v => !TokenStorage.ActiveSucursalId.HasValue || v.SucursalId == TokenStorage.ActiveSucursalId.Value || (isEdit && v.Id == model.VeterinarioId))
+                    .ToList();
+            }
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        TokenStorage.OnContextChanged -= HandleContextChanged;
+    }
 }

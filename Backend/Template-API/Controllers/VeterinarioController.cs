@@ -23,7 +23,7 @@ namespace Controllers
                 ? await _repository.GetActivosAsync()
                 : await _repository.FindAllAsync();
 
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 entities = entities.Where(v => v.SucursalId == UserSucursalId.Value).ToList();
             }
@@ -56,7 +56,7 @@ namespace Controllers
             if (string.IsNullOrWhiteSpace(nombre)) return BadRequest("Debe proporcionar un término de búsqueda");
             var entities = await _repository.SearchByNombreAsync(nombre);
 
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 entities = entities.Where(v => v.SucursalId == UserSucursalId.Value).ToList();
             }

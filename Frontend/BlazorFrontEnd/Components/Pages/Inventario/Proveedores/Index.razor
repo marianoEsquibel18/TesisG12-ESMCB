@@ -50,7 +50,7 @@
                         <th>CUIT</th>
                         <th>Teléfono</th>
                         <th>Email</th>
-                        <th>Activo</th>
+                        <th>Estado</th>
                         <th class="text-end">Acciones</th>
                     </tr>
                 </thead>
@@ -64,8 +64,14 @@
                             <td>@i.Telefono</td>
                             <td><a href="mailto:@i.Email" target="_blank" onclick="window.open(this.href, '_blank'); return false;" class="text-light">@i.Email</a></td>
                             <td>
-                                @if(i.Activo) { <span class="badge bg-success">Sí</span> }
-                                else { <span class="badge bg-danger">No</span> }
+                                @if (i.Activo)
+                                {
+                                    <span class="badge bg-success">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">Inactivo</span>
+                                }
                             </td>
                             <td class="text-end">
                                 <AuthorizeView Roles="Admin,Gerente,Recepcionista">
@@ -201,8 +207,8 @@
             </div>
 
             <div style="margin-top: 15px; margin-bottom: 25px;">
-                <p>¿Está seguro de que desea eliminar el proveedor <strong>@proveedorToDelete?.RazonSocial</strong>?</p>
-                <small class="text-secondary">Esta acción dará de baja el proveedor.</small>
+                <p>¿Está seguro de que desea eliminar permanentemente el proveedor <strong>@proveedorToDelete?.RazonSocial</strong>?</p>
+                <small class="text-secondary">Esta acción eliminará el registro definitivamente si no tiene productos vinculados.</small>
             </div>
 
             <div class="d-flex justify-content-end" style="gap: 10px;">
@@ -328,24 +334,26 @@
             bypassProveedorSimilarity = false;
             showSimilarProveedoresConfirm = false;
 
-            bool success;
+            (bool Success, string ErrorMessage) result;
             if (string.IsNullOrEmpty(proveedorModel.Id))
             {
-                success = await CatalogoService.CreateProveedorAsync(proveedorModel);
+                result = await CatalogoService.CreateProveedorAsync(proveedorModel);
             }
             else
             {
-                success = await CatalogoService.UpdateProveedorAsync(proveedorModel.Id, proveedorModel);
+                result = await CatalogoService.UpdateProveedorAsync(proveedorModel.Id, proveedorModel);
             }
 
-            if (success)
+            if (result.Success)
             {
                 showProveedorModal = false;
                 await LoadDataAsync();
             }
             else
             {
-                proveedorErrorMessage = "Error al guardar el proveedor. Valide el formato del CUIT.";
+                proveedorErrorMessage = !string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? result.ErrorMessage.Trim('\"', '[', ']')
+                    : "Error al guardar el proveedor. Verifique los datos.";
             }
         }
         catch (Exception ex)
@@ -396,8 +404,16 @@
             var result = await CatalogoService.DeleteProveedorAsync(proveedorToDelete.Id);
             showDeleteModal = false;
             proveedorToDelete = null;
-            if (result) await LoadDataAsync();
-            else errorMessage = "No se pudo eliminar el elemento. Podría tener dependencias.";
+            if (result.Success)
+            {
+                await LoadDataAsync();
+            }
+            else
+            {
+                errorMessage = !string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? result.ErrorMessage.Trim('\"', '[', ']')
+                    : "No se pudo eliminar el proveedor. Podría tener productos vinculados.";
+            }
         }
     }
 }

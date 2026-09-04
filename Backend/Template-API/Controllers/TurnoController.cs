@@ -42,7 +42,7 @@ namespace Controllers
         {
             var dia = fecha ?? DateTime.Today;
             var entities = await _turnoRepository.GetByFechaAsync(dia);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 entities = entities.Where(t => t.SucursalId == UserSucursalId.Value).ToList();
             }
@@ -60,7 +60,7 @@ namespace Controllers
             if (hasta <= desde) return BadRequest("La fecha 'hasta' debe ser posterior a 'desde'");
 
             var entities = await _turnoRepository.GetProgramadosAsync(desde, hasta);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 entities = entities.Where(t => t.SucursalId == UserSucursalId.Value).ToList();
             }
@@ -92,7 +92,7 @@ namespace Controllers
             if (string.IsNullOrWhiteSpace(veterinarioId)) return BadRequest("El ID del veterinario es requerido");
 
             var entities = await _turnoRepository.GetByVeterinarioIdAsync(veterinarioId, desde, hasta);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 entities = entities.Where(t => t.SucursalId == UserSucursalId.Value).ToList();
             }
@@ -110,7 +110,7 @@ namespace Controllers
             if (string.IsNullOrWhiteSpace(pacienteId)) return BadRequest("El ID del paciente es requerido");
 
             var entities = await _turnoRepository.GetByPacienteIdAsync(pacienteId);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (UserSucursalId.HasValue)
             {
                 entities = entities.Where(t => t.SucursalId == UserSucursalId.Value).ToList();
             }
@@ -149,7 +149,7 @@ namespace Controllers
             var veterinario = await _veterinarioRepository.FindOneAsync(request.VeterinarioId);
             if (veterinario == null) return BadRequest($"No existe el veterinario con Id {request.VeterinarioId}");
 
-            if (!IsAdmin && UserSucursalId.HasValue && veterinario.SucursalId != UserSucursalId.Value)
+            if (UserSucursalId.HasValue && veterinario.SucursalId != UserSucursalId.Value)
             {
                 return BadRequest("No puede agendar turnos para veterinarios de otra sucursal");
             }

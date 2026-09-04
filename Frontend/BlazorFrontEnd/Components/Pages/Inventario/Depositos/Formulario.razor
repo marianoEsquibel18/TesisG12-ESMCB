@@ -110,14 +110,14 @@
 
         try
         {
-            bool result;
+            (bool Success, string ErrorMessage) result;
             if (isEdit) 
                 result = await CatalogoService.UpdateDepositoAsync(Id!.Value, model);
             else 
                 result = await CatalogoService.CreateDepositoAsync(model);
 
-            if (result) Navigation.NavigateTo("/inventario/depositos");
-            else errorMessage = "Error en la creación o actualización.";
+            if (result.Success) Navigation.NavigateTo("/inventario/depositos");
+            else errorMessage = result.ErrorMessage ?? "Error en la creación o actualización.";
         }
         catch (Exception)
         {

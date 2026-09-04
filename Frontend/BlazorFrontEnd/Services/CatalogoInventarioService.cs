@@ -60,27 +60,94 @@ namespace BlazorFrontEnd.Services
         { 
             var res = await _httpClient.PostAsJsonAsync("api/v1/Categoria", dto); 
             if (res.IsSuccessStatusCode) return (true, "");
-            return (false, await res.Content.ReadAsStringAsync()); 
+            var err = await res.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al crear la categoría." : err); 
         }
-        public async Task<bool> UpdateCategoriaAsync(int id, CategoriaDto dto) { var res = await _httpClient.PutAsJsonAsync($"api/v1/Categoria", dto); return res.IsSuccessStatusCode; }
-        public async Task<bool> DeleteCategoriaAsync(int id) { var res = await _httpClient.DeleteAsync($"api/v1/Categoria/{id}"); return res.IsSuccessStatusCode; }
+        public async Task<(bool Success, string ErrorMessage)> UpdateCategoriaAsync(int id, CategoriaDto dto) 
+        { 
+            var res = await _httpClient.PutAsJsonAsync($"api/v1/Categoria", dto); 
+            if (res.IsSuccessStatusCode) return (true, "");
+            var err = await res.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al actualizar la categoría." : err);
+        }
+        public async Task<(bool Success, string ErrorMessage)> DeleteCategoriaAsync(int id) 
+        { 
+            var res = await _httpClient.DeleteAsync($"api/v1/Categoria/{id}"); 
+            if (res.IsSuccessStatusCode) return (true, "");
+            var err = await res.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al eliminar la categoría." : err);
+        }
 
         // --- Marca CRUD ---
         public async Task<MarcaDto?> GetMarcaByIdAsync(int id) => await _httpClient.GetUnwrappedAsync<MarcaDto>($"api/v1/Marca/{id}");
-        public async Task<bool> CreateMarcaAsync(MarcaDto dto) { var res = await _httpClient.PostAsJsonAsync("api/v1/Marca", dto); return res.IsSuccessStatusCode; }
-        public async Task<bool> UpdateMarcaAsync(int id, MarcaDto dto) { var res = await _httpClient.PutAsJsonAsync($"api/v1/Marca", dto); return res.IsSuccessStatusCode; }
-        public async Task<bool> DeleteMarcaAsync(int id) { var res = await _httpClient.DeleteAsync($"api/v1/Marca/{id}"); return res.IsSuccessStatusCode; }
+        public async Task<(bool Success, string ErrorMessage)> CreateMarcaAsync(MarcaDto dto) 
+        { 
+            var res = await _httpClient.PostAsJsonAsync("api/v1/Marca", dto); 
+            if (res.IsSuccessStatusCode) return (true, "");
+            var err = await res.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al crear la marca." : err);
+        }
+        public async Task<(bool Success, string ErrorMessage)> UpdateMarcaAsync(int id, MarcaDto dto) 
+        { 
+            var res = await _httpClient.PutAsJsonAsync($"api/v1/Marca", dto); 
+            if (res.IsSuccessStatusCode) return (true, "");
+            var err = await res.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al actualizar la marca." : err);
+        }
+        public async Task<(bool Success, string ErrorMessage)> DeleteMarcaAsync(int id) 
+        { 
+            var res = await _httpClient.DeleteAsync($"api/v1/Marca/{id}"); 
+            if (res.IsSuccessStatusCode) return (true, "");
+            var err = await res.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al eliminar la marca." : err);
+        }
 
         // --- Proveedor CRUD ---
         public async Task<ProveedorDto?> GetProveedorByIdAsync(string id) => await _httpClient.GetUnwrappedAsync<ProveedorDto>($"api/v1/Proveedor/{id}");
-        public async Task<bool> CreateProveedorAsync(ProveedorDto dto) { var res = await _httpClient.PostAsJsonAsync("api/v1/Proveedor", dto); return res.IsSuccessStatusCode; }
-        public async Task<bool> UpdateProveedorAsync(string id, ProveedorDto dto) { var res = await _httpClient.PutAsJsonAsync($"api/v1/Proveedor", dto); return res.IsSuccessStatusCode; }
-        public async Task<bool> DeleteProveedorAsync(string id) { var res = await _httpClient.DeleteAsync($"api/v1/Proveedor/{id}"); return res.IsSuccessStatusCode; }
+        public async Task<(bool Success, string ErrorMessage)> CreateProveedorAsync(ProveedorDto dto)
+        {
+            var res = await _httpClient.PostAsJsonAsync("api/v1/Proveedor", dto);
+            if (res.IsSuccessStatusCode) return (true, "");
+            var err = await res.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al guardar el proveedor." : err);
+        }
+        public async Task<(bool Success, string ErrorMessage)> UpdateProveedorAsync(string id, ProveedorDto dto)
+        {
+            var res = await _httpClient.PutAsJsonAsync("api/v1/Proveedor", dto);
+            if (res.IsSuccessStatusCode) return (true, "");
+            var err = await res.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al actualizar el proveedor." : err);
+        }
+        public async Task<(bool Success, string ErrorMessage)> DeleteProveedorAsync(string id) 
+        { 
+            var res = await _httpClient.DeleteAsync($"api/v1/Proveedor/{id}"); 
+            if (res.IsSuccessStatusCode) return (true, "");
+            var err = await res.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al eliminar el proveedor." : err);
+        }
 
         // --- Deposito CRUD ---
         public async Task<DepositoDto?> GetDepositoByIdAsync(int id) => await _httpClient.GetUnwrappedAsync<DepositoDto>($"api/v1/Deposito/{id}");
-        public async Task<bool> CreateDepositoAsync(DepositoDto dto) { var res = await _httpClient.PostAsJsonAsync("api/v1/Deposito", dto); return res.IsSuccessStatusCode; }
-        public async Task<bool> UpdateDepositoAsync(int id, DepositoDto dto) { var res = await _httpClient.PutAsJsonAsync($"api/v1/Deposito", dto); return res.IsSuccessStatusCode; }
-        public async Task<bool> DeleteDepositoAsync(int id) { var res = await _httpClient.DeleteAsync($"api/v1/Deposito/{id}"); return res.IsSuccessStatusCode; }
+        public async Task<(bool Success, string ErrorMessage)> CreateDepositoAsync(DepositoDto dto) 
+        { 
+            var res = await _httpClient.PostAsJsonAsync("api/v1/Deposito", dto); 
+            if (res.IsSuccessStatusCode) return (true, "");
+            var err = await res.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al crear el depósito." : err);
+        }
+        public async Task<(bool Success, string ErrorMessage)> UpdateDepositoAsync(int id, DepositoDto dto) 
+        { 
+            var res = await _httpClient.PutAsJsonAsync($"api/v1/Deposito", dto); 
+            if (res.IsSuccessStatusCode) return (true, "");
+            var err = await res.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al actualizar el depósito." : err);
+        }
+        public async Task<(bool Success, string ErrorMessage)> DeleteDepositoAsync(int id) 
+        { 
+            var res = await _httpClient.DeleteAsync($"api/v1/Deposito/{id}"); 
+            if (res.IsSuccessStatusCode) return (true, "");
+            var err = await res.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al eliminar el depósito." : err);
+        }
     }
 }

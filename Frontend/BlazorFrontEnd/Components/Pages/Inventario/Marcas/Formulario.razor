@@ -110,14 +110,14 @@
 
         try
         {
-            bool result;
+            (bool Success, string ErrorMessage) result;
             if (isEdit) 
                 result = await CatalogoService.UpdateMarcaAsync(Id!.Value, model);
             else 
                 result = await CatalogoService.CreateMarcaAsync(model);
 
-            if (result) Navigation.NavigateTo("/inventario/marcas");
-            else errorMessage = "Error en la creación o actualización.";
+            if (result.Success) Navigation.NavigateTo("/inventario/marcas");
+            else errorMessage = result.ErrorMessage ?? "Error en la creación o actualización.";
         }
         catch (Exception)
         {

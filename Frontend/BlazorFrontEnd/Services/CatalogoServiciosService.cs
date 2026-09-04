@@ -38,11 +38,19 @@ namespace BlazorFrontEnd.Services
             {
                 var url = $"api/v1/Paginado/servicios?page={page}&pageSize={pageSize}";
                 var res = await _httpClient.GetUnwrappedAsync<PaginatedList<ServicioDto>>(url);
-                return res;
+                if (res != null) return res;
+                return await _httpClient.GetUnwrappedAsync<PaginatedList<ServicioDto>>("api/v1/Servicio?soloActivos=false");
             }
             catch
             {
-                return null;
+                try
+                {
+                    return await _httpClient.GetUnwrappedAsync<PaginatedList<ServicioDto>>("api/v1/Servicio?soloActivos=false");
+                }
+                catch
+                {
+                    return null;
+                }
             }
         }
 
@@ -58,22 +66,28 @@ namespace BlazorFrontEnd.Services
             }
         }
 
-        public async Task<bool> CreateAsync(ServicioDto dto)
+        public async Task<(bool Success, string ErrorMessage)> CreateAsync(ServicioDto dto)
         {
             var response = await _httpClient.PostAsJsonAsync("api/v1/Servicio", dto);
-            return response.IsSuccessStatusCode;
+            if (response.IsSuccessStatusCode) return (true, "");
+            var err = await response.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al crear el servicio." : err);
         }
 
-        public async Task<bool> UpdateAsync(int id, ServicioDto dto)
+        public async Task<(bool Success, string ErrorMessage)> UpdateAsync(int id, ServicioDto dto)
         {
             var response = await _httpClient.PutAsJsonAsync("api/v1/Servicio", dto);
-            return response.IsSuccessStatusCode;
+            if (response.IsSuccessStatusCode) return (true, "");
+            var err = await response.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al actualizar el servicio." : err);
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        public async Task<(bool Success, string ErrorMessage)> DeleteAsync(int id)
         {
             var response = await _httpClient.DeleteAsync($"api/v1/Servicio/{id}");
-            return response.IsSuccessStatusCode;
+            if (response.IsSuccessStatusCode) return (true, "");
+            var err = await response.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(err) ? "Error al eliminar el servicio." : err);
         }
     }
 }
