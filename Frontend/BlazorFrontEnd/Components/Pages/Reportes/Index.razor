@@ -1,17 +1,47 @@
 @page "/reportes"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Gerente,Veterinario")]
+@implements IDisposable
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
+@using BlazorFrontEnd.Auth
 @inject ReporteService ReporteService
 @inject IaService IaService
 @inject IJSRuntime JS
+@inject HttpClient Http
+@inject TokenStorageService TokenStorage
 
 <PageTitle>Centro de Reportes</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <h2 style="font-weight: 700; margin: 0; color: var(--text-primary);">Centro de Reportes</h2>
-        <p class="text-secondary" style="margin: 0;">Análisis y Extracción de Datos (Formatos CSV)</p>
+        <p class="text-secondary" style="margin: 0;">Análisis y Extracción de Datos (Formatos CSV) — @(TokenStorage.ActiveSucursalNombre ?? "Todas las sucursales")</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" @onclick="RecargarReportesAsync" title="Recargar datos">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/>
+                <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/>
+            </svg>
+            <span>Recargar</span>
+        </button>
+        @if (userRole == "Admin" || userRole == "Gerente")
+        {
+            <button class="btn btn-sm btn-primary d-flex align-items-center gap-1" @onclick="CargarDatosDemoAsync" disabled="@isSeeding" title="Poblar o regenerar base con 45 días de turnos, pacientes, historias y ventas para ambas sucursales">
+                @if (isSeeding)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                    <span>Cargando datos demo...</span>
+                }
+                else
+                {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-database-fill-gear" viewBox="0 0 16 16">
+                        <path d="M8 1c-1.573 0-3.022.289-4.096.777C2.823 2.26 2 2.99 2 4v2.5c0 .354.088.692.25 1a5 5 0 0 1-.25 1V11c0 .354.088.692.25 1a5 5 0 0 1-.25 1V15c0 1.01 1.05 1.83 2.5 2.13A13 13 0 0 0 8 18c.365 0 .723-.016 1.074-.047a5 5 0 0 1-.074-.953c0-.77.17-1.498.473-2.15A9 9 0 0 1 8 15c-4.418 0-6-1.79-6-2.5V11c.974.72 2.66 1.25 4.75 1.45.228-.698.59-1.332 1.052-1.868A13 13 0 0 1 2 9.5V7c.974.72 2.66 1.25 4.75 1.45.45-.634 1.03-1.16 1.705-1.536A14 14 0 0 1 8 7c4.418 0 6-1.79 6-2.5V4c0-1.01-.823-1.74-1.904-2.223C11.022 1.289 9.573 1 8 1"/>
+                    </svg>
+                    <span>Cargar Datos Demo (45 Días)</span>
+                }
+            </button>
+        }
     </div>
 </div>
 
@@ -2416,6 +2446,65 @@ else
     private string filtroPropietario = string.Empty;
     private string filtroVeterinario = string.Empty;
     private bool isLoadingTratamientos = false;
+    private bool isSeeding = false;
+
+    protected override void OnInitialized()
+    {
+        TokenStorage.OnContextChanged += HandleContextChanged;
+    }
+
+    private async void HandleContextChanged()
+    {
+        await InvokeAsync(async () =>
+        {
+            await RecargarReportesAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        TokenStorage.OnContextChanged -= HandleContextChanged;
+    }
+
+    private async Task RecargarReportesAsync()
+    {
+        reporteVentas = null;
+        reporteStock = null;
+        reporteTurnos = null;
+        reporteClinico = null;
+        cacheReportesIa.Clear();
+        await LoadDataForTab(activeTab);
+    }
+
+    private async Task CargarDatosDemoAsync()
+    {
+        try
+        {
+            isSeeding = true;
+            StateHasChanged();
+            var response = await Http.PostAsync("api/v1/Seed/completo", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("alert", "Datos de muestra (45 días: últimos 30 días y próximos 15 días) cargados exitosamente para ambas sucursales (Central y Norte).");
+                await RecargarReportesAsync();
+            }
+            else
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("alert", $"Error al cargar datos: {err}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            isSeeding = false;
+            StateHasChanged();
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

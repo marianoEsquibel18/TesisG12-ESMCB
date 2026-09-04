@@ -260,12 +260,19 @@ namespace Controllers
         /// Obtiene métricas de turnos (asistencia, cancelaciones, ausentismo)
         /// </summary>
         [HttpGet("api/v1/Estadisticas/turnos/metricas")]
-        public async Task<IActionResult> MetricasTurnos([FromQuery] int diasAtras = 30)
+        public async Task<IActionResult> MetricasTurnos([FromQuery] int diasAtras = 30, [FromQuery] int? sucursalId = null)
         {
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
             var desde = DateTime.Today.AddDays(-diasAtras);
-            var turnos = (await turnoRepo.FindAllAsync())
-                .Where(t => t.FechaHora >= desde).ToList();
+            var turnosQuery = (await turnoRepo.FindAllAsync())
+                .Where(t => t.FechaHora >= desde);
 
+            if (targetSucursalId.HasValue)
+            {
+                turnosQuery = turnosQuery.Where(t => t.SucursalId == targetSucursalId.Value);
+            }
+
+            var turnos = turnosQuery.ToList();
             var total = turnos.Count;
             if (total == 0) return Ok(new { Mensaje = "No hay turnos en el período" });
 

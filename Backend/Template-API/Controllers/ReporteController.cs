@@ -33,8 +33,9 @@ namespace Controllers
         /// Obtiene las estadísticas generales del dashboard
         /// </summary>
         [HttpGet("api/v1/[Controller]/dashboard")]
-        public async Task<IActionResult> GetDashboard()
+        public async Task<IActionResult> GetDashboard([FromQuery] int? sucursalId = null)
         {
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
             var hoy = DateTime.Today;
             var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
             var finMes = inicioMes.AddMonths(1);
@@ -45,9 +46,9 @@ namespace Controllers
 
             // Turnos de hoy
             var turnosHoy = await turnoRepo.GetByFechaAsync(hoy);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
-                turnosHoy = turnosHoy.Where(t => t.SucursalId == UserSucursalId.Value).ToList();
+                turnosHoy = turnosHoy.Where(t => t.SucursalId == targetSucursalId.Value).ToList();
             }
             var turnosPendientes = turnosHoy.Count(t =>
                 t.Estado == EstadoTurno.Programado || t.Estado == EstadoTurno.Confirmado);
@@ -57,13 +58,13 @@ namespace Controllers
 
             // Stock bajo
             var stockBajoCount = 0;
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
                 var allActiveProds = await productoRepo.GetActivosAsync();
                 foreach (var p in allActiveProds)
                 {
                     var pd = await pdRepo.GetByProductoIdAsync(p.Id);
-                    var branchStock = pd.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).Sum(s => s.StockActual);
+                    var branchStock = pd.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).Sum(s => s.StockActual);
                     if (branchStock <= p.StockMinimo)
                     {
                         stockBajoCount++;
@@ -78,17 +79,17 @@ namespace Controllers
 
             // Ventas hoy
             var ventasHoy = await ventaRepo.GetByFechaRangoAsync(hoy, hoy.AddDays(1));
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
-                ventasHoy = ventasHoy.Where(v => v.SucursalId == UserSucursalId.Value).ToList();
+                ventasHoy = ventasHoy.Where(v => v.SucursalId == targetSucursalId.Value).ToList();
             }
             var ventasConfirmadas = ventasHoy.Where(v => v.Estado == EstadoVenta.Confirmada).ToList();
 
             // Ventas del mes
             var ventasMes = await ventaRepo.GetByFechaRangoAsync(inicioMes, finMes);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
-                ventasMes = ventasMes.Where(v => v.SucursalId == UserSucursalId.Value).ToList();
+                ventasMes = ventasMes.Where(v => v.SucursalId == targetSucursalId.Value).ToList();
             }
             var ventasMesConf = ventasMes.Where(v => v.Estado == EstadoVenta.Confirmada).ToList();
 
@@ -125,15 +126,16 @@ namespace Controllers
         /// </summary>
         [HttpGet("api/v1/[Controller]/ventas")]
         public async Task<IActionResult> GetReporteVentas(
-            [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
+            [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] int? sucursalId = null)
         {
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
             var d = desde ?? DateTime.Today.AddDays(-30);
             var h = hasta ?? DateTime.Today.AddDays(1);
 
             var ventas = await ventaRepo.GetByFechaRangoAsync(d, h);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
-                ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value).ToList();
+                ventas = ventas.Where(v => v.SucursalId == targetSucursalId.Value).ToList();
             }
             var confirmadas = ventas.Where(v => v.Estado == EstadoVenta.Confirmada).ToList();
 
@@ -206,8 +208,9 @@ namespace Controllers
         /// Reporte del estado actual del stock
         /// </summary>
         [HttpGet("api/v1/[Controller]/stock")]
-        public async Task<IActionResult> GetReporteStock()
+        public async Task<IActionResult> GetReporteStock([FromQuery] int? sucursalId = null)
         {
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
             var todos = await productoRepo.FindAllAsync();
             var activos = todos.Where(p => p.Activo).ToList();
 
@@ -217,12 +220,12 @@ namespace Controllers
             var listStockBajo = new List<ProductoStockBajoDto>();
             var todosProductos = new List<ProductoStockItemDto>();
 
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
                 foreach (var p in activos)
                 {
                     var pd = await pdRepo.GetByProductoIdAsync(p.Id);
-                    var branchStocks = pd.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).ToList();
+                    var branchStocks = pd.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).ToList();
                     var branchStockActual = branchStocks.Sum(s => s.StockActual);
 
                     if (branchStockActual <= p.StockMinimo)
@@ -306,8 +309,9 @@ namespace Controllers
         /// </summary>
         [HttpGet("api/v1/[Controller]/turnos")]
         public async Task<IActionResult> GetReporteTurnos(
-            [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
+            [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] int? sucursalId = null)
         {
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
             var d = desde ?? DateTime.Today.AddDays(-30);
             var h = hasta ?? DateTime.Today.AddDays(1);
 
@@ -316,9 +320,9 @@ namespace Controllers
             for (var dia = d.Date; dia < h.Date; dia = dia.AddDays(1))
             {
                 var turnosDia = await turnoRepo.GetByFechaAsync(dia);
-                if (!IsAdmin && UserSucursalId.HasValue)
+                if (targetSucursalId.HasValue)
                 {
-                    turnosDia = turnosDia.Where(t => t.SucursalId == UserSucursalId.Value).ToList();
+                    turnosDia = turnosDia.Where(t => t.SucursalId == targetSucursalId.Value).ToList();
                 }
                 todosTurnos.AddRange(turnosDia);
             }
@@ -346,9 +350,9 @@ namespace Controllers
 
             // Top de servicios basados en servicios registrados y cobrados en comercio (Ventas confirmadas)
             var ventas = await ventaRepo.GetByFechaRangoAsync(d, h);
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
-                ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value).ToList();
+                ventas = ventas.Where(v => v.SucursalId == targetSucursalId.Value).ToList();
             }
             var confirmadas = ventas.Where(v => v.Estado == EstadoVenta.Confirmada).ToList();
 

@@ -28,10 +28,10 @@ namespace Domain.Entities
             Detalles = new List<DetalleVenta>();
         }
 
-        public Venta(string? propietarioId, int metodoPagoId, string observaciones = "", int sucursalId = 0) : this()
+        public Venta(string? propietarioId, int metodoPagoId, string observaciones = "", int sucursalId = 0, DateTime? fecha = null) : this()
         {
             Id = Guid.NewGuid().ToString();
-            Fecha = DateTime.Now;
+            Fecha = fecha ?? DateTime.Now;
             PropietarioId = propietarioId;
             MetodoPagoId = metodoPagoId;
             Total = 0;
@@ -39,6 +39,8 @@ namespace Domain.Entities
             SucursalId = sucursalId;
             Observaciones = observaciones;
         }
+
+        public void EstablecerFecha(DateTime fecha) => Fecha = fecha;
 
         public void AsignarSucursal(int sucursalId) => SucursalId = sucursalId;
 
