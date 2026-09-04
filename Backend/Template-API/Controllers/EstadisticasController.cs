@@ -27,18 +27,20 @@ namespace Controllers
         /// Obtiene los KPIs principales del sistema
         /// </summary>
         [HttpGet("api/v1/Estadisticas/kpis")]
-        public async Task<IActionResult> GetKPIs()
+        public async Task<IActionResult> GetKPIs([FromQuery] int? sucursalId = null)
         {
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
+
             var pacientes = await pacienteRepo.FindAllAsync();
             var propietarios = await propietarioRepo.FindAllAsync();
             var productos = await productoRepo.FindAllAsync();
             var ventas = (await ventaRepo.FindAllAsync()).AsEnumerable();
             var turnos = (await turnoRepo.FindAllAsync()).AsEnumerable();
 
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
-                ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value);
-                turnos = turnos.Where(t => t.SucursalId == UserSucursalId.Value);
+                ventas = ventas.Where(v => v.SucursalId == targetSucursalId.Value);
+                turnos = turnos.Where(t => t.SucursalId == targetSucursalId.Value);
             }
 
             var hoy = DateTime.Today;
@@ -47,12 +49,12 @@ namespace Controllers
             var turnosHoy = turnos.Where(t => t.FechaHora.Date == hoy);
 
             int stockBajoCount = 0;
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
                 foreach (var p in productos.Where(p => p.Activo))
                 {
                     var pds = await pdRepo.GetByProductoIdAsync(p.Id);
-                    var branchStock = pds.Where(s => s.Deposito?.SucursalId == UserSucursalId.Value).Sum(s => s.StockActual);
+                    var branchStock = pds.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).Sum(s => s.StockActual);
                     if (branchStock <= p.StockMinimo) stockBajoCount++;
                 }
             }
@@ -83,12 +85,13 @@ namespace Controllers
         /// Obtiene los ingresos de los últimos N meses
         /// </summary>
         [HttpGet("api/v1/Estadisticas/ingresos/mensual")]
-        public async Task<IActionResult> IngresosMensuales([FromQuery] int meses = 12)
+        public async Task<IActionResult> IngresosMensuales([FromQuery] int meses = 12, [FromQuery] int? sucursalId = null)
         {
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
             var ventas = (await ventaRepo.FindAllAsync()).AsEnumerable();
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
-                ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value);
+                ventas = ventas.Where(v => v.SucursalId == targetSucursalId.Value);
             }
             var desde = DateTime.Today.AddMonths(-meses + 1);
             desde = new DateTime(desde.Year, desde.Month, 1);
@@ -116,14 +119,15 @@ namespace Controllers
         /// </summary>
         [HttpGet("api/v1/Estadisticas/ingresos/diario")]
         public async Task<IActionResult> IngresosDiarios(
-            [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
+            [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] int? sucursalId = null)
         {
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
             var d = desde ?? DateTime.Today.AddDays(-30);
             var h = hasta ?? DateTime.Today;
             var ventas = (await ventaRepo.FindAllAsync()).AsEnumerable();
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
-                ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value);
+                ventas = ventas.Where(v => v.SucursalId == targetSucursalId.Value);
             }
 
             var resultado = new List<object>();
@@ -151,12 +155,13 @@ namespace Controllers
         /// Obtiene los clientes con más gasto
         /// </summary>
         [HttpGet("api/v1/Estadisticas/topClientes")]
-        public async Task<IActionResult> TopClientes([FromQuery] int top = 10)
+        public async Task<IActionResult> TopClientes([FromQuery] int top = 10, [FromQuery] int? sucursalId = null)
         {
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
             var ventas = (await ventaRepo.FindAllAsync()).AsEnumerable();
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
-                ventas = ventas.Where(v => v.SucursalId == UserSucursalId.Value);
+                ventas = ventas.Where(v => v.SucursalId == targetSucursalId.Value);
             }
             var propietarios = await propietarioRepo.FindAllAsync();
 
@@ -191,14 +196,15 @@ namespace Controllers
         /// </summary>
         [HttpGet("api/v1/Estadisticas/pacientes/porEspecie")]
         public async Task<IActionResult> PacientesPorEspecie(
-            [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
+            [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] int? sucursalId = null)
         {
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
             var turnos = (await turnoRepo.FindAllAsync()).AsEnumerable();
             var pacientes = await pacienteRepo.FindAllAsync();
 
-            if (!IsAdmin && UserSucursalId.HasValue)
+            if (targetSucursalId.HasValue)
             {
-                turnos = turnos.Where(t => t.SucursalId == UserSucursalId.Value);
+                turnos = turnos.Where(t => t.SucursalId == targetSucursalId.Value);
             }
 
             if (desde.HasValue)

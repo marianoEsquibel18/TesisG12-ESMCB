@@ -14,23 +14,28 @@ namespace Controllers
         ITurnoRepository turnoRepo,
         IRegistroVacunacionRepository vacunacionRepo,
         ITratamientoRepository tratamientoRepo,
-        IVacunaRepository vacunaRepo) : BaseController
+        IVacunaRepository vacunaRepo,
+        IProductoDepositoRepository pdRepo,
+        IVeterinarioRepository veterinarioRepo,
+        IDepositoRepository depositoRepo) : BaseController
     {
         // ═══════════════════════════════
         //  DASHBOARD DE ALERTAS
         // ═══════════════════════════════
 
         /// <summary>
-        /// Panel unificado de todas las alertas activas del sistema
+        /// Panel unificado de todas las alertas activas del sistema (filtrado por sucursal si corresponde)
         /// </summary>
         [HttpGet("api/v1/Recordatorio/dashboard")]
-        public async Task<IActionResult> Dashboard()
+        public async Task<IActionResult> Dashboard([FromQuery] int? sucursalId = null)
         {
-            var vacPendientes = await GetVacunacionesPendientesInternal(14);
-            var turnosHoy = await GetTurnosDelDiaInternal();
-            var stockBajo = await GetStockBajoInternal();
-            var tratActivos = await GetTratamientosActivosInternal();
-            var turnosVencidos = await GetTurnosVencidosInternal();
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
+
+            var vacPendientes = await GetVacunacionesPendientesInternal(14, targetSucursalId);
+            var turnosHoy = await GetTurnosDelDiaInternal(targetSucursalId);
+            var stockBajo = await GetStockBajoInternal(targetSucursalId);
+            var tratActivos = await GetTratamientosActivosInternal(targetSucursalId);
+            var turnosVencidos = await GetTurnosVencidosInternal(targetSucursalId);
 
             var alertas = new List<AlertaDto>();
 
@@ -55,6 +60,7 @@ namespace Controllers
             return Ok(new
             {
                 Timestamp = DateTime.Now,
+                SucursalId = targetSucursalId,
                 TotalAlertas = alertas.Count,
                 Criticas = alertas.Count(a => a.Nivel == "CRITICA"),
                 Importantes = alertas.Count(a => a.Nivel == "IMPORTANTE"),
@@ -73,9 +79,10 @@ namespace Controllers
         /// Obtiene vacunaciones que vencen en los próximos N días
         /// </summary>
         [HttpGet("api/v1/Recordatorio/vacunas/pendientes")]
-        public async Task<IActionResult> VacunasPendientes([FromQuery] int diasAntelacion = 30)
+        public async Task<IActionResult> VacunasPendientes([FromQuery] int diasAntelacion = 30, [FromQuery] int? sucursalId = null)
         {
-            var resultado = await GetVacunacionesPendientesInternal(diasAntelacion);
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
+            var resultado = await GetVacunacionesPendientesInternal(diasAntelacion, targetSucursalId);
             return Ok(new { Total = resultado.Count, DiasAntelacion = diasAntelacion, Items = resultado });
         }
 
@@ -87,9 +94,10 @@ namespace Controllers
         /// Obtiene los turnos programados para hoy con estado
         /// </summary>
         [HttpGet("api/v1/Recordatorio/turnos/hoy")]
-        public async Task<IActionResult> TurnosHoy()
+        public async Task<IActionResult> TurnosHoy([FromQuery] int? sucursalId = null)
         {
-            var resultado = await GetTurnosDelDiaInternal();
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
+            var resultado = await GetTurnosDelDiaInternal(targetSucursalId);
             return Ok(new
             {
                 Fecha = DateTime.Today.ToString("dd/MM/yyyy"),
@@ -105,10 +113,17 @@ namespace Controllers
         /// Obtiene turnos de mañana
         /// </summary>
         [HttpGet("api/v1/Recordatorio/turnos/manana")]
-        public async Task<IActionResult> TurnosManana()
+        public async Task<IActionResult> TurnosManana([FromQuery] int? sucursalId = null)
         {
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
             var manana = DateTime.Today.AddDays(1);
             var turnos = await turnoRepo.GetByFechaAsync(manana);
+
+            if (targetSucursalId.HasValue)
+            {
+                turnos = turnos.Where(t => t.SucursalId == targetSucursalId.Value).ToList();
+            }
+
             var resultado = turnos
                 .Where(t => t.Estado != EstadoTurno.Cancelado)
                 .OrderBy(t => t.FechaHora)
@@ -135,9 +150,10 @@ namespace Controllers
         /// Obtiene turnos pasados que siguen en estado Programado/Confirmado
         /// </summary>
         [HttpGet("api/v1/Recordatorio/turnos/vencidos")]
-        public async Task<IActionResult> TurnosVencidos()
+        public async Task<IActionResult> TurnosVencidos([FromQuery] int? sucursalId = null)
         {
-            var resultado = await GetTurnosVencidosInternal();
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
+            var resultado = await GetTurnosVencidosInternal(targetSucursalId);
             return Ok(new { Total = resultado.Count, Items = resultado });
         }
 
@@ -146,12 +162,13 @@ namespace Controllers
         // ═══════════════════════════════
 
         /// <summary>
-        /// Obtiene productos con stock igual o inferior al mínimo
+        /// Obtiene productos con stock igual o inferior al mínimo (filtrado por sucursal si corresponde)
         /// </summary>
         [HttpGet("api/v1/Recordatorio/stock/bajo")]
-        public async Task<IActionResult> StockBajo()
+        public async Task<IActionResult> StockBajo([FromQuery] int? sucursalId = null)
         {
-            var resultado = await GetStockBajoInternal();
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
+            var resultado = await GetStockBajoInternal(targetSucursalId);
             return Ok(new
             {
                 Total = resultado.Count,
@@ -168,9 +185,10 @@ namespace Controllers
         /// Obtiene tratamientos que aún no han sido finalizados
         /// </summary>
         [HttpGet("api/v1/Recordatorio/tratamientos/activos")]
-        public async Task<IActionResult> TratamientosActivos()
+        public async Task<IActionResult> TratamientosActivos([FromQuery] int? sucursalId = null)
         {
-            var resultado = await GetTratamientosActivosInternal();
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
+            var resultado = await GetTratamientosActivosInternal(targetSucursalId);
             return Ok(new { Total = resultado.Count, Items = resultado });
         }
 
@@ -182,9 +200,22 @@ namespace Controllers
         /// Obtiene pacientes que cumplen años esta semana
         /// </summary>
         [HttpGet("api/v1/Recordatorio/cumpleanos")]
-        public async Task<IActionResult> CumpleanosEstaSemana()
+        public async Task<IActionResult> CumpleanosEstaSemana([FromQuery] int? sucursalId = null)
         {
+            int? targetSucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId : UserSucursalId;
             var pacientes = await pacienteRepo.FindAllAsync();
+
+            if (targetSucursalId.HasValue)
+            {
+                var turnos = await turnoRepo.FindAllAsync();
+                var pacientesEnSucursal = turnos
+                    .Where(t => t.SucursalId == targetSucursalId.Value)
+                    .Select(t => t.PacienteId)
+                    .ToHashSet();
+
+                pacientes = pacientes.Where(p => pacientesEnSucursal.Contains(p.Id)).ToList();
+            }
+
             var hoy = DateTime.Today;
             var finSemana = hoy.AddDays(7);
 
@@ -212,12 +243,54 @@ namespace Controllers
         //  MÉTODOS INTERNOS
         // ═══════════════════════════════
 
-        private async Task<List<VacunaPendienteDto>> GetVacunacionesPendientesInternal(int diasAntelacion)
+        private async Task<List<VacunaPendienteDto>> GetVacunacionesPendientesInternal(int diasAntelacion, int? targetSucursalId)
         {
-            var vacunaciones = await vacunacionRepo.FindAllAsync();
+            var vacunaciones = (await vacunacionRepo.FindAllAsync()).AsEnumerable();
             var pacientes = await pacienteRepo.GetPacientesExpandidosAsync();
             var vacunas = await vacunaRepo.FindAllAsync();
             var hoy = DateTime.Today;
+
+            if (targetSucursalId.HasValue)
+            {
+                var turnos = await turnoRepo.FindAllAsync();
+                var pacientesEnSucursal = turnos
+                    .Where(t => t.SucursalId == targetSucursalId.Value)
+                    .Select(t => t.PacienteId)
+                    .ToHashSet();
+
+                var depositos = await depositoRepo.FindAllAsync();
+                var depositosEnSucursal = depositos
+                    .Where(d => d.SucursalId == targetSucursalId.Value)
+                    .Select(d => d.Id)
+                    .ToHashSet();
+
+                var vets = await veterinarioRepo.FindAllAsync();
+                var vetsEnSucursal = vets
+                    .Where(v => v.SucursalId == targetSucursalId.Value)
+                    .ToList();
+                var vetTokens = vetsEnSucursal
+                    .SelectMany(v => new[] { v.Nombre.Trim().ToLower(), v.Apellido.Trim().ToLower(), v.NombreCompleto.Trim().ToLower() })
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .ToHashSet();
+
+                vacunaciones = vacunaciones.Where(v =>
+                {
+                    if (v.DepositoId.HasValue && depositosEnSucursal.Contains(v.DepositoId.Value))
+                        return true;
+
+                    if (!string.IsNullOrWhiteSpace(v.Veterinario))
+                    {
+                        var vLower = v.Veterinario.ToLower();
+                        if (vetTokens.Any(token => vLower.Contains(token)))
+                            return true;
+                    }
+
+                    if (pacientesEnSucursal.Contains(v.PacienteId))
+                        return true;
+
+                    return false;
+                });
+            }
 
             return vacunaciones
                 .Where(v => v.FechaProximaDosis.HasValue && v.FechaProximaDosis.Value <= hoy.AddDays(diasAntelacion))
@@ -244,9 +317,14 @@ namespace Controllers
                 .ToList();
         }
 
-        private async Task<List<TurnoHoyDto>> GetTurnosDelDiaInternal()
+        private async Task<List<TurnoHoyDto>> GetTurnosDelDiaInternal(int? targetSucursalId)
         {
             var turnos = await turnoRepo.GetByFechaAsync(DateTime.Today);
+            if (targetSucursalId.HasValue)
+            {
+                turnos = turnos.Where(t => t.SucursalId == targetSucursalId.Value).ToList();
+            }
+
             return turnos.OrderBy(t => t.FechaHora).Select(t => new TurnoHoyDto
             {
                 Id = t.Id,
@@ -263,30 +341,93 @@ namespace Controllers
             }).ToList();
         }
 
-        private async Task<List<StockBajoDto>> GetStockBajoInternal()
+        private async Task<List<StockBajoDto>> GetStockBajoInternal(int? targetSucursalId)
         {
             var productos = await productoRepo.FindAllAsync();
-            return productos
-                .Where(p => p.Activo && p.StockActual <= p.StockMinimo)
-                .OrderBy(p => p.StockActual)
-                .Select(p => new StockBajoDto
+            var resultado = new List<StockBajoDto>();
+
+            if (targetSucursalId.HasValue)
+            {
+                foreach (var p in productos.Where(p => p.Activo))
                 {
-                    ProductoId = p.Id,
-                    Producto = p.Nombre,
-                    StockActual = p.StockActual,
-                    StockMinimo = p.StockMinimo,
-                    Deficit = p.StockMinimo - p.StockActual,
-                    Proveedor = p.Proveedor?.RazonSocial ?? "",
-                    Detalle = p.StockActual == 0
-                        ? $"SIN STOCK - {p.Nombre}"
-                        : $"{p.StockActual}/{p.StockMinimo} - Faltan {p.StockMinimo - p.StockActual}"
-                }).ToList();
+                    var pds = await pdRepo.GetByProductoIdAsync(p.Id);
+                    var branchStock = pds.Where(s => s.Deposito?.SucursalId == targetSucursalId.Value).Sum(s => s.StockActual);
+                    if (branchStock <= p.StockMinimo)
+                    {
+                        resultado.Add(new StockBajoDto
+                        {
+                            ProductoId = p.Id,
+                            Producto = p.Nombre,
+                            StockActual = branchStock,
+                            StockMinimo = p.StockMinimo,
+                            Deficit = p.StockMinimo - branchStock,
+                            Proveedor = p.Proveedor?.RazonSocial ?? "",
+                            Detalle = branchStock == 0
+                                ? $"SIN STOCK - {p.Nombre}"
+                                : $"{branchStock}/{p.StockMinimo} - Faltan {p.StockMinimo - branchStock}"
+                        });
+                    }
+                }
+            }
+            else
+            {
+                resultado = productos
+                    .Where(p => p.Activo && p.StockActual <= p.StockMinimo)
+                    .Select(p => new StockBajoDto
+                    {
+                        ProductoId = p.Id,
+                        Producto = p.Nombre,
+                        StockActual = p.StockActual,
+                        StockMinimo = p.StockMinimo,
+                        Deficit = p.StockMinimo - p.StockActual,
+                        Proveedor = p.Proveedor?.RazonSocial ?? "",
+                        Detalle = p.StockActual == 0
+                            ? $"SIN STOCK - {p.Nombre}"
+                            : $"{p.StockActual}/{p.StockMinimo} - Faltan {p.StockMinimo - p.StockActual}"
+                    }).ToList();
+            }
+
+            return resultado.OrderBy(p => p.StockActual).ToList();
         }
 
-        private async Task<List<TratamientoActivoDto>> GetTratamientosActivosInternal()
+        private async Task<List<TratamientoActivoDto>> GetTratamientosActivosInternal(int? targetSucursalId)
         {
-            var tratamientos = await tratamientoRepo.FindAllAsync();
+            var tratamientos = (await tratamientoRepo.FindAllAsync()).AsEnumerable();
             var pacientes = await pacienteRepo.FindAllAsync();
+
+            if (targetSucursalId.HasValue)
+            {
+                var turnos = await turnoRepo.FindAllAsync();
+                var pacientesEnSucursal = turnos
+                    .Where(t => t.SucursalId == targetSucursalId.Value)
+                    .Select(t => t.PacienteId)
+                    .ToHashSet();
+
+                var vets = await veterinarioRepo.FindAllAsync();
+                var vetsEnSucursal = vets
+                    .Where(v => v.SucursalId == targetSucursalId.Value)
+                    .ToList();
+                var vetTokens = vetsEnSucursal
+                    .SelectMany(v => new[] { v.Nombre.Trim().ToLower(), v.Apellido.Trim().ToLower(), v.NombreCompleto.Trim().ToLower() })
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .ToHashSet();
+
+                tratamientos = tratamientos.Where(t =>
+                {
+                    if (!string.IsNullOrWhiteSpace(t.Veterinario))
+                    {
+                        var vLower = t.Veterinario.ToLower();
+                        if (vetTokens.Any(token => vLower.Contains(token)))
+                            return true;
+                    }
+
+                    if (pacientesEnSucursal.Contains(t.PacienteId))
+                        return true;
+
+                    return false;
+                });
+            }
+
             return tratamientos
                 .Where(t => !t.Finalizado)
                 .Select(t =>
@@ -306,11 +447,18 @@ namespace Controllers
                 }).ToList();
         }
 
-        private async Task<List<TurnoVencidoDto>> GetTurnosVencidosInternal()
+        private async Task<List<TurnoVencidoDto>> GetTurnosVencidosInternal(int? targetSucursalId)
         {
             var turnos = (await turnoRepo.FindAllAsync())
                 .Where(t => t.FechaHora < DateTime.Now.AddHours(-2) &&
-                    (t.Estado == EstadoTurno.Programado || t.Estado == EstadoTurno.Confirmado))
+                    (t.Estado == EstadoTurno.Programado || t.Estado == EstadoTurno.Confirmado));
+
+            if (targetSucursalId.HasValue)
+            {
+                turnos = turnos.Where(t => t.SucursalId == targetSucursalId.Value);
+            }
+
+            return turnos
                 .OrderBy(t => t.FechaHora)
                 .Select(t => new TurnoVencidoDto
                 {
@@ -323,7 +471,6 @@ namespace Controllers
                     HorasVencido = (int)(DateTime.Now - t.FechaHora).TotalHours,
                     Detalle = $"{t.FechaHora:dd/MM HH:mm} - {t.Paciente?.Nombre ?? ""} (vencido hace {(int)(DateTime.Now - t.FechaHora).TotalHours}hs)"
                 }).ToList();
-            return turnos;
         }
     }
 

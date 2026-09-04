@@ -76,6 +76,11 @@ namespace BlazorFrontEnd.Auth
                     catch { /* localStorage read error ignored */ }
                 }
 
+                if (UserSucursalId.HasValue && !IsRealAdmin)
+                {
+                    _tokenStorage.SetActiveSucursal(UserSucursalId.Value, UserSucursalNombre);
+                }
+
                 var claims = BuildEffectiveClaims(jwtToken);
                 var identity = new ClaimsIdentity(claims, "jwt", "name", "role");
                 var user = new ClaimsPrincipal(identity);
@@ -96,6 +101,11 @@ namespace BlazorFrontEnd.Auth
 
             _tokenStorage.SetToken(token);
             ExtractClaimsData(jwtToken);
+
+            if (UserSucursalId.HasValue && !IsRealAdmin)
+            {
+                _tokenStorage.SetActiveSucursal(UserSucursalId.Value, UserSucursalNombre);
+            }
 
             var claims = BuildEffectiveClaims(jwtToken);
             var identity = new ClaimsIdentity(claims, "jwt", "name", "role");
@@ -229,6 +239,24 @@ namespace BlazorFrontEnd.Auth
                 claims.Add(new Claim("role", _tokenStorage.SimulatedRole));
                 claims.Add(new Claim(ClaimTypes.Role, _tokenStorage.SimulatedRole));
                 claims.Add(new Claim("real_role", RealRole ?? "Admin"));
+            }
+
+            if (IsRealAdmin)
+            {
+                claims.RemoveAll(c => c.Type == "sucursalId");
+                if (_tokenStorage.ActiveSucursalId.HasValue)
+                {
+                    claims.Add(new Claim("sucursalId", _tokenStorage.ActiveSucursalId.Value.ToString()));
+                    if (!string.IsNullOrWhiteSpace(_tokenStorage.ActiveSucursalNombre))
+                    {
+                        claims.RemoveAll(c => c.Type == "sucursalNombre");
+                        claims.Add(new Claim("sucursalNombre", _tokenStorage.ActiveSucursalNombre));
+                    }
+                }
+                else
+                {
+                    claims.RemoveAll(c => c.Type == "sucursalNombre");
+                }
             }
 
             return claims;

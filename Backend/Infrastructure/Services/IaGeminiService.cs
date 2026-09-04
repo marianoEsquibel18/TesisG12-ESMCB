@@ -28,6 +28,8 @@ namespace Infrastructure.Services
         private readonly IRegistroVacunacionRepository _registroVacunacionRepository;
         private readonly IProductoRepository _productoRepository;
         private readonly IPropietarioRepository _propietarioRepository;
+        private readonly IProductoDepositoRepository _productoDepositoRepository;
+        private readonly ISucursalRepository _sucursalRepository;
 
         public IaGeminiService(
             IConfiguration configuration,
@@ -41,7 +43,9 @@ namespace Infrastructure.Services
             ITratamientoRepository tratamientoRepository,
             IRegistroVacunacionRepository registroVacunacionRepository,
             IProductoRepository productoRepository,
-            IPropietarioRepository propietarioRepository)
+            IPropietarioRepository propietarioRepository,
+            IProductoDepositoRepository productoDepositoRepository,
+            ISucursalRepository sucursalRepository)
         {
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
@@ -55,6 +59,8 @@ namespace Infrastructure.Services
             _registroVacunacionRepository = registroVacunacionRepository;
             _productoRepository = productoRepository;
             _propietarioRepository = propietarioRepository;
+            _productoDepositoRepository = productoDepositoRepository;
+            _sucursalRepository = sucursalRepository;
         }
 
         private string GetApiKey()
@@ -90,7 +96,74 @@ namespace Infrastructure.Services
 
         public Task<IaStatusDto> IsConfiguredAsync() => GetStatusAsync();
 
+        private static string NormalizarTexto(string texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
+
+            var normalizedString = texto.Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder();
+
+            foreach (var c in normalizedString)
+            {
+                var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
+                if (unicodeCategory != UnicodeCategory.NonSpacingMark)
+                {
+                    sb.Append(c);
+                }
+            }
+
+            var clean = sb.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
+            clean = Regex.Replace(clean, @"[¿?¡!.,;:_()""'/\\]", " ");
+            clean = Regex.Replace(clean, @"\s+", " ").Trim();
+            return clean;
+        }
+
+        private async Task<string> ObtenerNombreSucursalAsync(int? sucursalId)
+        {
+            if (!sucursalId.HasValue || sucursalId.Value <= 0)
+            {
+                return "Todas las sucursales";
+            }
+            try
+            {
+                var suc = await _sucursalRepository.FindOneAsync(sucursalId.Value);
+                if (suc != null && !string.IsNullOrWhiteSpace(suc.Nombre))
+                {
+                    return suc.Nombre;
+                }
+            }
+            catch { }
+            return $"Sucursal #{sucursalId.Value}";
+        }
+
+        private static string SanitizarSinEmojis(string texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
+            return Regex.Replace(texto, @"[\p{Cs}\p{So}\p{Sk}\u2600-\u27BF\uE000-\uF8FF]", string.Empty).Trim();
+        }
+
         public async Task<ChatbotResponseDto> ProcesarMensajeChatAsync(
+            ChatbotRequestDto request, string usuarioNombre, string usuarioRol, int? sucursalId)
+        {
+            var res = await ProcesarMensajeChatInternoAsync(request, usuarioNombre, usuarioRol, sucursalId);
+            if (res != null)
+            {
+                if (!string.IsNullOrWhiteSpace(res.Respuesta))
+                {
+                    res.Respuesta = SanitizarSinEmojis(res.Respuesta);
+                }
+                if (res.OpcionesSugeridas != null && res.OpcionesSugeridas.Any())
+                {
+                    res.OpcionesSugeridas = res.OpcionesSugeridas
+                        .Select(SanitizarSinEmojis)
+                        .Where(s => !string.IsNullOrWhiteSpace(s))
+                        .ToList();
+                }
+            }
+            return res;
+        }
+
+        private async Task<ChatbotResponseDto> ProcesarMensajeChatInternoAsync(
             ChatbotRequestDto request, string usuarioNombre, string usuarioRol, int? sucursalId)
         {
             var mensaje = request?.Mensaje?.Trim() ?? string.Empty;
@@ -105,78 +178,144 @@ namespace Infrastructure.Services
             }
 
             var lower = mensaje.ToLowerInvariant();
+            var norm = NormalizarTexto(mensaje);
 
-            // 1. Ayuda o Guía de agendamiento
-            if (lower == "ayuda" || lower.Contains("como funciona") || lower.Contains("que puedes hacer") || lower.Contains("guia"))
+            var esRecepcionista = usuarioRol.Equals("Recepcionista", StringComparison.OrdinalIgnoreCase) || 
+                                  usuarioRol.Equals("Secretaria", StringComparison.OrdinalIgnoreCase);
+            var esVeterinario = usuarioRol.Equals("Veterinario", StringComparison.OrdinalIgnoreCase);
+            var esGerente = usuarioRol.Equals("Gerente", StringComparison.OrdinalIgnoreCase) ||
+                            usuarioRol.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+
+            // ══════════════════════════════════════════════════════════
+            // 1. RESTRICCIONES DE ACCESO POR ROL (RBAC)
+            // ══════════════════════════════════════════════════════════
+
+            // Restricción A: Finanzas / Ingresos / Facturación / Ventas
+            bool intentaConsultarFinanzas = Regex.IsMatch(norm, @"\b(ingreso|ingresos|facturaci|facturado|ganancia|ganancias|ventas|balance|recaudaci|finanza|finanzas|cuanto ganamos|cuanto se vendio)\b");
+            if (intentaConsultarFinanzas && (esRecepcionista || esVeterinario))
+            {
+                string mensajeRol = esRecepcionista
+                    ? "Como Recepcionista no tienes autorización para consultar métricas financieras, balances o facturación del sistema. Puedes consultar la agenda de turnos, horarios de veterinarios o el catálogo de servicios."
+                    : "Tu rol de Veterinario tiene perfil clínico y no tiene acceso a métricas financieras, balances ni facturación de la clínica. Puedes consultar turnos, pacientes, historias clínicas y tratamientos.";
+
+                return new ChatbotResponseDto
+                {
+                    Exito = true,
+                    TipoRespuesta = "texto",
+                    Respuesta = mensajeRol,
+                    OpcionesSugeridas = esRecepcionista 
+                        ? new List<string> { "Turnos de hoy", "Horarios veterinarios", "Precios de servicios" }
+                        : new List<string> { "Turnos de hoy", "Mis pacientes", "Stock en alerta" }
+                };
+            }
+
+            // Restricción B: Historias Clínicas / Diagnósticos Médicos / Ficha Detallada de Pacientes (Recepcionista)
+            bool intentaConsultarDiagnostico = Regex.IsMatch(norm, @"\b(diagnostico|diagnosticos|historial clinico|historia clinica|epicrisis|anamnesis|tratamiento medico|enfermedad de|sintomas de)\b");
+            bool intentaConsultarFichaPaciente = Regex.IsMatch(norm, @"\b(info|informacion|datos|ficha|detalle|historia|saber de|como esta|que sabes de)\b.*\b(de|del|sobre|a)\s+([a-zA-Z0-9]+)") ||
+                                                 norm.StartsWith("info de ") || norm.StartsWith("informacion de ") || norm.StartsWith("datos de ") || norm.Contains("ficha de ");
+
+            if ((intentaConsultarDiagnostico || intentaConsultarFichaPaciente) && esRecepcionista)
             {
                 return new ChatbotResponseDto
                 {
                     Exito = true,
-                    TipoRespuesta = "guia_agendamiento",
-                    Respuesta = "Puedo asistirte en la gestion de la clinica veterinaria:\n\n" +
-                                "- Consultar agenda: Escribe 'turnos de hoy' o 'agenda de hoy'.\n" +
-                                "- Agendar un turno: Indica paciente, veterinario, fecha, hora y motivo (ejemplo: 'Turno para Toby con Dra. Laura manana a las 10:30 para vacuna').\n" +
-                                "- Preguntas generales: Consulta dudas de atencion o procedimientos.",
-                    OpcionesSugeridas = new List<string> { "Turnos de hoy", "Agendar turno de control", "Consultar servicios" }
+                    TipoRespuesta = "texto",
+                    Respuesta = "Como Recepcionista no tienes autorización para acceder a la ficha detallada ni al historial clínico de los pacientes. Puedes consultar la agenda de turnos o agendar una cita médica.",
+                    OpcionesSugeridas = new List<string> { "Turnos de hoy", "Agendar turno", "Horarios veterinarios" }
                 };
             }
 
-            // 2. Turnos de hoy
-            if (lower.Contains("turnos de hoy") || lower.Contains("agenda de hoy") || lower == "turnos hoy" || lower == "agenda hoy")
+            // Restricción C: Gestión / Reposición de Stock (Recepcionista)
+            bool intentaGestionarStock = Regex.IsMatch(norm, @"\b(stock critico|stock bajo|stock en alerta|sin stock|reponer stock|pedir proveedores|inventario critico)\b");
+            if (intentaGestionarStock && esRecepcionista)
+            {
+                return new ChatbotResponseDto
+                {
+                    Exito = true,
+                    TipoRespuesta = "texto",
+                    Respuesta = "Como Recepcionista no tienes asignada la gestión de inventario y alertas de reposición. Puedes consultar las tarifas de servicios o el catálogo de precios para informar a los clientes.",
+                    OpcionesSugeridas = new List<string> { "Precios de servicios", "Precios de productos", "Turnos de hoy" }
+                };
+            }
+
+            // Restricción D: Agendamiento de Turnos (Gerente no puede agendar)
+            bool intentaAgendarTurno = Regex.IsMatch(norm, @"\b(agendar|agendame|agendate|sacar|sacame|reservar|reservame|programar|anotar|anotame)\b") ||
+                                       norm == "agendar turno" || norm.StartsWith("agendar ") || norm.StartsWith("agendame ");
+
+            if (intentaAgendarTurno && esGerente)
+            {
+                return new ChatbotResponseDto
+                {
+                    Exito = true,
+                    TipoRespuesta = "texto",
+                    Respuesta = "Tu rol de Gerente es de supervisión y gestión administrativa; no tienes permisos para agendar turnos operativos. Por favor solicita el agendamiento al personal de Recepción o al Veterinario.",
+                    OpcionesSugeridas = new List<string> { "Turnos de hoy", "Todos los turnos", "Stock en alerta", "Precios de servicios" }
+                };
+            }
+
+            // ══════════════════════════════════════════════════════════
+            // 2. INTENCIONES CON LENGUAJE NATURAL PERMISIVO
+            // ══════════════════════════════════════════════════════════
+
+            // A. Ayuda o Guía
+            if (norm == "ayuda" || norm.Contains("como funciona") || norm.Contains("que puedes hacer") || 
+                norm.Contains("que haces") || norm.Contains("guia") || norm.Contains("comandos") || norm.Contains("opciones"))
+            {
+                var opcionesGuia = esGerente
+                    ? new List<string> { "Turnos de hoy", "Todos los turnos", "Stock en alerta", "Precios de servicios" }
+                    : new List<string> { "Turnos de hoy", "Veterinarios y horarios", "Precios de servicios", "Agendar turno" };
+
+                return new ChatbotResponseDto
+                {
+                    Exito = true,
+                    TipoRespuesta = "guia_agendamiento",
+                    Respuesta = "Puedo asistirte en la gestión operativa de la clínica:\n\n" +
+                                "- Consultar agenda: '¿Qué turnos hay hoy?', 'agenda del día', 'citas de hoy'.\n" +
+                                (esGerente ? "" : "- Agendar turno: 'Agendame un turno para [mascota] [fecha] [hora] motivo [motivo]' (ej: 'Agendame un turno para henry hoy 18:00 motivo Castracion'). Si no indicas motivo, será Consulta general.\n") +
+                                "- Profesionales: '¿Quién atiende?', 'horarios de veterinarios'.\n" +
+                                "- Productos y servicios: 'Información del producto amoxicilina', 'precio de servicios'.",
+                    OpcionesSugeridas = opcionesGuia
+                };
+            }
+
+            // B. Consultas de Turnos: Todos los turnos / Turnos de hoy / Agenda del día
+            bool esConsultaTodosLosTurnos = Regex.IsMatch(norm, @"\b(todos los turnos|ver todos los turnos|mostrar todos los turnos|lista de turnos|listado de turnos|turnos programados|proximos turnos)\b");
+            if (esConsultaTodosLosTurnos)
+            {
+                return await ConsultarTodosLosTurnosAsync(usuarioRol, sucursalId);
+            }
+
+            bool esConsultaTurnosHoy = 
+                Regex.IsMatch(norm, @"\b(turnos?|citas?|agenda)\b.*\b(hoy|dia|actual)\b") ||
+                Regex.IsMatch(norm, @"\b(hoy|dia|actual)\b.*\b(turnos?|citas?|agenda)\b") ||
+                Regex.IsMatch(norm, @"\b(que|cuales|ver|mostrar|hay|tenemos|dime|decime|consultar)\b.*\b(turnos?|citas?|agenda)\b") ||
+                norm == "turnos" || norm == "agenda" || norm == "citas" || norm == "turnos hoy" || norm == "agenda hoy" || norm == "turnos de hoy" || norm == "los turnos de hoy";
+
+            bool tieneVerboAgendamiento = Regex.IsMatch(norm, @"\b(agend|sacar|reserv|anot|program)\b");
+
+            // Si es consulta de turnos de hoy y NO incluye un verbo explícito de agendamiento
+            if (esConsultaTurnosHoy && !tieneVerboAgendamiento)
             {
                 return await ConsultarTurnosHoyAsync(usuarioRol, sucursalId);
             }
 
-            // 3. Quienes son mis pacientes / listar pacientes
-            if (lower.Contains("mis pacientes") || lower.Contains("quienes son mis pacientes") || lower.Contains("listar pacientes") || lower == "pacientes")
+            // C. Intento de Agendamiento de Turno Concreto (con verbo de agendar o 'turno para ... hoy/mañana/hora')
+            bool esAgendamientoConcreto = (tieneVerboAgendamiento || Regex.IsMatch(norm, @"\b(turno|turnos|cita|citas)\b.*\bpara\b")) 
+                && (norm.Contains("manana") || norm.Contains("hoy") || Regex.IsMatch(norm, @"\b\d{1,2}[:.]\d{2}\b") || Regex.IsMatch(norm, @"\b\d{1,2}\s*(?:hs|h|horas)\b") || Regex.IsMatch(norm, @"\ba\s+las\s+\d{1,2}\b"));
+
+            if (esAgendamientoConcreto)
             {
-                return await ConsultarPacientesAsync();
-            }
+                if (esGerente)
+                {
+                    return new ChatbotResponseDto
+                    {
+                        Exito = true,
+                        TipoRespuesta = "texto",
+                        Respuesta = "Tu rol de Gerente es de supervisión y gestión administrativa; no tienes permisos para agendar turnos operativos. Por favor solicita el agendamiento al personal de Recepción o al Veterinario.",
+                        OpcionesSugeridas = new List<string> { "Turnos de hoy", "Todos los turnos", "Stock en alerta", "Precios de servicios" }
+                    };
+                }
 
-            // 4. Info de tal paciente
-            if (lower.StartsWith("info de ") || lower.StartsWith("informacion de ") || lower.StartsWith("datos de ") || lower.Contains("ficha de "))
-            {
-                var respInfo = await ConsultarInfoPacienteAsync(lower);
-                if (respInfo != null) return respInfo;
-            }
-
-            // 5. Veterinarios disponibles y horarios
-            bool esConsultaVets = lower.Contains("veterinari") 
-                || lower.Contains("horario") 
-                || lower.Contains("profesional") 
-                || lower.Contains("quien atiende") 
-                || lower.Contains("quienes atienden")
-                || lower.Contains("disponib");
-
-            bool esAgendamientoConcreto = (lower.Contains("turno") || lower.Contains("agendar") || lower.Contains("cita")) 
-                && (lower.Contains("mañana") || lower.Contains("manana") || lower.Contains("hoy") || Regex.IsMatch(lower, @"\b\d{1,2}[:.]\d{2}\b") || Regex.IsMatch(lower, @"\b\d{1,2}\s*(?:hs|h)\b"));
-
-            if (esConsultaVets && !esAgendamientoConcreto)
-            {
-                return await ConsultarVeterinariosYHorariosAsync();
-            }
-
-            // 6. Productos con stock en alerta o sin stock
-            if (lower.Contains("stock en alerta") || lower.Contains("sin stock") || lower.Contains("stock bajo") || lower.Contains("alerta de stock") || lower.Contains("stock critico") || lower == "stock")
-            {
-                return await ConsultarStockCriticoAsync();
-            }
-
-            // 7. Info de precio de producto o servicio, o catálogos
-            if (lower.Contains("precio") || lower.Contains("costo") || lower.Contains("cuanto sale") || lower.Contains("cuanto cuesta") 
-                || lower.Contains("producto") || lower.Contains("servicio") || lower.Contains("catalogo") || lower.Contains("tarifa") || lower.Contains("lista de precios"))
-            {
-                var respPrecio = await ConsultarPrecioOServicioAsync(lower);
-                if (respPrecio != null) return respPrecio;
-            }
-
-            // 8. Intento de agendamiento de turno
-            var esIntentoTurno = lower.Contains("turno") || lower.Contains("agendar") ||
-                                 lower.Contains("reservar") || lower.Contains("cita") ||
-                                 lower.Contains("anotar") || lower.Contains("programar");
-
-            if (esIntentoTurno)
-            {
                 var extraccion = await IntentarExtraerTurnoAsync(mensaje, sucursalId);
                 if (extraccion != null)
                 {
@@ -184,19 +323,110 @@ namespace Infrastructure.Services
                 }
             }
 
-            // 4. Conversacional general vía Gemini (o respuesta local de contingencia)
+            // D. Listar pacientes
+            bool esListarPacientes = Regex.IsMatch(norm, @"\b(paciente|pacientes|mascota|mascotas)\b") &&
+                                    (Regex.IsMatch(norm, @"\b(mis|listar|todos|ver|quienes|lista|listado|mostrar|cuales)\b") || norm == "pacientes" || norm == "mascotas");
+
+            if (esListarPacientes)
+            {
+                return await ConsultarPacientesAsync(usuarioRol);
+            }
+
+            // E. Info / Ficha de tal paciente
+            bool esInfoPaciente = Regex.IsMatch(norm, @"\b(info|informacion|datos|ficha|detalle|historia|saber de|como esta|que sabes de)\b.*\b(de|del|sobre|a)\s+([a-zA-Z0-9]+)") ||
+                                  norm.StartsWith("info de ") || norm.StartsWith("informacion de ") || norm.StartsWith("datos de ") || norm.Contains("ficha de ");
+
+            if (esInfoPaciente)
+            {
+                if (esRecepcionista)
+                {
+                    return new ChatbotResponseDto
+                    {
+                        Exito = true,
+                        TipoRespuesta = "texto",
+                        Respuesta = "Como Recepcionista no tienes autorización para acceder a la información detallada ni a la ficha clínica de los pacientes. Puedes consultar la agenda de turnos o agendar una cita médica.",
+                        OpcionesSugeridas = new List<string> { "Turnos de hoy", "Agendar turno", "Horarios veterinarios" }
+                    };
+                }
+
+                var respInfo = await ConsultarInfoPacienteAsync(mensaje, norm, usuarioRol);
+                if (respInfo != null) return respInfo;
+            }
+
+            // F. Consulta Detallada de Producto Específico o Catálogo
+            bool esConsultaProducto = 
+                Regex.IsMatch(norm, @"\b(producto|productos|medicamento|medicamentos|alimento|alimentos|articulo|articulos|remedio|remedios)\b") ||
+                Regex.IsMatch(norm, @"\b(informacion|info|detalle|detalles|datos|ficha|que es|para que sirve|stock de|stock del|precio de|precio del|costo de|costo del|cuanto sale|cuanto cuesta)\b");
+
+            if (esConsultaProducto)
+            {
+                var respDetalleProd = await ConsultarDetalleProductoAsync(mensaje, norm, sucursalId);
+                if (respDetalleProd != null) return respDetalleProd;
+
+                var respPrecio = await ConsultarPrecioOServicioAsync(lower, norm);
+                if (respPrecio != null) return respPrecio;
+            }
+
+            // G. Veterinarios y horarios
+            bool esConsultaVets = norm.Contains("veterinari") 
+                || norm.Contains("horario") 
+                || norm.Contains("profesional") 
+                || norm.Contains("quien atiende") 
+                || norm.Contains("quienes atienden")
+                || norm.Contains("disponib")
+                || norm.Contains("doctores");
+
+            if (esConsultaVets && !esAgendamientoConcreto)
+            {
+                return await ConsultarVeterinariosYHorariosAsync(sucursalId);
+            }
+
+            // H. Stock en alerta (para Admin, Gerente, Veterinario)
+            bool esConsultaStock = Regex.IsMatch(norm, @"\b(stock|inventario|falta|reposicion|quedan|agotado|sin stock|bajo stock)\b");
+            if (esConsultaStock)
+            {
+                return await ConsultarStockCriticoAsync(sucursalId);
+            }
+
+            // I. Intento genérico de agendar turno (sin hora explícita)
+            var esIntentoTurnoGenerico = Regex.IsMatch(norm, @"\b(turno|turnos|cita|citas|agendar|agendame|agendate|sacar|sacame|reservar|reservame|programar|anotar|anotame)\b");
+            if (esIntentoTurnoGenerico)
+            {
+                if (esGerente)
+                {
+                    return new ChatbotResponseDto
+                    {
+                        Exito = true,
+                        TipoRespuesta = "texto",
+                        Respuesta = "Tu rol de Gerente es de supervisión y gestión administrativa; no tienes permisos para agendar turnos operativos. Por favor solicita el agendamiento al personal de Recepción o al Veterinario.",
+                        OpcionesSugeridas = new List<string> { "Turnos de hoy", "Todos los turnos", "Stock en alerta", "Precios de servicios" }
+                    };
+                }
+
+                var extraccion = await IntentarExtraerTurnoAsync(mensaje, sucursalId);
+                if (extraccion != null)
+                {
+                    return extraccion;
+                }
+            }
+
+            // ══════════════════════════════════════════════════════════
+            // 3. CONVERSACIONAL GENERAL VÍA GEMINI (CONTEXTO DE SUCURSAL Y ROL)
+            // ══════════════════════════════════════════════════════════
             var apiKey = GetApiKey();
             if (!string.IsNullOrWhiteSpace(apiKey))
             {
                 try
                 {
-                    var respuestaGemini = await ConsultarGeminiConversacionalAsync(request.Historial, mensaje, usuarioNombre, usuarioRol);
+                    var respuestaGemini = await ConsultarGeminiConversacionalAsync(request.Historial, mensaje, usuarioNombre, usuarioRol, sucursalId);
                     return new ChatbotResponseDto
                     {
                         Exito = true,
                         TipoRespuesta = "texto",
                         Respuesta = respuestaGemini,
-                        OpcionesSugeridas = new List<string> { "Turnos de hoy", "Como agendar un turno?", "Disponibilidad manana" }
+                        OpcionesSugeridas = esGerente
+                            ? new List<string> { "Turnos de hoy", "Todos los turnos", "Stock en alerta" }
+                            : new List<string> { "Turnos de hoy", "Como agendar un turno?", "Horarios veterinarios" }
                     };
                 }
                 catch (Exception ex)
@@ -206,46 +436,168 @@ namespace Infrastructure.Services
             }
 
             // Fallback conversacional local
+            var nombreSuc = await ObtenerNombreSucursalAsync(sucursalId);
+            var mensajeFallback = esGerente
+                ? $"Soy el copiloto inteligente de la clínica veterinaria ({nombreSuc}). Puedo asistirte en la supervisión operativa, consultar agenda de turnos, revisar niveles de stock en alerta o consultar productos y servicios."
+                : $"Soy el copiloto inteligente de la clínica veterinaria ({nombreSuc}). Puedo ayudarte a consultar la agenda, coordinar turnos médicos, ver horarios profesionales o consultar productos y servicios. Si deseas agendar, puedes decir por ejemplo: 'Agendame un turno para [mascota] hoy a las 18:00 motivo Castracion'.";
+
             return new ChatbotResponseDto
             {
                 Exito = true,
                 TipoRespuesta = "texto",
-                Respuesta = "Soy el asistente inteligente de la clinica veterinaria. Puedo ayudarte a consultar la agenda o coordinar citas medicas. Si deseas agendar un turno, especifica el nombre de la mascota, el veterinario, fecha y horario deseado.",
-                OpcionesSugeridas = new List<string> { "Turnos de hoy", "Como agendar un turno?", "Agendar turno" }
+                Respuesta = mensajeFallback,
+                OpcionesSugeridas = esGerente
+                    ? new List<string> { "Turnos de hoy", "Todos los turnos", "Stock en alerta" }
+                    : new List<string> { "Turnos de hoy", "Veterinarios y horarios", "Precios de servicios" }
+            };
+        }
+
+        private async Task<ChatbotResponseDto> ConsultarTodosLosTurnosAsync(string usuarioRol, int? sucursalId)
+        {
+            var nombreSucursal = await ObtenerNombreSucursalAsync(sucursalId);
+            var todos = (await _turnoRepository.GetTurnosExpandidosAsync()).ToList();
+
+            if (sucursalId.HasValue && sucursalId.Value > 0)
+            {
+                todos = todos.Where(t => t.SucursalId == sucursalId.Value).ToList();
+            }
+
+            var esGerente = usuarioRol.Equals("Gerente", StringComparison.OrdinalIgnoreCase) || 
+                            usuarioRol.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+
+            var proximosYHoy = todos.Where(t => t.FechaHora.Date >= DateTime.Today && t.Estado != EstadoTurno.Cancelado)
+                                    .OrderBy(t => t.FechaHora)
+                                    .Take(15)
+                                    .ToList();
+
+            if (!proximosYHoy.Any())
+            {
+                var ultimos = todos.OrderByDescending(t => t.FechaHora).Take(6).ToList();
+                if (!ultimos.Any())
+                {
+                    return new ChatbotResponseDto
+                    {
+                        Exito = true,
+                        TipoRespuesta = "texto",
+                        Respuesta = $"No hay turnos registrados en el sistema para {nombreSucursal}.",
+                        OpcionesSugeridas = esGerente
+                            ? new List<string> { "Stock en alerta", "Veterinarios y horarios" }
+                            : new List<string> { "Agendar turno", "Veterinarios y horarios" }
+                    };
+                }
+
+                var sbU = new StringBuilder();
+                sbU.AppendLine($"No hay turnos futuros programados en {nombreSucursal}. Últimos turnos registrados:\n");
+                foreach (var t in ultimos)
+                {
+                    var pacNombre = t.Paciente?.Nombre ?? (!string.IsNullOrEmpty(t.PacienteId) ? t.PacienteId : "Paciente");
+                    var vetNombre = t.Veterinario?.NombreCompleto ?? (!string.IsNullOrEmpty(t.VeterinarioId) ? t.VeterinarioId : "Veterinario");
+                    var servNombre = t.Servicio?.Nombre ?? "Consulta";
+                    sbU.AppendLine($"- {t.FechaHora:dd/MM/yyyy HH:mm} hs | Paciente: {pacNombre} | Profesional: {vetNombre} | Servicio: {servNombre} | Estado: {t.Estado}");
+                }
+                return new ChatbotResponseDto
+                {
+                    Exito = true,
+                    TipoRespuesta = "texto",
+                    Respuesta = sbU.ToString().TrimEnd(),
+                    OpcionesSugeridas = esGerente
+                        ? new List<string> { "Turnos de hoy", "Stock en alerta" }
+                        : new List<string> { "Agendar turno", "Turnos de hoy" }
+                };
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"Listado de turnos programados - {nombreSucursal} ({proximosYHoy.Count}):\n");
+            foreach (var t in proximosYHoy)
+            {
+                var pacNombre = t.Paciente?.Nombre ?? (!string.IsNullOrEmpty(t.PacienteId) ? t.PacienteId : "Paciente");
+                var vetNombre = t.Veterinario?.NombreCompleto ?? (!string.IsNullOrEmpty(t.VeterinarioId) ? t.VeterinarioId : "Veterinario");
+                var servNombre = t.Servicio?.Nombre ?? "Consulta";
+                sb.AppendLine($"- {t.FechaHora:dd/MM/yyyy HH:mm} hs | Paciente: {pacNombre} | Profesional: {vetNombre} | Servicio: {servNombre} | Estado: {t.Estado}");
+            }
+
+            return new ChatbotResponseDto
+            {
+                Exito = true,
+                TipoRespuesta = "texto",
+                Respuesta = sb.ToString().TrimEnd(),
+                OpcionesSugeridas = esGerente
+                    ? new List<string> { "Turnos de hoy", "Stock en alerta", "Veterinarios y horarios" }
+                    : new List<string> { "Turnos de hoy", "Agendar turno", "Veterinarios y horarios" }
             };
         }
 
         private async Task<ChatbotResponseDto> ConsultarTurnosHoyAsync(string usuarioRol, int? sucursalId)
         {
             var hoy = DateTime.Today;
-            var turnos = (await _turnoRepository.GetByFechaAsync(hoy)).ToList();
+            var nombreSucursal = await ObtenerNombreSucursalAsync(sucursalId);
+            var todosExpandidos = (await _turnoRepository.GetTurnosExpandidosAsync()).ToList();
 
-            if (usuarioRol != "Admin" && sucursalId.HasValue)
+            if (sucursalId.HasValue && sucursalId.Value > 0)
             {
-                turnos = turnos.Where(t => t.SucursalId == sucursalId.Value).ToList();
+                todosExpandidos = todosExpandidos.Where(t => t.SucursalId == sucursalId.Value).ToList();
             }
 
-            turnos = turnos.OrderBy(t => t.FechaHora).ToList();
+            // Comparar la fecha de hoy directamente en memoria C# para evitar discrepancias de formato
+            var turnos = todosExpandidos
+                .Where(t => t.FechaHora.Date == hoy)
+                .OrderBy(t => t.FechaHora)
+                .ToList();
+
+            var esGerente = usuarioRol.Equals("Gerente", StringComparison.OrdinalIgnoreCase) || 
+                            usuarioRol.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+
+            var opcionesSinTurnos = esGerente
+                ? new List<string> { "Todos los turnos", "Stock en alerta", "Veterinarios y horarios" }
+                : new List<string> { "Todos los turnos", "Agendar turno", "Veterinarios y horarios" };
 
             if (!turnos.Any())
             {
+                var proximos = todosExpandidos
+                    .Where(t => t.FechaHora.Date > hoy && t.Estado != EstadoTurno.Cancelado)
+                    .OrderBy(t => t.FechaHora)
+                    .Take(5)
+                    .ToList();
+
+                if (proximos.Any())
+                {
+                    var sbProx = new StringBuilder();
+                    sbProx.AppendLine($"No hay turnos registrados para hoy ({hoy:dd/MM/yyyy}) en {nombreSucursal}.\n");
+                    sbProx.AppendLine("Próximos turnos programados en la agenda:");
+                    foreach (var p in proximos)
+                    {
+                        var pac = p.Paciente?.Nombre ?? (!string.IsNullOrEmpty(p.PacienteId) ? p.PacienteId : "Paciente");
+                        var vet = p.Veterinario?.NombreCompleto ?? (!string.IsNullOrEmpty(p.VeterinarioId) ? p.VeterinarioId : "Veterinario");
+                        var serv = p.Servicio?.Nombre ?? "Consulta";
+                        sbProx.AppendLine($"- {p.FechaHora:dd/MM/yyyy HH:mm} hs | Paciente: {pac} | Profesional: {vet} | Servicio: {serv}");
+                    }
+
+                    return new ChatbotResponseDto
+                    {
+                        Exito = true,
+                        TipoRespuesta = "texto",
+                        Respuesta = sbProx.ToString().TrimEnd(),
+                        OpcionesSugeridas = opcionesSinTurnos
+                    };
+                }
+
                 return new ChatbotResponseDto
                 {
                     Exito = true,
                     TipoRespuesta = "texto",
-                    Respuesta = "No hay turnos registrados para el dia de hoy en esta agenda.",
-                    OpcionesSugeridas = new List<string> { "Como agendar un turno?", "Agendar turno manana" }
+                    Respuesta = $"No hay turnos registrados para el día de hoy en {nombreSucursal}.",
+                    OpcionesSugeridas = opcionesSinTurnos
                 };
             }
 
             var sb = new StringBuilder();
-            sb.AppendLine($"Agenda del dia ({hoy:dd/MM/yyyy}) - {turnos.Count} turno(s) registrado(s):\n");
+            sb.AppendLine($"Agenda del día ({hoy:dd/MM/yyyy}) - {nombreSucursal} ({turnos.Count} turno(s) registrado(s)):\n");
 
             foreach (var t in turnos)
             {
                 var pacNombre = t.Paciente != null ? t.Paciente.Nombre : (!string.IsNullOrEmpty(t.PacienteId) ? t.PacienteId : "Paciente");
                 var vetNombre = t.Veterinario != null ? t.Veterinario.NombreCompleto : (!string.IsNullOrEmpty(t.VeterinarioId) ? t.VeterinarioId : "Veterinario");
-                var servNombre = t.Servicio != null ? t.Servicio.Nombre : "Consulta";
+                var servNombre = t.Servicio != null ? t.Servicio.Nombre : "Consulta general";
 
                 sb.AppendLine($"- {t.FechaHora:HH:mm} hs | Paciente: {pacNombre} | Profesional: {vetNombre} | Servicio: {servNombre} | Estado: {t.Estado}");
             }
@@ -254,12 +606,14 @@ namespace Infrastructure.Services
             {
                 Exito = true,
                 TipoRespuesta = "texto",
-                Respuesta = sb.ToString(),
-                OpcionesSugeridas = new List<string> { "Como agendar un turno?", "Agendar turno manana" }
+                Respuesta = sb.ToString().TrimEnd(),
+                OpcionesSugeridas = esGerente
+                    ? new List<string> { "Todos los turnos", "Stock en alerta", "Veterinarios y horarios" }
+                    : new List<string> { "Todos los turnos", "Agendar turno", "Veterinarios y horarios" }
             };
         }
 
-        private async Task<ChatbotResponseDto> ConsultarPacientesAsync()
+        private async Task<ChatbotResponseDto> ConsultarPacientesAsync(string usuarioRol)
         {
             var pacientesList = (await _pacienteRepository.GetActivosAsync()).Take(15).ToList();
             if (!pacientesList.Any())
@@ -269,7 +623,7 @@ namespace Infrastructure.Services
                     Exito = true,
                     TipoRespuesta = "texto",
                     Respuesta = "No se encontraron pacientes activos registrados en el sistema.",
-                    OpcionesSugeridas = new List<string> { "Turnos de hoy", "Como agendar un turno?" }
+                    OpcionesSugeridas = new List<string> { "Turnos de hoy", "Veterinarios y horarios" }
                 };
             }
 
@@ -282,39 +636,66 @@ namespace Infrastructure.Services
                 sb.AppendLine($"- {p.Nombre} | {esp} ({raz}) | Sexo: {(p.Sexo == "M" ? "Macho" : "Hembra")}");
             }
 
+            var esRecepcionista = usuarioRol.Equals("Recepcionista", StringComparison.OrdinalIgnoreCase) || 
+                                  usuarioRol.Equals("Secretaria", StringComparison.OrdinalIgnoreCase);
+            var esGerente = usuarioRol.Equals("Gerente", StringComparison.OrdinalIgnoreCase) || 
+                            usuarioRol.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+
+            List<string> sugerencias;
+            if (esRecepcionista)
+            {
+                sugerencias = pacientesList.Take(3).Select(p => $"Agendar turno para {p.Nombre}").Concat(new[] { "Turnos de hoy" }).ToList();
+            }
+            else if (esGerente)
+            {
+                sugerencias = new List<string> { "Turnos de hoy", "Todos los turnos", "Stock en alerta" };
+            }
+            else
+            {
+                sugerencias = pacientesList.Take(3).Select(p => $"Info de {p.Nombre}").Concat(new[] { "Turnos de hoy" }).ToList();
+            }
+
             return new ChatbotResponseDto
             {
                 Exito = true,
                 TipoRespuesta = "texto",
                 Respuesta = sb.ToString().TrimEnd(),
-                OpcionesSugeridas = pacientesList.Take(3).Select(p => $"Info de {p.Nombre}").Concat(new[] { "Turnos de hoy" }).ToList()
+                OpcionesSugeridas = sugerencias
             };
         }
 
-        private async Task<ChatbotResponseDto?> ConsultarInfoPacienteAsync(string lower)
+        private async Task<ChatbotResponseDto?> ConsultarInfoPacienteAsync(string textoOriginal, string norm, string usuarioRol)
         {
-            var clean = lower;
-            foreach (var prefix in new[] { "info de ", "informacion de ", "datos de ", "ficha de " })
+            var esRecepcionista = usuarioRol.Equals("Recepcionista", StringComparison.OrdinalIgnoreCase) || 
+                                  usuarioRol.Equals("Secretaria", StringComparison.OrdinalIgnoreCase);
+
+            if (esRecepcionista)
             {
-                if (clean.Contains(prefix))
+                return new ChatbotResponseDto
                 {
-                    var idx = clean.IndexOf(prefix) + prefix.Length;
-                    clean = clean.Substring(idx);
+                    Exito = true,
+                    TipoRespuesta = "texto",
+                    Respuesta = "Como Recepcionista no tienes autorización para acceder a la ficha detallada ni al historial clínico de los pacientes. Puedes consultar la agenda de turnos o agendar una cita médica.",
+                    OpcionesSugeridas = new List<string> { "Turnos de hoy", "Agendar turno", "Horarios veterinarios" }
+                };
+            }
+
+            var pacientes = (await _pacienteRepository.GetActivosAsync()).ToList();
+            Paciente? paciente = null;
+
+            // Buscar por coincidencia con nombres de pacientes en el texto normalizado
+            foreach (var p in pacientes)
+            {
+                if (string.IsNullOrWhiteSpace(p.Nombre)) continue;
+                var normP = NormalizarTexto(p.Nombre);
+                if (Regex.IsMatch(norm, $@"\b{Regex.Escape(normP)}\b"))
+                {
+                    paciente = p;
                     break;
                 }
             }
-            clean = clean.Trim().Trim('?', '.', '!', '¿', '¡');
-
-            if (string.IsNullOrWhiteSpace(clean)) return null;
-
-            var pacientes = (await _pacienteRepository.GetActivosAsync()).ToList();
-            var paciente = pacientes.FirstOrDefault(p => p.Nombre.Equals(clean, StringComparison.OrdinalIgnoreCase))
-                           ?? pacientes.FirstOrDefault(p => p.Nombre.ToLowerInvariant().Contains(clean));
 
             if (paciente == null) return null;
-
-            var historiales = (await _historialClinicoRepository.GetByPacienteIdAsync(paciente.Id)).OrderByDescending(h => h.Fecha).ToList();
-            var ultConsulta = historiales.FirstOrDefault();
 
             var sb = new StringBuilder();
             sb.AppendLine($"Ficha del Paciente: {paciente.Nombre}");
@@ -334,6 +715,9 @@ namespace Infrastructure.Services
 
             sb.AppendLine($"- Inasistencias registradas: {paciente.ContadorInasistencias}");
 
+            var historiales = (await _historialClinicoRepository.GetByPacienteIdAsync(paciente.Id)).OrderByDescending(h => h.Fecha).ToList();
+            var ultConsulta = historiales.FirstOrDefault();
+
             if (ultConsulta != null)
             {
                 sb.AppendLine($"- Ultima Consulta: {ultConsulta.Fecha:dd/MM/yyyy} - Motivo: {ultConsulta.Motivo} - Diagnostico: {ultConsulta.Diagnostico}");
@@ -348,20 +732,38 @@ namespace Infrastructure.Services
                 sb.AppendLine($"- Observaciones: {paciente.Observaciones}");
             }
 
+            var esGerente = usuarioRol.Equals("Gerente", StringComparison.OrdinalIgnoreCase) || 
+                            usuarioRol.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+
+            var opcionesInfo = esGerente
+                ? new List<string> { "Turnos de hoy", "Todos los turnos", "Stock en alerta" }
+                : new List<string> { $"Agendar turno para {paciente.Nombre}", "Turnos de hoy" };
+
             return new ChatbotResponseDto
             {
                 Exito = true,
                 TipoRespuesta = "texto",
                 Respuesta = sb.ToString().TrimEnd(),
-                OpcionesSugeridas = new List<string> { $"Agendar turno para {paciente.Nombre}", "Turnos de hoy" }
+                OpcionesSugeridas = opcionesInfo
             };
         }
 
-        private async Task<ChatbotResponseDto> ConsultarVeterinariosYHorariosAsync()
+        private async Task<ChatbotResponseDto> ConsultarVeterinariosYHorariosAsync(int? sucursalId)
         {
             var vets = (await _veterinarioRepository.GetActivosAsync()).ToList();
+            if (sucursalId.HasValue && sucursalId.Value > 0)
+            {
+                vets = vets.Where(v => v.SucursalId == sucursalId.Value || v.SucursalId == 0).ToList();
+            }
+
+            var nombreSucursal = await ObtenerNombreSucursalAsync(sucursalId);
             var sb = new StringBuilder();
-            sb.AppendLine($"Equipo Profesional y Horarios de Atencion ({vets.Count}):\n");
+            sb.AppendLine($"Equipo Profesional y Horarios de Atencion - {nombreSucursal} ({vets.Count}):\n");
+
+            if (!vets.Any())
+            {
+                sb.AppendLine("No se registran veterinarios asignados a esta sucursal actualmente.");
+            }
 
             var diasNombres = new Dictionary<int, string>
             {
@@ -403,26 +805,64 @@ namespace Infrastructure.Services
             };
         }
 
-        private async Task<ChatbotResponseDto> ConsultarStockCriticoAsync()
+        private async Task<ChatbotResponseDto> ConsultarStockCriticoAsync(int? sucursalId)
         {
-            var bajoStock = (await _productoRepository.GetStockBajoAsync()).ToList();
-            if (!bajoStock.Any())
-            {
-                return new ChatbotResponseDto
-                {
-                    Exito = true,
-                    TipoRespuesta = "texto",
-                    Respuesta = "Actualmente todos los productos cuentan con niveles de stock superiores al minimo configurado.",
-                    OpcionesSugeridas = new List<string> { "Turnos de hoy", "Consultar servicios" }
-                };
-            }
-
+            var nombreSucursal = await ObtenerNombreSucursalAsync(sucursalId);
             var sb = new StringBuilder();
-            sb.AppendLine($"Productos con Stock en Alerta o Agotado ({bajoStock.Count}):\n");
-            foreach (var p in bajoStock.Take(15))
+
+            if (sucursalId.HasValue && sucursalId.Value > 0)
             {
-                var estado = p.StockActual == 0 ? "Sin Stock (Agotado)" : "Stock Bajo";
-                sb.AppendLine($"- {p.Nombre} | Stock Actual: {p.StockActual} (Minimo: {p.StockMinimo}) | Estado: {estado} | Precio Venta: ${p.PrecioVenta:N0}");
+                var productos = (await _productoRepository.GetActivosAsync()).ToList();
+                var alertasSucursal = new List<(Producto Producto, int StockActual)>();
+
+                foreach (var p in productos)
+                {
+                    var pds = await _productoDepositoRepository.GetByProductoIdAsync(p.Id);
+                    var stockSucursal = pds.Where(s => s.Deposito?.SucursalId == sucursalId.Value).Sum(s => s.StockActual);
+                    if (stockSucursal <= p.StockMinimo)
+                    {
+                        alertasSucursal.Add((p, stockSucursal));
+                    }
+                }
+
+                if (!alertasSucursal.Any())
+                {
+                    return new ChatbotResponseDto
+                    {
+                        Exito = true,
+                        TipoRespuesta = "texto",
+                        Respuesta = $"En {nombreSucursal} todos los productos cuentan con niveles de stock superiores al minimo configurado.",
+                        OpcionesSugeridas = new List<string> { "Turnos de hoy", "Consultar servicios" }
+                    };
+                }
+
+                sb.AppendLine($"Productos con Stock en Alerta - {nombreSucursal} ({alertasSucursal.Count}):\n");
+                foreach (var item in alertasSucursal.Take(15))
+                {
+                    var estado = item.StockActual == 0 ? "Sin Stock (Agotado)" : "Stock Bajo";
+                    sb.AppendLine($"- {item.Producto.Nombre} | Stock en sucursal: {item.StockActual} (Minimo: {item.Producto.StockMinimo}) | Estado: {estado} | Precio Venta: ${item.Producto.PrecioVenta:N0}");
+                }
+            }
+            else
+            {
+                var bajoStock = (await _productoRepository.GetStockBajoAsync()).ToList();
+                if (!bajoStock.Any())
+                {
+                    return new ChatbotResponseDto
+                    {
+                        Exito = true,
+                        TipoRespuesta = "texto",
+                        Respuesta = "Actualmente todos los productos cuentan con niveles de stock superiores al minimo configurado en todas las sucursales.",
+                        OpcionesSugeridas = new List<string> { "Turnos de hoy", "Consultar servicios" }
+                    };
+                }
+
+                sb.AppendLine($"Productos con Stock en Alerta Global ({bajoStock.Count}):\n");
+                foreach (var p in bajoStock.Take(15))
+                {
+                    var estado = p.StockActual == 0 ? "Sin Stock (Agotado)" : "Stock Bajo";
+                    sb.AppendLine($"- {p.Nombre} | Stock Global: {p.StockActual} (Minimo: {p.StockMinimo}) | Estado: {estado} | Precio Venta: ${p.PrecioVenta:N0}");
+                }
             }
 
             return new ChatbotResponseDto
@@ -430,25 +870,197 @@ namespace Infrastructure.Services
                 Exito = true,
                 TipoRespuesta = "texto",
                 Respuesta = sb.ToString().TrimEnd(),
-                OpcionesSugeridas = new List<string> { "Turnos de hoy", "Como agendar un turno?" }
+                OpcionesSugeridas = new List<string> { "Turnos de hoy", "Precios de productos" }
             };
         }
 
-        private async Task<ChatbotResponseDto?> ConsultarPrecioOServicioAsync(string lower)
+        private async Task<ChatbotResponseDto?> ConsultarDetalleProductoAsync(string mensajeOriginal, string norm, int? sucursalId)
+        {
+            var productos = (await _productoRepository.GetProductosExpandidosAsync()).Where(p => p.Activo).ToList();
+            if (!productos.Any()) return null;
+
+            if (norm == "productos" || norm == "precios de productos" || norm == "catalogo de productos" || norm == "lista de productos")
+            {
+                return null;
+            }
+
+            string termino = norm;
+            string[] prefijos = new[]
+            {
+                "informacion detallada del producto ", "informacion detallada de ",
+                "informacion del producto ", "informacion de ", "informacion sobre ",
+                "info detallada del producto ", "info del producto ", "info de ", "info sobre ",
+                "detalle del producto ", "detalle de ", "detalles del producto ", "detalles de ",
+                "datos del producto ", "datos de ", "ficha del producto ", "ficha tecnica de ", "ficha de ",
+                "que es el producto ", "que es la ", "que es el ", "que es ",
+                "para que sirve el producto ", "para que sirve la ", "para que sirve el ", "para que sirve ",
+                "precio del producto ", "precio de ", "precios de ", "precio ",
+                "costo del producto ", "costo de ", "costos de ", "costo ",
+                "cuanto sale el producto ", "cuanto sale la ", "cuanto sale el ", "cuanto sale ",
+                "cuanto cuesta el producto ", "cuanto cuesta la ", "cuanto cuesta el ", "cuanto cuesta ",
+                "stock del producto ", "stock de ",
+                "tienen el producto ", "tienen ", "hay stock de ", "hay ",
+                "producto ", "medicamento ", "alimento ", "articulo ", "remedio "
+            };
+
+            foreach (var prefijo in prefijos)
+            {
+                if (termino.StartsWith(prefijo))
+                {
+                    termino = termino.Substring(prefijo.Length).Trim();
+                    break;
+                }
+                else if (termino.Contains(prefijo))
+                {
+                    var idx = termino.IndexOf(prefijo);
+                    termino = termino.Substring(idx + prefijo.Length).Trim();
+                    break;
+                }
+            }
+
+            termino = termino.Trim();
+            if (string.IsNullOrWhiteSpace(termino) || termino.Length < 2)
+            {
+                return null;
+            }
+
+            Producto? producto = null;
+
+            // 1. Coincidencia exacta por Código de Barras
+            producto = productos.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.CodigoBarras) && p.CodigoBarras.Equals(termino, StringComparison.OrdinalIgnoreCase));
+
+            // 2. Coincidencia por Nombre
+            if (producto == null)
+            {
+                var coincidencias = productos.Where(p =>
+                {
+                    var pNorm = NormalizarTexto(p.Nombre);
+                    return pNorm == termino || pNorm.Contains(termino) || termino.Contains(pNorm);
+                }).ToList();
+
+                if (coincidencias.Count == 1)
+                {
+                    producto = coincidencias.First();
+                }
+                else if (coincidencias.Count > 1)
+                {
+                    var exacta = coincidencias.FirstOrDefault(p => NormalizarTexto(p.Nombre) == termino);
+                    if (exacta != null)
+                    {
+                        producto = exacta;
+                    }
+                    else
+                    {
+                        var sbMulti = new StringBuilder();
+                        sbMulti.AppendLine($"Se encontraron {coincidencias.Count} productos relacionados con '{termino}':\n");
+                        foreach (var c in coincidencias.Take(8))
+                        {
+                            var catNom = c.Categoria?.Nombre ?? "General";
+                            var marNom = c.Marca?.Nombre != null ? $" ({c.Marca.Nombre})" : "";
+                            sbMulti.AppendLine($"- {c.Nombre}{marNom} | Cat: {catNom} | Precio: ${c.PrecioVenta:N0} | Stock: {c.StockActual} u.");
+                        }
+                        sbMulti.AppendLine("\nPuedes escribir el nombre exacto de cualquiera de ellos para ver su ficha completa.");
+                        return new ChatbotResponseDto
+                        {
+                            Exito = true,
+                            TipoRespuesta = "texto",
+                            Respuesta = sbMulti.ToString().TrimEnd(),
+                            OpcionesSugeridas = coincidencias.Take(3).Select(c => $"Informacion de {c.Nombre}").Concat(new[] { "Precios de productos" }).ToList()
+                        };
+                    }
+                }
+            }
+
+            // 3. Coincidencia por Marca o Descripción
+            if (producto == null)
+            {
+                var porMarcaODesc = productos.Where(p =>
+                    (p.Marca != null && NormalizarTexto(p.Marca.Nombre).Contains(termino)) ||
+                    (!string.IsNullOrWhiteSpace(p.Descripcion) && NormalizarTexto(p.Descripcion).Contains(termino))
+                ).ToList();
+
+                if (porMarcaODesc.Count == 1)
+                {
+                    producto = porMarcaODesc.First();
+                }
+                else if (porMarcaODesc.Count > 1)
+                {
+                    var sbMarca = new StringBuilder();
+                    sbMarca.AppendLine($"Productos asociados a '{termino}' ({porMarcaODesc.Count}):\n");
+                    foreach (var c in porMarcaODesc.Take(8))
+                    {
+                        sbMarca.AppendLine($"- {c.Nombre} | Precio: ${c.PrecioVenta:N0} | Stock: {c.StockActual} u.");
+                    }
+                    sbMarca.AppendLine("\nEscribe el nombre de un producto para consultar su ficha técnica y disponibilidad.");
+                    return new ChatbotResponseDto
+                    {
+                        Exito = true,
+                        TipoRespuesta = "texto",
+                        Respuesta = sbMarca.ToString().TrimEnd(),
+                        OpcionesSugeridas = porMarcaODesc.Take(3).Select(c => $"Informacion de {c.Nombre}").ToList()
+                    };
+                }
+            }
+
+            if (producto == null)
+            {
+                return null;
+            }
+
+            var nombreSucursal = await ObtenerNombreSucursalAsync(sucursalId);
+            var pds = (await _productoDepositoRepository.GetByProductoIdAsync(producto.Id)).ToList();
+            int stockEnSucursal = sucursalId.HasValue && sucursalId.Value > 0
+                ? pds.Where(pd => pd.Deposito?.SucursalId == sucursalId.Value).Sum(pd => pd.StockActual)
+                : producto.StockActual;
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"Informacion Detallada del Producto: {producto.Nombre}\n");
+            sb.AppendLine($"- Categoria: {producto.Categoria?.Nombre ?? "General"}");
+            if (producto.Marca != null && !string.IsNullOrWhiteSpace(producto.Marca.Nombre))
+            {
+                sb.AppendLine($"- Marca: {producto.Marca.Nombre}");
+            }
+            sb.AppendLine($"- Precio de Venta: ${producto.PrecioVenta:N0}");
+            if (sucursalId.HasValue && sucursalId.Value > 0)
+            {
+                sb.AppendLine($"- Stock en {nombreSucursal}: {stockEnSucursal} unidades");
+            }
+            sb.AppendLine($"- Stock Total General: {producto.StockActual} unidades (Minimo requerido: {producto.StockMinimo})");
+            if (!string.IsNullOrWhiteSpace(producto.CodigoBarras))
+            {
+                sb.AppendLine($"- Codigo de Barras: {producto.CodigoBarras}");
+            }
+            if (producto.Proveedor != null && !string.IsNullOrWhiteSpace(producto.Proveedor.RazonSocial))
+            {
+                sb.AppendLine($"- Proveedor: {producto.Proveedor.RazonSocial}");
+            }
+            var desc = string.IsNullOrWhiteSpace(producto.Descripcion)
+                ? "Articulo para uso y atencion en clinica veterinaria."
+                : producto.Descripcion;
+            sb.AppendLine($"- Descripcion: {desc}");
+
+            return new ChatbotResponseDto
+            {
+                Exito = true,
+                TipoRespuesta = "texto",
+                Respuesta = sb.ToString().TrimEnd(),
+                OpcionesSugeridas = new List<string> { "Precios de productos", "Stock en alerta", "Turnos de hoy" }
+            };
+        }
+
+        private async Task<ChatbotResponseDto?> ConsultarPrecioOServicioAsync(string lower, string norm)
         {
             var productos = (await _productoRepository.GetActivosAsync()).ToList();
             var servicios = (await _servicioRepository.GetActivosAsync()).ToList();
 
-            // 1. Consulta general de precios de productos
-            bool esConsultaGeneralProductos = lower.Contains("precios de productos") || 
-                                              lower.Contains("precio de los productos") || 
-                                              lower.Contains("precios de los productos") ||
-                                              lower.Contains("precio productos") ||
-                                              lower == "precios de productos" ||
-                                              lower == "precio de productos" ||
-                                              lower == "productos" ||
-                                              lower.Contains("catalogo de productos") ||
-                                              lower.Contains("lista de productos");
+            // 1. Consulta general de productos
+            bool esConsultaGeneralProductos = norm.Contains("precios de productos") ||
+                                              norm.Contains("precio de productos") ||
+                                              norm.Contains("precio productos") ||
+                                              norm == "productos" ||
+                                              norm.Contains("catalogo de productos") ||
+                                              norm.Contains("lista de productos") ||
+                                              norm.Contains("articulos");
 
             if (esConsultaGeneralProductos)
             {
@@ -484,15 +1096,13 @@ namespace Infrastructure.Services
             }
 
             // 2. Consulta general de servicios
-            bool esConsultaGeneralServicios = lower.Contains("precios de servicios") ||
-                                              lower.Contains("precio de los servicios") ||
-                                              lower.Contains("precios de los servicios") ||
-                                              lower.Contains("precio servicios") ||
-                                              lower == "precios de servicios" ||
-                                              lower == "precio de servicios" ||
-                                              lower == "servicios" ||
-                                              lower.Contains("catalogo de servicios") ||
-                                              lower.Contains("lista de servicios");
+            bool esConsultaGeneralServicios = norm.Contains("precios de servicios") ||
+                                              norm.Contains("precio de servicios") ||
+                                              norm.Contains("precio servicios") ||
+                                              norm == "servicios" ||
+                                              norm.Contains("catalogo de servicios") ||
+                                              norm.Contains("lista de servicios") ||
+                                              norm.Contains("tarifas");
 
             if (esConsultaGeneralServicios)
             {
@@ -525,7 +1135,7 @@ namespace Infrastructure.Services
             }
 
             // 3. Consulta específica por producto o servicio
-            string termino = lower;
+            string termino = norm;
             string[] prefijos = new[]
             {
                 "precio de los ", "precios de los ", "precio de las ", "precios de las ",
@@ -534,7 +1144,7 @@ namespace Infrastructure.Services
                 "cuanto sale el ", "cuanto sale la ", "cuanto sale los ", "cuanto sale las ", "cuanto sale ",
                 "cuanto cuesta el ", "cuanto cuesta la ", "cuanto cuesta los ", "cuanto cuesta las ", "cuanto cuesta ",
                 "info de ", "info del ", "informacion de ", "informacion del ", "datos de ", "datos del ",
-                "que valor tiene ", "valor de ", "tarifa de "
+                "que valor tiene el ", "que valor tiene la ", "que valor tiene ", "valor de ", "tarifa de ", "tarifa "
             };
 
             foreach (var prefijo in prefijos)
@@ -552,7 +1162,7 @@ namespace Infrastructure.Services
                 }
             }
 
-            termino = termino.Trim('?', '¿', '!', '¡', '.', ':', ',', ';', ' ', '\t');
+            termino = termino.Trim();
 
             if (string.IsNullOrWhiteSpace(termino))
             {
@@ -561,8 +1171,8 @@ namespace Infrastructure.Services
 
             // A. Buscar en Servicios
             var servicio = servicios.FirstOrDefault(s =>
-                s.Nombre.ToLowerInvariant().Contains(termino) ||
-                termino.Contains(s.Nombre.ToLowerInvariant()));
+                NormalizarTexto(s.Nombre).Contains(termino) ||
+                termino.Contains(NormalizarTexto(s.Nombre)));
 
             if (servicio != null)
             {
@@ -581,8 +1191,8 @@ namespace Infrastructure.Services
 
             // B. Buscar en Productos
             var productosCoincidentes = productos.Where(p =>
-                p.Nombre.ToLowerInvariant().Contains(termino) ||
-                termino.Contains(p.Nombre.ToLowerInvariant()) ||
+                NormalizarTexto(p.Nombre).Contains(termino) ||
+                termino.Contains(NormalizarTexto(p.Nombre)) ||
                 (!string.IsNullOrWhiteSpace(p.CodigoBarras) && p.CodigoBarras.Equals(termino, StringComparison.OrdinalIgnoreCase))
             ).ToList();
 
@@ -619,8 +1229,7 @@ namespace Infrastructure.Services
                 };
             }
 
-            // C. Si preguntó por precio y no se encontró
-            if (lower.Contains("precio") || lower.Contains("costo") || lower.Contains("cuanto sale") || lower.Contains("cuanto cuesta"))
+            if (norm.Contains("precio") || norm.Contains("costo") || norm.Contains("cuanto sale") || norm.Contains("cuanto cuesta"))
             {
                 return new ChatbotResponseDto
                 {
@@ -646,12 +1255,15 @@ namespace Infrastructure.Services
             }
 
             var lower = mensaje.ToLowerInvariant();
+            var norm = NormalizarTexto(mensaje);
 
-            // Buscar Paciente
+            // Buscar Paciente (coincidencia normalizada y exacta)
             Paciente? pacienteEncontrado = null;
             foreach (var p in pacientes)
             {
-                if (!string.IsNullOrWhiteSpace(p.Nombre) && Regex.IsMatch(lower, $@"\b{Regex.Escape(p.Nombre.ToLowerInvariant())}\b"))
+                if (string.IsNullOrWhiteSpace(p.Nombre)) continue;
+                var normP = NormalizarTexto(p.Nombre);
+                if (Regex.IsMatch(norm, $@"\b{Regex.Escape(normP)}\b"))
                 {
                     pacienteEncontrado = p;
                     break;
@@ -662,78 +1274,97 @@ namespace Infrastructure.Services
             Veterinario? vetEncontrado = null;
             foreach (var v in veterinarios)
             {
-                var nombre = v.Nombre.ToLowerInvariant();
-                var apellido = v.Apellido.ToLowerInvariant();
-                var completo = v.NombreCompleto.ToLowerInvariant();
+                var normCompleto = NormalizarTexto(v.NombreCompleto);
+                var normApellido = NormalizarTexto(v.Apellido);
+                var normNombre = NormalizarTexto(v.Nombre);
 
-                if (Regex.IsMatch(lower, $@"\b{Regex.Escape(completo)}\b") ||
-                    Regex.IsMatch(lower, $@"\b{Regex.Escape(apellido)}\b") ||
-                    Regex.IsMatch(lower, $@"\b{Regex.Escape(nombre)}\b"))
+                if (Regex.IsMatch(norm, $@"\b{Regex.Escape(normCompleto)}\b") ||
+                    Regex.IsMatch(norm, $@"\b{Regex.Escape(normApellido)}\b") ||
+                    Regex.IsMatch(norm, $@"\b{Regex.Escape(normNombre)}\b"))
                 {
                     vetEncontrado = v;
                     break;
                 }
             }
 
-            // Si no se especificó veterinario pero hay un único veterinario disponible
-            if (vetEncontrado == null && veterinarios.Count == 1)
-            {
-                vetEncontrado = veterinarios.First();
-            }
-
             // Extraer Motivo explícito o servicio
             string? motivoDetectado = null;
 
-            // Detectar motivo explícito: "para <motivo>", "por <motivo>", "motivo:? <motivo>"
-            var matchMotivo = Regex.Match(mensaje, @"(?:para|por|motivo:?)\s+([a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s]+?)(?:\s+(?:con|el|a\s+las|mañana|manana|hoy|\d{1,2}[:.]\d{2}|\d{1,2}\s*(?:hs|h))|\s*$|[.,;])", RegexOptions.IgnoreCase);
-            if (matchMotivo.Success)
+            // 1. Prioridad: Coincidencia explícita de "motivo:? <motivo>"
+            var matchMotivoExpl = Regex.Match(mensaje, @"\bmotivo(?:\s+es|\s*:)?\s+([a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\-]+?)(?:\s+(?:con|el|en|a\s+las|hoy|mañana|manana|\d{1,2}[:.]\d{2})|\s*$|[.,;])", RegexOptions.IgnoreCase);
+            if (matchMotivoExpl.Success)
             {
-                var cand = matchMotivo.Groups[1].Value.Trim();
-                if (!string.IsNullOrWhiteSpace(cand) && 
-                    !cand.Equals("hoy", StringComparison.OrdinalIgnoreCase) && 
-                    !cand.Equals("mañana", StringComparison.OrdinalIgnoreCase) && 
-                    !cand.Equals("manana", StringComparison.OrdinalIgnoreCase) &&
-                    (pacienteEncontrado == null || !cand.Contains(pacienteEncontrado.Nombre, StringComparison.OrdinalIgnoreCase)) &&
-                    (vetEncontrado == null || !cand.Contains(vetEncontrado.NombreCompleto, StringComparison.OrdinalIgnoreCase)))
+                var cand = matchMotivoExpl.Groups[1].Value.Trim();
+                if (!string.IsNullOrWhiteSpace(cand))
                 {
-                    motivoDetectado = char.ToUpper(cand[0]) + cand.Substring(1);
+                    motivoDetectado = cand;
                 }
             }
 
-            // Buscar coincidencia en catálogo de Servicios
-            Servicio? servicioEncontrado = null;
-            foreach (var s in servicios)
+            // 2. Si no hubo "motivo ...", buscar con "por <motivo>" o "para <motivo>"
+            if (string.IsNullOrWhiteSpace(motivoDetectado))
             {
-                var sLower = s.Nombre.ToLowerInvariant();
-                if (lower.Contains(sLower) || (motivoDetectado != null && sLower.Contains(motivoDetectado.ToLowerInvariant())))
+                var matches = Regex.Matches(mensaje, @"\b(?:por|para)\s+([a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s\-]+?)(?:\s+(?:con|el|en|a\s+las|hoy|mañana|manana|\d{1,2}[:.]\d{2})|\s*$|[.,;])", RegexOptions.IgnoreCase);
+                foreach (Match m in matches)
                 {
-                    servicioEncontrado = s;
-                    if (string.IsNullOrWhiteSpace(motivoDetectado))
+                    var cand = m.Groups[1].Value.Trim();
+                    var candNorm = NormalizarTexto(cand);
+                    if (string.IsNullOrWhiteSpace(candNorm) ||
+                        candNorm == "hoy" || candNorm == "manana" || candNorm == "pasado manana" ||
+                        candNorm.StartsWith("las ") || candNorm.StartsWith("el ") ||
+                        (pacienteEncontrado != null && candNorm.Contains(NormalizarTexto(pacienteEncontrado.Nombre))) ||
+                        (vetEncontrado != null && candNorm.Contains(NormalizarTexto(vetEncontrado.NombreCompleto))))
                     {
-                        motivoDetectado = s.Nombre;
+                        continue;
                     }
+
+                    motivoDetectado = cand;
                     break;
                 }
             }
 
-            if (servicioEncontrado == null && !string.IsNullOrWhiteSpace(motivoDetectado))
+            // 3. Buscar si el motivo coincide con algún servicio del catálogo
+            Servicio? servicioEncontrado = null;
+            if (!string.IsNullOrWhiteSpace(motivoDetectado))
             {
-                var motLower = motivoDetectado.ToLowerInvariant();
+                var motNorm = NormalizarTexto(motivoDetectado);
                 servicioEncontrado = servicios.FirstOrDefault(s =>
-                    s.Nombre.ToLowerInvariant().Contains(motLower) ||
-                    motLower.Contains(s.Nombre.ToLowerInvariant()));
+                    NormalizarTexto(s.Nombre).Contains(motNorm) || motNorm.Contains(NormalizarTexto(s.Nombre)));
             }
 
             if (servicioEncontrado == null)
             {
-                servicioEncontrado = servicios.FirstOrDefault(s => s.Nombre.Contains("Consulta General", StringComparison.OrdinalIgnoreCase))
-                                  ?? servicios.FirstOrDefault(s => s.Nombre.Contains("Consulta", StringComparison.OrdinalIgnoreCase)) 
-                                  ?? servicios.FirstOrDefault();
+                foreach (var s in servicios)
+                {
+                    var sNorm = NormalizarTexto(s.Nombre);
+                    if (norm.Contains(sNorm))
+                    {
+                        servicioEncontrado = s;
+                        if (string.IsNullOrWhiteSpace(motivoDetectado))
+                        {
+                            motivoDetectado = s.Nombre;
+                        }
+                        break;
+                    }
+                }
             }
 
-            string motivoFinal = !string.IsNullOrWhiteSpace(motivoDetectado)
-                ? motivoDetectado
-                : "Consulta General";
+            // 4. Motivo final: si el usuario lo especificó se usa, sino "Consulta general" por defecto
+            string motivoFinal;
+            if (!string.IsNullOrWhiteSpace(motivoDetectado))
+            {
+                motivoFinal = char.ToUpper(motivoDetectado[0]) + motivoDetectado.Substring(1);
+            }
+            else
+            {
+                motivoFinal = "Consulta general";
+            }
+
+            if (servicioEncontrado == null)
+            {
+                servicioEncontrado = servicios.FirstOrDefault(s => NormalizarTexto(s.Nombre).Contains("consulta"))
+                                  ?? servicios.FirstOrDefault();
+            }
 
             // Extraer Fecha
             DateTime? fechaObjetivo = null;
@@ -836,14 +1467,17 @@ namespace Infrastructure.Services
                 if (!fechaObjetivo.HasValue) faltantes.Add("la fecha");
                 if (!horaObjetivo.HasValue) faltantes.Add("el horario");
 
-                if (pacienteEncontrado != null || fechaObjetivo.HasValue || horaObjetivo.HasValue)
+                bool tieneVerboAgendar = Regex.IsMatch(norm, @"\b(agend|sacar|reserv|anot|program)\b");
+
+                // Solo solicitar datos si el usuario mencionó un paciente, o especificó fecha y hora juntos, o usó un verbo de agendamiento
+                if (pacienteEncontrado != null || (fechaObjetivo.HasValue && horaObjetivo.HasValue) || tieneVerboAgendar)
                 {
                     return new ChatbotResponseDto
                     {
                         Exito = true,
                         TipoRespuesta = "texto",
                         Respuesta = $"Para preparar el turno, necesito que especifiques: {string.Join(", ", faltantes)}.\n\nEjemplo: 'Turno para Toby manana a las 11:00'.",
-                        OpcionesSugeridas = new List<string> { "Turnos de hoy", "Como agendar un turno?" }
+                        OpcionesSugeridas = new List<string> { "Turnos de hoy", "Veterinarios y horarios" }
                     };
                 }
 
@@ -853,39 +1487,67 @@ namespace Infrastructure.Services
             var fechaHoraCompleta = fechaObjetivo.Value.Date + horaObjetivo.Value;
             var duracion = servicioEncontrado?.DuracionMinutos ?? 30;
 
-            // Si no se especificó veterinario, asignar automáticamente el profesional disponible en ese horario
+            // Si no se especificó veterinario, buscar prioritariamente el profesional disponible y de turno en ese horario
             if (vetEncontrado == null)
             {
                 var isoDayCand = (int)fechaHoraCompleta.DayOfWeek == 0 ? 7 : (int)fechaHoraCompleta.DayOfWeek;
                 var inicioCand = fechaHoraCompleta.TimeOfDay;
                 var finCand = fechaHoraCompleta.AddMinutes(duracion).TimeOfDay;
 
-                foreach (var v in veterinarios)
+                var candidatos = veterinarios.ToList();
+                if (!candidatos.Any())
                 {
-                    // 1. Verificar si tiene turnos solapados
+                    candidatos = (await _veterinarioRepository.GetActivosAsync()).ToList();
+                }
+
+                // 1. PRIORIDAD MÁXIMA: Profesional de la sucursal con horario laboral activo que cubra ese turno y sin solapamiento
+                foreach (var v in candidatos)
+                {
                     var turnosV = await _turnoRepository.GetByVeterinarioIdAsync(v.Id, fechaHoraCompleta.Date, fechaHoraCompleta.Date.AddDays(1));
                     var tieneConflicto = turnosV.Any(t => t.Estado != EstadoTurno.Cancelado && t.Estado != EstadoTurno.Ausente && t.SeSuperponeCon(fechaHoraCompleta, duracion));
                     if (tieneConflicto) continue;
 
-                    // 2. Verificar horario laboral configurado si tiene
                     var horariosV = (await _horarioRepository.GetByVeterinarioIdAsync(v.Id)).Where(h => h.Activo).ToList();
-                    if (horariosV.Any())
-                    {
-                        bool enHorario = horariosV.Any(h => h.DiaSemana == isoDayCand && inicioCand >= h.HoraInicio && (finCand <= h.HoraFin || (h.HoraFin == TimeSpan.Zero && finCand <= new TimeSpan(24, 0, 0))));
-                        if (!enHorario) continue;
-                    }
+                    bool enHorario = horariosV.Any(h => h.DiaSemana == isoDayCand && inicioCand >= h.HoraInicio && (finCand <= h.HoraFin || (h.HoraFin == TimeSpan.Zero && finCand <= new TimeSpan(24, 0, 0))));
 
-                    vetEncontrado = v;
-                    break;
+                    if (enHorario)
+                    {
+                        vetEncontrado = v;
+                        break;
+                    }
                 }
 
-                // Si aún no encontró ninguno con horario específico, buscar el primer veterinario libre de solapamientos
+                // 2. SEGUNDA PRIORIDAD: Si ninguno tiene horario explícito que cubra ese momento, profesional de la sucursal sin horarios registrados (atención según turnos) y sin solapamiento
                 if (vetEncontrado == null)
                 {
-                    foreach (var v in veterinarios)
+                    foreach (var v in candidatos)
                     {
                         var turnosV = await _turnoRepository.GetByVeterinarioIdAsync(v.Id, fechaHoraCompleta.Date, fechaHoraCompleta.Date.AddDays(1));
-                        if (!turnosV.Any(t => t.Estado != EstadoTurno.Cancelado && t.Estado != EstadoTurno.Ausente && t.SeSuperponeCon(fechaHoraCompleta, duracion)))
+                        var tieneConflicto = turnosV.Any(t => t.Estado != EstadoTurno.Cancelado && t.Estado != EstadoTurno.Ausente && t.SeSuperponeCon(fechaHoraCompleta, duracion));
+                        if (tieneConflicto) continue;
+
+                        var horariosV = (await _horarioRepository.GetByVeterinarioIdAsync(v.Id)).Where(h => h.Activo).ToList();
+                        if (!horariosV.Any())
+                        {
+                            vetEncontrado = v;
+                            break;
+                        }
+                    }
+                }
+
+                // 3. TERCERA PRIORIDAD: Si aún no se encontró, buscar en todos los veterinarios activos del sistema si alguno está en turno a esa hora
+                if (vetEncontrado == null)
+                {
+                    var todosVets = (await _veterinarioRepository.GetActivosAsync()).ToList();
+                    foreach (var v in todosVets)
+                    {
+                        var turnosV = await _turnoRepository.GetByVeterinarioIdAsync(v.Id, fechaHoraCompleta.Date, fechaHoraCompleta.Date.AddDays(1));
+                        var tieneConflicto = turnosV.Any(t => t.Estado != EstadoTurno.Cancelado && t.Estado != EstadoTurno.Ausente && t.SeSuperponeCon(fechaHoraCompleta, duracion));
+                        if (tieneConflicto) continue;
+
+                        var horariosV = (await _horarioRepository.GetByVeterinarioIdAsync(v.Id)).Where(h => h.Activo).ToList();
+                        bool enHorario = horariosV.Any(h => h.DiaSemana == isoDayCand && inicioCand >= h.HoraInicio && (finCand <= h.HoraFin || (h.HoraFin == TimeSpan.Zero && finCand <= new TimeSpan(24, 0, 0))));
+                        if (enHorario || !horariosV.Any())
                         {
                             vetEncontrado = v;
                             break;
@@ -987,7 +1649,7 @@ namespace Infrastructure.Services
                 VeterinarioNombre = vetEncontrado.NombreCompleto,
                 ServicioId = servicioEncontrado?.Id,
                 ServicioNombre = servicioEncontrado?.Nombre ?? "Consulta General",
-                SucursalId = vetEncontrado.SucursalId,
+                SucursalId = (sucursalId.HasValue && sucursalId.Value > 0) ? sucursalId.Value : (vetEncontrado.SucursalId > 0 ? vetEncontrado.SucursalId : 1),
                 FechaHora = fechaHoraCompleta,
                 DuracionMinutos = duracion,
                 Motivo = motivoFinal,
@@ -1014,6 +1676,17 @@ namespace Infrastructure.Services
                 {
                     Exito = false,
                     ErrorMensaje = "Datos del turno invalidos.",
+                    TipoRespuesta = "texto"
+                };
+            }
+
+            if (usuarioRol.Equals("Gerente", StringComparison.OrdinalIgnoreCase) || 
+                usuarioRol.Equals("Manager", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ChatbotResponseDto
+                {
+                    Exito = false,
+                    ErrorMensaje = "Tu rol de Gerente no tiene permisos para confirmar turnos. Solicita el agendamiento a Recepción o al Veterinario.",
                     TipoRespuesta = "texto"
                 };
             }
@@ -1057,18 +1730,22 @@ namespace Infrastructure.Services
                 };
             }
 
+            int finalSucursal = (turnoDto.SucursalId.HasValue && turnoDto.SucursalId.Value > 0)
+                ? turnoDto.SucursalId.Value
+                : (sucursalId.HasValue && sucursalId.Value > 0 ? sucursalId.Value : (veterinario.SucursalId > 0 ? veterinario.SucursalId : 1));
+
             var nuevoTurno = new Turno(
                 turnoDto.PacienteId,
                 turnoDto.VeterinarioId,
                 servicioId,
                 turnoDto.FechaHora,
                 duracion,
-                motivo: string.IsNullOrWhiteSpace(turnoDto.Motivo) ? "Consulta General" : turnoDto.Motivo,
+                motivo: string.IsNullOrWhiteSpace(turnoDto.Motivo) ? "Consulta general" : turnoDto.Motivo,
                 observaciones: "Turno generado y confirmado desde el Copiloto Inteligente.",
-                sucursalId: veterinario.SucursalId
+                sucursalId: finalSucursal
             );
 
-            nuevoTurno.AsignarSucursal(veterinario.SucursalId);
+            nuevoTurno.AsignarSucursal(finalSucursal);
 
             if (!nuevoTurno.IsValid)
             {
@@ -1144,19 +1821,28 @@ namespace Infrastructure.Services
         }
 
         private async Task<string> ConsultarGeminiConversacionalAsync(
-            List<ChatMensajeDto> historial, string mensajeActual, string usuarioNombre, string usuarioRol)
+            List<ChatMensajeDto> historial, string mensajeActual, string usuarioNombre, string usuarioRol, int? sucursalId)
         {
             var apiKey = GetApiKey();
             var model = GetModel();
             var client = _httpClientFactory.CreateClient("GeminiClient");
 
+            var nombreSucursal = await ObtenerNombreSucursalAsync(sucursalId);
+
             var systemPrompt =
-                "Eres el copiloto y asistente virtual inteligente de la clinica veterinaria.\n" +
-                $"El usuario actual es '{usuarioNombre}', con rol '{usuarioRol}'.\n" +
+                $"Eres el copiloto y asistente virtual inteligente de la clinica veterinaria.\n" +
+                $"Usuario actual: '{usuarioNombre}', con rol: '{usuarioRol}'.\n" +
+                $"Sucursal activa: '{nombreSucursal}'. Fecha y hora actual: {DateTime.Now:dd/MM/yyyy HH:mm}.\n\n" +
                 "REGLAS OBLIGATORIAS:\n" +
                 "1. Bajo ninguna circunstancia incluyas emojis en tus respuestas. CERO emojis.\n" +
-                "2. Mantén un tono formal, claro, profesional, cordial y sintetico en idioma espanol.\n" +
-                "3. Si el usuario desea agendar un turno o consultar la agenda, guialo de manera clara.";
+                "2. Manten un tono formal, claro, profesional, cordial y sintetico en idioma espanol.\n" +
+                "3. RESTRICCIONES SEGUN EL ROL DEL USUARIO:\n" +
+                "   - Si el rol es 'Recepcionista': TIENE PROHIBIDO acceder a fichas o historiales clinicos detallados de pacientes, diagnosticos medicos confidenciales o finanzas/ingresos de la empresa. Si pregunta por esos temas, niega el acceso cordialmente indicando que su rol no tiene autorizacion para ver la ficha detallada del paciente y ofrecele ayuda para agendar turnos o ver horarios.\n" +
+                "   - Si el rol es 'Veterinario': TIENE PROHIBIDO consultar finanzas, balances o facturacion global de la clinica. Solo puede ver temas clinicos, turnos, pacientes y vacunas.\n" +
+                "   - Si el rol es 'Gerente': TIENE PROHIBIDO agendar o confirmar turnos operativos de la clinica. Su funcion es exclusivamente de gestion, supervision, stock, ingresos y reportes. Si intenta agendar turnos, recuerdale cordialmente que debe solicitarlo a Recepcion o al Veterinario.\n" +
+                "   - Si el rol es 'Admin': Acceso total.\n" +
+                $"4. Contexto de sucursal: Toda respuesta debe estar enmarcada en la sucursal activa ('{nombreSucursal}').\n" +
+                "5. Si el usuario desea agendar un turno (y tiene permisos para ello), indicale que especifique paciente, fecha, hora y motivo (ejemplo: 'Agendame un turno para Henry hoy 18:00 motivo Castracion'). Si no especifica motivo, el sistema le asignara automaticamente 'Consulta general'.";
 
             var contents = new List<object>();
 

@@ -1,7 +1,12 @@
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
+@using BlazorFrontEnd.Auth
+@using Microsoft.AspNetCore.Components.Authorization
 @inject IaService IaService
 @inject IJSRuntime JS
+@inject TokenStorageService TokenStorage
+@inject AuthenticationStateProvider AuthStateProvider
+@implements IAsyncDisposable
 
 @* Botón Flotante Redondo con SOLO el Logo de Gemini *@
 <div class="chatbot-floating-container">
@@ -44,9 +49,23 @@
                     </div>
                     <div>
                         <h6 class="m-0 fw-bold" style="font-size: 0.95rem; line-height: 1.2; color: #1e293b;">Copiloto de Turnos</h6>
-                        <small class="text-success d-flex align-items-center gap-1" style="font-size: 0.72rem;">
-                            <span class="online-indicator"></span> Activo
-                        </small>
+                        <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                            <small class="text-success d-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                                <span class="online-indicator"></span> Activo
+                            </small>
+                            @if (!string.IsNullOrWhiteSpace(activeSucursalNombre))
+                            {
+                                <span class="branch-pill-badge" title="Sucursal activa">
+                                    Sucursal: @activeSucursalNombre
+                                </span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(userRol))
+                            {
+                                <span class="role-pill-badge" title="Rol activo">
+                                    Rol: @userRol
+                                </span>
+                            }
+                        </div>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-1">
@@ -181,24 +200,65 @@
                 </div>
             </div>
 
-            @* Input de Envío *@
+            @* Pie de Chat: Barra de Entrada Integrada con Dictado por Voz Inteligente *@
             <div class="chatbot-footer">
-                <input type="text"
-                       class="chatbot-input"
-                       placeholder="Escribe tu consulta o turno..."
-                       @bind="mensajeInput"
-                       @bind:event="oninput"
-                       @onkeydown="HandleKeyDown"
-                       disabled="@isLoading" />
-                <button type="button"
-                        class="chatbot-send-btn"
-                        @onclick="EnviarMensaje"
-                        disabled="@(isLoading || string.IsNullOrWhiteSpace(mensajeInput))"
-                        title="Enviar">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="18" height="18">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
-                    </svg>
-                </button>
+                @if (isListening)
+                {
+                    <div class="voice-status-pill">
+                        <div class="voice-wave">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <span class="voice-status-text">Escuchando... habla con claridad</span>
+                        <button type="button" class="voice-done-btn" @onclick="ToggleVoiceRecognition" title="Finalizar dictado">
+                            Listo
+                        </button>
+                    </div>
+                }
+
+                <div class="chatbot-input-bar @(isListening ? "is-active-listening" : "")">
+                    <input type="text"
+                           class="chatbot-input-field"
+                           placeholder="@(isListening ? "Dictando por voz..." : "Escribe tu consulta o turno...")"
+                           @bind="mensajeInput"
+                           @bind:event="oninput"
+                           @onkeydown="HandleKeyDown"
+                           disabled="@isLoading" />
+
+                    <div class="chatbot-actions-group">
+                        <button type="button"
+                                class="chatbot-icon-btn chatbot-mic-btn @(isListening ? "is-listening" : "")"
+                                @onclick="ToggleVoiceRecognition"
+                                title="@(isListening ? "Detener dictado por voz" : "Hablar por micrófono")"
+                                aria-label="Dictado por voz">
+                            @if (isListening)
+                            {
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                    <path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z" />
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V23h2v-2.06A9 9 0 0 0 21 12v-2h-2z" />
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" width="18" height="18">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z" />
+                                </svg>
+                            }
+                        </button>
+
+                        <button type="button"
+                                class="chatbot-icon-btn chatbot-send-btn"
+                                @onclick="EnviarMensaje"
+                                disabled="@(isLoading || string.IsNullOrWhiteSpace(mensajeInput))"
+                                title="Enviar mensaje">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="17" height="17">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     }
@@ -552,60 +612,175 @@
         box-shadow: 0 2px 6px rgba(0, 163, 108, 0.25);
     }
 
-    /* Footer / Input */
+    /* Footer / Input integrado y armonizado */
     .chatbot-footer {
-        padding: 10px 12px;
+        padding: 10px 14px 12px;
         background: #ffffff;
-        border-top: 1px solid #e2e8f0;
+        border-top: 1px solid #f1f5f9;
         display: flex;
+        flex-direction: column;
         gap: 8px;
+    }
+
+    /* Pill de estado cuando escucha la voz */
+    .voice-status-pill {
+        display: flex;
         align-items: center;
+        justify-content: space-between;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%);
+        border: 1px solid rgba(129, 140, 248, 0.3);
+        border-radius: 20px;
+        padding: 4px 10px 4px 12px;
+        animation: fadeInSlideUp 0.2s ease-out;
     }
 
-    .chatbot-input {
+    .voice-wave {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        height: 16px;
+    }
+
+    .voice-wave span {
+        width: 3px;
+        height: 100%;
+        background: linear-gradient(to top, #6366f1, #a855f7);
+        border-radius: 2px;
+        animation: voiceWavePulse 1s ease-in-out infinite alternate;
+    }
+
+    .voice-wave span:nth-child(1) { animation-delay: 0.1s; height: 60%; }
+    .voice-wave span:nth-child(2) { animation-delay: 0.3s; height: 100%; }
+    .voice-wave span:nth-child(3) { animation-delay: 0.2s; height: 75%; }
+    .voice-wave span:nth-child(4) { animation-delay: 0.4s; height: 90%; }
+
+    @@keyframes voiceWavePulse {
+        0% { transform: scaleY(0.3); }
+        100% { transform: scaleY(1); }
+    }
+
+    .voice-status-text {
+        font-size: 0.76rem;
+        font-weight: 500;
+        color: #4f46e5;
         flex: 1;
-        background: #f8fafc;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        padding: 8px 12px;
-        color: #0f172a;
-        font-size: 0.85rem;
-        outline: none;
-        transition: border-color 0.2s ease, background 0.2s ease;
+        margin-left: 8px;
     }
 
-    .chatbot-input::placeholder {
+    .voice-done-btn {
+        background: #4f46e5;
+        color: #ffffff;
+        border: none;
+        border-radius: 12px;
+        padding: 2px 10px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .voice-done-btn:hover {
+        background: #4338ca;
+    }
+
+    /* Barra unificada */
+    .chatbot-input-bar {
+        display: flex;
+        align-items: center;
+        background: #f8fafc;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 24px;
+        padding: 3px 5px 3px 14px;
+        transition: all 0.2s ease;
+    }
+
+    .chatbot-input-bar:focus-within {
+        border-color: #818cf8;
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.15);
+    }
+
+    .chatbot-input-bar.is-active-listening {
+        border-color: #818cf8;
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.22);
+    }
+
+    .chatbot-input-field {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+        color: #1e293b;
+        font-size: 0.85rem;
+        padding: 6px 0;
+    }
+
+    .chatbot-input-field::placeholder {
         color: #94a3b8;
     }
 
-    .chatbot-input:focus {
-        border-color: #00A36C;
-        background: #ffffff;
+    .chatbot-actions-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
     }
 
-    .chatbot-send-btn {
-        background: #00A36C;
+    .chatbot-icon-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
         border: none;
-        color: white;
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: background 0.15s ease, transform 0.1s ease;
+        transition: all 0.18s ease;
+        padding: 0;
         flex-shrink: 0;
+    }
+
+    /* Botón de Micrófono armonizado con Gemini */
+    .chatbot-mic-btn {
+        background: transparent;
+        color: #64748b;
+    }
+
+    .chatbot-mic-btn:hover {
+        background: #e2e8f0;
+        color: #4f46e5;
+        transform: scale(1.06);
+    }
+
+    .chatbot-mic-btn.is-listening {
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        color: #ffffff;
+        box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+        animation: micGentlePulse 1.6s infinite ease-in-out;
+    }
+
+    @@keyframes micGentlePulse {
+        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.6); }
+        50% { transform: scale(1.08); box-shadow: 0 0 0 6px rgba(168, 85, 247, 0); }
+        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+    }
+
+    /* Botón de Enviar estilizado */
+    .chatbot-send-btn {
+        background: #00A36C;
+        color: #ffffff;
     }
 
     .chatbot-send-btn:hover:not(:disabled) {
         background: #008a5a;
+        transform: scale(1.06);
     }
 
     .chatbot-send-btn:disabled {
         background: #e2e8f0;
         color: #94a3b8;
         cursor: not-allowed;
+        transform: none;
     }
 
     /* Typing indicator */
@@ -641,37 +816,142 @@
             opacity: 1;
         }
     }
+
+    .branch-pill-badge {
+        font-size: 0.68rem;
+        font-weight: 600;
+        background: #e0f2fe;
+        color: #0369a1;
+        border-radius: 9999px;
+        padding: 1px 7px;
+        white-space: nowrap;
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: inline-block;
+        border: 1px solid #bae6fd;
+    }
+
+    .role-pill-badge {
+        font-size: 0.68rem;
+        font-weight: 600;
+        background: #f3e8ff;
+        color: #7e22ce;
+        border-radius: 9999px;
+        padding: 1px 7px;
+        white-space: nowrap;
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: inline-block;
+        border: 1px solid #e9d5ff;
+    }
 </style>
 
 @code {
     private bool isOpen = false;
     private bool isLoading = false;
     private bool isConfirmingTurno = false;
+    private bool isListening = false;
     private string mensajeInput = string.Empty;
     private List<ChatMensajeDto> mensajes = new();
     private List<string> opcionesActuales = new();
     private HashSet<string> turnoConfirmadoIds = new();
-    private readonly List<string> accesosRapidosFijos = new()
-    {
-        "Turnos de hoy",
-        "Mis pacientes",
-        "Veterinarios y horarios",
-        "Stock en alerta",
-        "Precios de productos",
-        "Precios de servicios",
-        "Agendar turno"
-    };
+    private List<string> accesosRapidosFijos = new();
+    private string textoBaseAntesDeVoz = string.Empty;
 
-    protected override void OnInitialized()
+    private DotNetObjectReference<ChatbotFlotante>? dotNetRef;
+    private string activeSucursalNombre = string.Empty;
+    private int? activeSucursalId = null;
+    private string userRol = "Admin";
+    private string realRole = string.Empty;
+
+    protected override async Task OnInitializedAsync()
     {
+        dotNetRef = DotNetObjectReference.Create(this);
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                realRole = user.Claims.FirstOrDefault(c => c.Type == "role" || c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? string.Empty;
+            }
+        }
+        catch { }
+
+        ActualizarRolYSucursal();
+        TokenStorage.OnContextChanged += HandleContextChanged;
+        AuthStateProvider.AuthenticationStateChanged += HandleAuthStateChanged;
+        ConfigurarAccesosRapidos();
+
         if (!mensajes.Any())
         {
+            var greetingSuc = !string.IsNullOrWhiteSpace(activeSucursalNombre) ? $" ({activeSucursalNombre})" : "";
             mensajes.Add(new ChatMensajeDto
             {
                 Role = "model",
-                Content = "Hola, soy el copiloto de la clinica veterinaria. Puedo ayudarte a consultar la agenda, coordinar citas medicas o consultar pacientes, veterinarios y productos. Escribe por ejemplo: 'turnos de hoy', 'mis pacientes' o 'turno para Toby manana a las 11'.",
+                Content = $"Hola, soy el copiloto inteligente de la clínica veterinaria{greetingSuc}. Puedo ayudarte a consultar la agenda, coordinar turnos médicos, ver horarios profesionales o consultar productos y servicios. Escribe o usa el micrófono, por ejemplo: 'turnos de hoy', 'todos los turnos' o 'Agendame un turno para Henry hoy 18:00 motivo Castracion'.",
                 Timestamp = DateTime.Now
             });
+        }
+    }
+
+    private void ActualizarRolYSucursal()
+    {
+        activeSucursalId = TokenStorage.ActiveSucursalId;
+        activeSucursalNombre = TokenStorage.ActiveSucursalNombre ?? (activeSucursalId.HasValue ? $"Sucursal #{activeSucursalId.Value}" : "");
+        userRol = !string.IsNullOrWhiteSpace(TokenStorage.SimulatedRole) 
+            ? TokenStorage.SimulatedRole 
+            : (!string.IsNullOrWhiteSpace(realRole) ? realRole : "Admin");
+    }
+
+    private async void HandleAuthStateChanged(Task<AuthenticationState> task)
+    {
+        try
+        {
+            var state = await task;
+            realRole = state.User.Claims.FirstOrDefault(c => c.Type == "role" || c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? string.Empty;
+            ActualizarRolYSucursal();
+            ConfigurarAccesosRapidos();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch { }
+    }
+
+    private void HandleContextChanged()
+    {
+        ActualizarRolYSucursal();
+        ConfigurarAccesosRapidos();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ConfigurarAccesosRapidos()
+    {
+        accesosRapidosFijos.Clear();
+        accesosRapidosFijos.Add("Turnos de hoy");
+        accesosRapidosFijos.Add("Todos los turnos");
+        accesosRapidosFijos.Add("Mis pacientes");
+        accesosRapidosFijos.Add("Veterinarios y horarios");
+
+        var esRecepcionista = userRol.Equals("Recepcionista", StringComparison.OrdinalIgnoreCase) || 
+                              userRol.Equals("Secretaria", StringComparison.OrdinalIgnoreCase);
+
+        if (!esRecepcionista)
+        {
+            accesosRapidosFijos.Add("Stock en alerta");
+        }
+
+        accesosRapidosFijos.Add("Precios de productos");
+        accesosRapidosFijos.Add("Precios de servicios");
+
+        var esGerente = userRol.Equals("Gerente", StringComparison.OrdinalIgnoreCase) ||
+                        userRol.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+
+        if (!esGerente)
+        {
+            accesosRapidosFijos.Add("Agendar turno");
         }
     }
 
@@ -688,13 +968,20 @@
     {
         mensajes.Clear();
         turnoConfirmadoIds.Clear();
+        var greetingSuc = !string.IsNullOrWhiteSpace(activeSucursalNombre) ? $" ({activeSucursalNombre})" : "";
         mensajes.Add(new ChatMensajeDto
         {
             Role = "model",
-            Content = "Conversacion reiniciada. ¿En que puedo ayudarte hoy?",
+            Content = $"Conversación reiniciada{greetingSuc}. ¿En qué puedo ayudarte hoy?",
             Timestamp = DateTime.Now
         });
-        opcionesActuales = new List<string> { "Turnos de hoy", "Como agendar un turno?", "Agendar turno" };
+
+        var esGerente = userRol.Equals("Gerente", StringComparison.OrdinalIgnoreCase) ||
+                        userRol.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+
+        opcionesActuales = esGerente
+            ? new List<string> { "Turnos de hoy", "Todos los turnos", "Stock en alerta", "Precios de servicios" }
+            : new List<string> { "Turnos de hoy", "Todos los turnos", "Como agendar un turno?", "Agendar turno" };
     }
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
@@ -711,12 +998,120 @@
         await EnviarMensaje();
     }
 
+    #region Reconocimiento de Voz (Web Speech API)
+
+    private async Task ToggleVoiceRecognition()
+    {
+        if (isListening)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("speechRecognitionHelper.stop");
+            }
+            catch { }
+            isListening = false;
+            textoBaseAntesDeVoz = string.Empty;
+        }
+        else
+        {
+            try
+            {
+                dotNetRef ??= DotNetObjectReference.Create(this);
+                var isSupported = await JS.InvokeAsync<bool>("speechRecognitionHelper.isSupported");
+                if (!isSupported)
+                {
+                    mensajes.Add(new ChatMensajeDto
+                    {
+                        Role = "model",
+                        Content = "El dictado por voz no está disponible en este navegador o contexto. Te recomendamos utilizar Google Chrome o Microsoft Edge en un entorno seguro (HTTPS o localhost).",
+                        Timestamp = DateTime.Now
+                    });
+                    StateHasChanged();
+                    ScrollToBottom();
+                    return;
+                }
+
+                textoBaseAntesDeVoz = mensajeInput?.Trim() ?? string.Empty;
+                var started = await JS.InvokeAsync<bool>("speechRecognitionHelper.start", dotNetRef);
+                isListening = started;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SpeechRecognition Error] {ex.Message}");
+                isListening = false;
+                textoBaseAntesDeVoz = string.Empty;
+            }
+        }
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnSpeechResult(string transcript)
+    {
+        if (!string.IsNullOrWhiteSpace(transcript))
+        {
+            mensajeInput = string.IsNullOrWhiteSpace(textoBaseAntesDeVoz)
+                ? transcript
+                : $"{textoBaseAntesDeVoz} {transcript}";
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public void OnSpeechStart()
+    {
+        isListening = true;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnSpeechEnd()
+    {
+        isListening = false;
+        textoBaseAntesDeVoz = string.Empty;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnSpeechError(string error)
+    {
+        Console.WriteLine($"[Speech Error JS] {error}");
+        isListening = false;
+        textoBaseAntesDeVoz = string.Empty;
+        if (error == "not-allowed" || error == "service-not-allowed")
+        {
+            mensajes.Add(new ChatMensajeDto
+            {
+                Role = "model",
+                Content = "No se pudo acceder al micrófono. Por favor permite los permisos de micrófono en tu navegador para usar el dictado por voz.",
+                Timestamp = DateTime.Now
+            });
+            ScrollToBottom();
+        }
+        StateHasChanged();
+    }
+
+    #endregion
+
     private async Task EnviarMensaje()
     {
         var texto = mensajeInput?.Trim();
         if (string.IsNullOrWhiteSpace(texto) || isLoading) return;
 
+        // Si estaba escuchando por voz, detener al enviar
+        if (isListening)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("speechRecognitionHelper.stop");
+            }
+            catch { }
+            isListening = false;
+            textoBaseAntesDeVoz = string.Empty;
+        }
+
         mensajeInput = string.Empty;
+        textoBaseAntesDeVoz = string.Empty;
 
         // Agregar mensaje de usuario
         mensajes.Add(new ChatMensajeDto
@@ -736,6 +1131,8 @@
             var request = new ChatbotRequestDto
             {
                 Mensaje = texto,
+                SucursalId = activeSucursalId,
+                UsuarioRol = userRol,
                 Historial = mensajes.TakeLast(6).ToList()
             };
 
@@ -780,6 +1177,10 @@
 
         try
         {
+            turno.SucursalId = (turno.SucursalId.HasValue && turno.SucursalId.Value > 0)
+                ? turno.SucursalId
+                : activeSucursalId;
+
             var resultado = await IaService.ConfirmarTurnoAsync(turno);
             if (resultado.Exito)
             {
@@ -793,7 +1194,7 @@
                     Timestamp = DateTime.Now
                 });
 
-                opcionesActuales = new List<string> { "Turnos de hoy", "Agendar otro turno" };
+                opcionesActuales = new List<string> { "Turnos de hoy", "Todos los turnos", "Agendar otro turno" };
             }
             else
             {
@@ -839,7 +1240,13 @@
     {
         if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
 
-        var html = System.Net.WebUtility.HtmlEncode(texto);
+        // Limpiar cualquier emoji residual
+        var textoLimpio = System.Text.RegularExpressions.Regex.Replace(
+            texto,
+            @"[\p{Cs}\p{So}\p{Sk}\u2600-\u27BF\uE000-\uF8FF]",
+            string.Empty);
+
+        var html = System.Net.WebUtility.HtmlEncode(textoLimpio);
 
         // Reemplazar negritas **texto** -> <strong>texto</strong>
         html = System.Text.RegularExpressions.Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
@@ -848,5 +1255,20 @@
         html = html.Replace("\n", "<br />");
 
         return html;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        TokenStorage.OnContextChanged -= HandleContextChanged;
+        AuthStateProvider.AuthenticationStateChanged -= HandleAuthStateChanged;
+        if (isListening)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("speechRecognitionHelper.stop");
+            }
+            catch { }
+        }
+        dotNetRef?.Dispose();
     }
 }

@@ -42,6 +42,7 @@ namespace Application.DataTransferObjects
         public string Mensaje { get; set; } = string.Empty;
         public List<ChatMensajeDto> Historial { get; set; } = new();
         public int? SucursalId { get; set; }
+        public string? UsuarioRol { get; set; }
     }
 
     public class ChatbotResponseDto

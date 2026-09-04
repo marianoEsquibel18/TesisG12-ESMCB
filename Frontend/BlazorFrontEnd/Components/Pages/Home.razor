@@ -1,10 +1,13 @@
 @page "/dashboard"
 @using BlazorFrontEnd.Models
 @using BlazorFrontEnd.Services
+@using BlazorFrontEnd.Auth
+@implements IDisposable
 @inject DashboardService DashboardService
 @inject NavigationManager Navigation
 @inject AuthService AuthService
 @inject TurnoService TurnoService
+@inject TokenStorageService TokenStorage
 
 <style>
     .alert-clickable {
@@ -133,7 +136,16 @@ else if (IsVeterinario)
         <div class="col-md-5">
             <div class="glass-card" style="height: 100%; min-height: 380px; display: flex; flex-direction: column;">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="m-0" style="color: var(--text-primary); font-weight: 700;">Centro de Resoluciones</h5>
+                    <div>
+                        <h5 class="m-0" style="color: var(--text-primary); font-weight: 700;">Centro de Resoluciones</h5>
+                        <small class="text-secondary" style="font-size: 0.75rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 12px; height: 12px; vertical-align: -1px; margin-right: 2px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                            </svg>
+                            @currentSucursalNombre
+                        </small>
+                    </div>
                     <span class="badge @(monitor != null && monitor.TotalAlertas > 0 ? "bg-danger" : "bg-success") rounded-pill">@(monitor?.TotalAlertas ?? 0)</span>
                 </div>
                 
@@ -378,7 +390,16 @@ else
             <div class="col-md-4">
                 <div class="glass-card" style="height: 100%; display: flex; flex-direction: column;">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="m-0" style="color: var(--text-primary);">Centro de Resoluciones</h5>
+                        <div>
+                            <h5 class="m-0" style="color: var(--text-primary);">Centro de Resoluciones</h5>
+                            <small class="text-secondary" style="font-size: 0.75rem;">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 12px; height: 12px; vertical-align: -1px; margin-right: 2px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                                </svg>
+                                @currentSucursalNombre
+                            </small>
+                        </div>
                         <span class="badge @(monitor.TotalAlertas > 0 ? "bg-danger" : "bg-success") rounded-pill">@monitor.TotalAlertas</span>
                     </div>
                     
@@ -563,6 +584,44 @@ else
     private string? _lastRole;
     private int? _lastSucursalId;
 
+    private string currentSucursalNombre
+    {
+        get
+        {
+            if (TokenStorage.ActiveSucursalId.HasValue)
+            {
+                return TokenStorage.ActiveSucursalNombre ?? $"Sucursal #{TokenStorage.ActiveSucursalId.Value}";
+            }
+            if (userProfile?.SucursalId.HasValue == true)
+            {
+                return userProfile.SucursalNombre ?? $"Sucursal #{userProfile.SucursalId.Value}";
+            }
+            return "Todas las sucursales";
+        }
+    }
+
+    private int? currentSucursalId => TokenStorage.ActiveSucursalId ?? _lastSucursalId ?? userProfile?.SucursalId;
+
+    protected override void OnInitialized()
+    {
+        TokenStorage.OnContextChanged += HandleContextChanged;
+    }
+
+    private async void HandleContextChanged()
+    {
+        await InvokeAsync(async () =>
+        {
+            _lastSucursalId = currentSucursalId;
+            await LoadDataAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        TokenStorage.OnContextChanged -= HandleContextChanged;
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         if (AuthState != null)
@@ -573,6 +632,10 @@ else
             
             var sucursalClaim = authState.User.FindFirst("sucursalId")?.Value;
             int? currentSucursal = int.TryParse(sucursalClaim, out var sId) ? sId : null;
+            if (!currentSucursal.HasValue && TokenStorage.ActiveSucursalId.HasValue)
+            {
+                currentSucursal = TokenStorage.ActiveSucursalId;
+            }
 
             if (_lastRole != currentRole || _lastSucursalId != currentSucursal || userProfile == null)
             {
@@ -609,6 +672,8 @@ else
                 return;
             }
 
+            int? effectiveSucursal = currentSucursalId;
+
             if (IsVeterinario)
             {
                 var today = DateTime.Today;
@@ -616,9 +681,9 @@ else
                 var end = new DateTime(today.Year, today.Month, today.Day, 23, 59, 59);
 
                 var taskTurnos = TurnoService.GetRangoAsync(start, end, null, userProfile?.VeterinarioId);
-                var taskKpi = DashboardService.GetKpisAsync();
-                var taskMonitor = DashboardService.GetAlertasDashboardAsync();
-                var taskEspecies = DashboardService.GetPacientesPorEspecieAsync(fechaDesdeEspecie, fechaHastaEspecie);
+                var taskKpi = DashboardService.GetKpisAsync(effectiveSucursal);
+                var taskMonitor = DashboardService.GetAlertasDashboardAsync(effectiveSucursal);
+                var taskEspecies = DashboardService.GetPacientesPorEspecieAsync(fechaDesdeEspecie, fechaHastaEspecie, effectiveSucursal);
 
                 await Task.WhenAll(taskTurnos, taskKpi, taskMonitor, taskEspecies);
 
@@ -629,10 +694,10 @@ else
             }
             else // Admin, Gerente, etc.
             {
-                var taskKpi = DashboardService.GetKpisAsync();
-                var taskMonitor = DashboardService.GetAlertasDashboardAsync();
-                var taskChart = DashboardService.GetIngresosDiariosAsync(7);
-                var taskEspecies = DashboardService.GetPacientesPorEspecieAsync(fechaDesdeEspecie, fechaHastaEspecie);
+                var taskKpi = DashboardService.GetKpisAsync(effectiveSucursal);
+                var taskMonitor = DashboardService.GetAlertasDashboardAsync(effectiveSucursal);
+                var taskChart = DashboardService.GetIngresosDiariosAsync(7, effectiveSucursal);
+                var taskEspecies = DashboardService.GetPacientesPorEspecieAsync(fechaDesdeEspecie, fechaHastaEspecie, effectiveSucursal);
 
                 await Task.WhenAll(taskKpi, taskMonitor, taskChart, taskEspecies);
 
@@ -659,7 +724,7 @@ else
         StateHasChanged();
         try
         {
-            pacientesPorEspecieData = await DashboardService.GetPacientesPorEspecieAsync(fechaDesdeEspecie, fechaHastaEspecie);
+            pacientesPorEspecieData = await DashboardService.GetPacientesPorEspecieAsync(fechaDesdeEspecie, fechaHastaEspecie, currentSucursalId);
         }
         catch (Exception ex)
         {

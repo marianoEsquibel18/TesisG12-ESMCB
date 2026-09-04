@@ -63,8 +63,8 @@ namespace Controllers
             }
 
             var nombre = User.Identity?.Name ?? "Usuario";
-            var rol = GetEffectiveUserRole();
-            var sucursal = request.SucursalId ?? UserSucursalId;
+            var rol = !string.IsNullOrWhiteSpace(request.UsuarioRol) ? request.UsuarioRol : GetEffectiveUserRole();
+            var sucursal = (request.SucursalId.HasValue && request.SucursalId.Value > 0) ? request.SucursalId : UserSucursalId;
 
             var respuesta = await _iaService.ProcesarMensajeChatAsync(request, nombre, rol, sucursal);
             return Ok(respuesta);
@@ -83,7 +83,7 @@ namespace Controllers
             }
 
             var rol = GetEffectiveUserRole();
-            var sucursal = request.SucursalId ?? UserSucursalId;
+            var sucursal = (request.SucursalId.HasValue && request.SucursalId.Value > 0) ? request.SucursalId : UserSucursalId;
 
             var resultado = await _iaService.ConfirmarTurnoPropuestoAsync(request, rol, sucursal);
             if (!resultado.Exito)

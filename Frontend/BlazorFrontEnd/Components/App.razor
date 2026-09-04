@@ -82,6 +82,120 @@
                 return 'speechSynthesis' in window && window.speechSynthesis.speaking;
             }
         };
+
+        window.speechRecognitionHelper = {
+            recognition: null,
+            dotNetRef: null,
+            isListening: false,
+            silenceTimer: null,
+            isSupported: function () {
+                return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+            },
+            resetSilenceTimer: function () {
+                if (this.silenceTimer) {
+                    clearTimeout(this.silenceTimer);
+                    this.silenceTimer = null;
+                }
+                this.silenceTimer = setTimeout(() => {
+                    if (this.isListening) {
+                        this.stop();
+                    }
+                }, 5000);
+            },
+            start: function (dotNetReference) {
+                if (dotNetReference) {
+                    this.dotNetRef = dotNetReference;
+                }
+                const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRec) {
+                    console.warn('[SpeechRec] Web Speech API no soportada en este navegador.');
+                    if (this.dotNetRef) {
+                        this.dotNetRef.invokeMethodAsync('OnSpeechError', 'NavegadorNoSoportado');
+                    }
+                    return false;
+                }
+
+                if (this.recognition) {
+                    try {
+                        this.recognition.abort();
+                    } catch (_) {}
+                    this.recognition = null;
+                }
+
+                try {
+                    this.recognition = new SpeechRec();
+                    const userLang = (navigator.language && navigator.language.toLowerCase().startsWith('es')) 
+                        ? navigator.language 
+                        : 'es-AR';
+                    this.recognition.lang = userLang;
+                    this.recognition.continuous = true;
+                    this.recognition.interimResults = true;
+                    this.recognition.maxAlternatives = 1;
+
+                    this.recognition.onstart = () => {
+                        this.isListening = true;
+                        this.resetSilenceTimer();
+                        if (this.dotNetRef) {
+                            this.dotNetRef.invokeMethodAsync('OnSpeechStart');
+                        }
+                    };
+
+                    this.recognition.onresult = (event) => {
+                        this.resetSilenceTimer();
+                        let completeTranscript = '';
+                        for (let i = 0; i < event.results.length; ++i) {
+                            completeTranscript += event.results[i][0].transcript;
+                        }
+                        const cleanText = completeTranscript.trim();
+                        if (cleanText && this.dotNetRef) {
+                            this.dotNetRef.invokeMethodAsync('OnSpeechResult', cleanText);
+                        }
+                    };
+
+                    this.recognition.onerror = (event) => {
+                        console.warn('[SpeechRec] Evento error:', event.error);
+                        if (event.error === 'no-speech') {
+                            return;
+                        }
+                        if (this.silenceTimer) clearTimeout(this.silenceTimer);
+                        this.isListening = false;
+                        if (this.dotNetRef) {
+                            this.dotNetRef.invokeMethodAsync('OnSpeechError', event.error || 'Error');
+                        }
+                    };
+
+                    this.recognition.onend = () => {
+                        if (this.silenceTimer) clearTimeout(this.silenceTimer);
+                        this.isListening = false;
+                        if (this.dotNetRef) {
+                            this.dotNetRef.invokeMethodAsync('OnSpeechEnd');
+                        }
+                    };
+
+                    this.recognition.start();
+                    this.isListening = true;
+                    return true;
+                } catch (err) {
+                    console.error('[SpeechRec] Error al iniciar:', err);
+                    this.isListening = false;
+                    return false;
+                }
+            },
+            stop: function () {
+                if (this.silenceTimer) {
+                    clearTimeout(this.silenceTimer);
+                    this.silenceTimer = null;
+                }
+                if (this.recognition) {
+                    try {
+                        this.recognition.stop();
+                    } catch (e) {
+                        try { this.recognition.abort(); } catch (_) {}
+                    }
+                }
+                this.isListening = false;
+            }
+        };
     </script>
     <script src="js/printHelper.js"></script>
 </body>
